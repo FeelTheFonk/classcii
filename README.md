@@ -9,7 +9,7 @@ Audio-reactive ASCII art engine. Transforms images into animated ASCII/Unicode a
 - **Audio-reactive**: 7-band spectral analysis, beat detection, BPM estimation
 - **Audio playback**: Decoded audio files play through speakers while driving visuals
 - **Post-processing**: Glow, fade trails, beat flash effects
-- **20+ keyboard controls**: Density, contrast, brightness, saturation, color mode, aspect ratio, edge detection, shape matching, audio sensitivity/smoothing
+- **25+ keyboard controls**: Density, contrast, brightness, saturation, color mode, aspect ratio, edge detection, shape matching, audio sensitivity/smoothing, effect tuning
 - **Hot-reloadable config**: TOML-based, file-watched
 - **Lock-free architecture**: Triple-buffer audio → render, zero-allocation hot paths
 
@@ -54,6 +54,8 @@ cargo run --release -- --audio default --image path/to/image.png
 | `[` / `]` | Contrast −/+ |
 | `{` / `}` | Brightness −/+ |
 | `-` / `+` | Saturation −/+ |
+| `f` / `F` | Fade decay −/+ |
+| `g` / `G` | Glow intensity −/+ |
 | `a` | Cycle aspect ratio |
 | `e` | Toggle edges |
 | `s` | Toggle shape matching |

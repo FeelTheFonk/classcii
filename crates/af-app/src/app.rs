@@ -76,7 +76,7 @@ impl App {
         frame_rx: Option<flume::Receiver<Arc<FrameBuffer>>>,
     ) -> Result<Self> {
         let terminal_size = crossterm::terminal::size()?;
-        let canvas_width = terminal_size.0.saturating_sub(16);
+        let canvas_width = terminal_size.0.saturating_sub(20);
         let canvas_height = terminal_size.1.saturating_sub(3);
         let initial_charset = config.load().charset.clone();
 
@@ -168,13 +168,17 @@ impl App {
 
                 // === Post-processing effects ===
                 // Fade trails (blend with previous frame)
-                af_render::effects::apply_fade_trails(&mut self.grid, &self.prev_grid, 0.3);
+                if render_config.fade_decay > 0.0 {
+                    af_render::effects::apply_fade_trails(&mut self.grid, &self.prev_grid, render_config.fade_decay);
+                }
                 // Beat flash
                 if let Some(ref features) = audio_features {
                     af_render::effects::apply_beat_flash(&mut self.grid, features);
                 }
                 // Glow
-                af_render::effects::apply_glow(&mut self.grid, 0.5);
+                if render_config.glow_intensity > 0.0 {
+                    af_render::effects::apply_glow(&mut self.grid, render_config.glow_intensity);
+                }
 
                 // Save current grid for next frame's fade trails
                 self.prev_grid = self.grid.clone();
@@ -336,6 +340,19 @@ impl App {
                         };
                     });
                 }
+                // === Effects ===
+                (_, KeyCode::Char('f')) => {
+                    self.toggle_config(|c| c.fade_decay = (c.fade_decay - 0.1).max(0.0));
+                }
+                (_, KeyCode::Char('F')) => {
+                    self.toggle_config(|c| c.fade_decay = (c.fade_decay + 0.1).min(1.0));
+                }
+                (_, KeyCode::Char('g')) => {
+                    self.toggle_config(|c| c.glow_intensity = (c.glow_intensity - 0.1).max(0.0));
+                }
+                (_, KeyCode::Char('G')) => {
+                    self.toggle_config(|c| c.glow_intensity = (c.glow_intensity + 0.1).min(2.0));
+                }
                 // === Audio controls ===
                 (_, KeyCode::Up) => {
                     self.toggle_config(|c| {
@@ -385,31 +402,39 @@ impl App {
         if new_size != self.terminal_size {
             self.terminal_size = new_size;
 
-            let sidebar_width = 16u16;
+            let sidebar_width = 20u16;
             let spectrum_height = 3u16;
             let canvas_width = new_size.0.saturating_sub(sidebar_width);
             let canvas_height = new_size.1.saturating_sub(spectrum_height);
 
             // Réallouer la grille ASCII (rare, OK d'allouer ici)
             self.grid = AsciiGrid::new(canvas_width, canvas_height);
+            self.prev_grid = AsciiGrid::new(canvas_width, canvas_height);
 
             let config = self.config.load();
+            let density = config.density_scale.clamp(0.25, 4.0);
             let (pixel_w, pixel_h) = match config.render_mode {
-                RenderMode::Ascii => (u32::from(canvas_width), u32::from(canvas_height)),
-                RenderMode::HalfBlock => {
-                    (u32::from(canvas_width), u32::from(canvas_height) * 2)
-                }
-                RenderMode::Braille => {
-                    (u32::from(canvas_width) * 2, u32::from(canvas_height) * 4)
-                }
-                RenderMode::Quadrant => {
-                    (u32::from(canvas_width) * 2, u32::from(canvas_height) * 2)
-                }
+                RenderMode::Ascii => (
+                    (f32::from(canvas_width) * density) as u32,
+                    (f32::from(canvas_height) * density) as u32,
+                ),
+                RenderMode::HalfBlock => (
+                    (f32::from(canvas_width) * density) as u32,
+                    (f32::from(canvas_height) * density * 2.0) as u32,
+                ),
+                RenderMode::Braille => (
+                    (f32::from(canvas_width) * density * 2.0) as u32,
+                    (f32::from(canvas_height) * density * 4.0) as u32,
+                ),
+                RenderMode::Quadrant => (
+                    (f32::from(canvas_width) * density * 2.0) as u32,
+                    (f32::from(canvas_height) * density * 2.0) as u32,
+                ),
             };
 
             // Appliquer la correction aspect ratio
             let pixel_h_corrected = (pixel_h as f32 / config.aspect_ratio) as u32;
-            self.resized_frame = FrameBuffer::new(pixel_w, pixel_h_corrected.max(1));
+            self.resized_frame = FrameBuffer::new(pixel_w.max(1), pixel_h_corrected.max(1));
             self.sidebar_dirty = true;
 
             log::debug!("Terminal resized to {canvas_width}×{canvas_height}");

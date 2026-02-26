@@ -2,7 +2,9 @@
 
 [render]
 render_mode = "Ascii"
+charset_index = 0
 charset = " .:-=+*#%@"
+density_scale = 1.0
 invert = false
 color_enabled = true
 edge_threshold = 0.3
@@ -13,6 +15,9 @@ color_mode = "HsvBright"
 saturation = 1.2
 contrast = 1.0
 brightness = 0.0
+bg_style = "Black"
+fade_decay = 0.3
+glow_intensity = 0.5
 target_fps = 30
 
 [audio]
@@ -42,3 +47,9 @@ source = "rms"
 target = "brightness"
 amount = 0.2
 offset = 0.0
+
+[[audio.mappings]]
+source = "beat_intensity"
+target = "density_scale"
+amount = 0.5
+offset = -0.2

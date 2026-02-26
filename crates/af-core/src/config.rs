@@ -59,6 +59,12 @@ pub struct RenderConfig {
     /// Sensibilité globale de la réactivité audio [0.0, 5.0].
     pub audio_sensitivity: f32,
 
+    // === Post-processing Effects ===
+    /// Fade trails decay factor [0.0, 1.0]. 0.0 = disabled.
+    pub fade_decay: f32,
+    /// Glow intensity factor [0.0, 2.0]. 0.0 = disabled.
+    pub glow_intensity: f32,
+
     // === Performance ===
     /// FPS cible. 30 ou 60.
     pub target_fps: u32,
@@ -189,6 +195,8 @@ impl Default for RenderConfig {
             ],
             audio_smoothing: 0.7,
             audio_sensitivity: 1.0,
+            fade_decay: 0.3,
+            glow_intensity: 0.5,
             target_fps: 30,
         }
     }
@@ -206,16 +214,21 @@ struct ConfigFile {
 struct RenderSection {
     render_mode: Option<RenderMode>,
     charset: Option<String>,
+    charset_index: Option<usize>,
     invert: Option<bool>,
     color_enabled: Option<bool>,
     edge_threshold: Option<f32>,
     edge_mix: Option<f32>,
     shape_matching: Option<bool>,
     aspect_ratio: Option<f32>,
+    density_scale: Option<f32>,
     color_mode: Option<ColorMode>,
     saturation: Option<f32>,
     contrast: Option<f32>,
     brightness: Option<f32>,
+    bg_style: Option<BgStyle>,
+    fade_decay: Option<f32>,
+    glow_intensity: Option<f32>,
     target_fps: Option<u32>,
 }
 
@@ -254,6 +267,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     if let Some(v) = r.charset {
         config.charset = v;
     }
+    if let Some(v) = r.charset_index {
+        config.charset_index = v;
+    }
     if let Some(v) = r.invert {
         config.invert = v;
     }
@@ -272,6 +288,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     if let Some(v) = r.aspect_ratio {
         config.aspect_ratio = v;
     }
+    if let Some(v) = r.density_scale {
+        config.density_scale = v;
+    }
     if let Some(v) = r.color_mode {
         config.color_mode = v;
     }
@@ -283,6 +302,15 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     }
     if let Some(v) = r.brightness {
         config.brightness = v;
+    }
+    if let Some(v) = r.bg_style {
+        config.bg_style = v;
+    }
+    if let Some(v) = r.fade_decay {
+        config.fade_decay = v;
+    }
+    if let Some(v) = r.glow_intensity {
+        config.glow_intensity = v;
     }
     if let Some(v) = r.target_fps {
         config.target_fps = v;

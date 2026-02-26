@@ -1,0 +1,41 @@
+[package]
+name = "af-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "classcii"
+path = "src/main.rs"
+
+[dependencies]
+af-core = { path = "../af-core" }
+af-audio = { path = "../af-audio" }
+af-source = { path = "../af-source" }
+af-ascii = { path = "../af-ascii" }
+af-render = { path = "../af-render" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+arc-swap = { workspace = true }
+triple_buffer = { workspace = true }
+flume = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+notify = { workspace = true }
+ctrlc = { workspace = true }
+midir = { workspace = true, optional = true }
+
+[features]
+default = ["image-source"]
+image-source = ["af-source/image-source"]
+full = ["video", "webcam", "procedural", "midi"]
+video = ["af-source/video"]
+webcam = ["af-source/webcam"]
+procedural = ["af-source/procedural"]
+midi = ["dep:midir"]
+
+[lints]
+workspace = true

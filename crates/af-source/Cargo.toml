@@ -1,0 +1,28 @@
+[package]
+name = "af-source"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+af-core = { path = "../af-core" }
+image = { workspace = true }
+fast_image_resize = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+
+ffmpeg-the-third = { version = "2", optional = true }
+nokhwa = { version = "0.10", optional = true }
+noise = { version = "0.9", optional = true }
+glam = { workspace = true, optional = true }
+
+[features]
+default = ["image-source"]
+image-source = []
+video = ["dep:ffmpeg-the-third"]
+webcam = ["dep:nokhwa"]
+procedural = ["dep:noise", "dep:glam"]
+
+[lints]
+workspace = true

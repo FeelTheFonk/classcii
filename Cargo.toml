@@ -1,0 +1,80 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/af-core",
+    "crates/af-audio",
+    "crates/af-source",
+    "crates/af-ascii",
+    "crates/af-render",
+    "crates/af-app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["clasSCII Contributors"]
+
+[workspace.dependencies]
+# === Core ===
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+log = "0.4"
+env_logger = "0.11"
+
+# === Concurrence ===
+flume = "0.11"
+rtrb = "0.3"
+triple_buffer = "8"
+arc-swap = "1"
+rayon = "1.10"
+crossbeam-utils = "0.8"
+
+# === TUI ===
+ratatui = "0.30"
+crossterm = "0.29"
+
+# === Image ===
+image = "0.25"
+fast_image_resize = "6"
+
+# === Audio ===
+cpal = "0.16"
+realfft = "3.5"
+symphonia = { version = "0.5", features = ["mp3", "flac", "ogg", "wav", "aac"] }
+
+# === Vidéo (feature-gated) ===
+# ffmpeg-the-third = "2"    # Activé via feature flag
+# nokhwa = "0.10"           # Activé via feature flag
+
+# === Utilitaires ===
+notify = "7"
+midir = "0.10"
+glam = "0.29"
+clap = { version = "4", features = ["derive"] }
+ctrlc = { version = "3", features = ["termination"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+# Allowed pedantic: spec mandates #[inline(always)] on hot-path functions (§5.1, §5.2, §50)
+inline_always = "allow"
+# Allowed pedantic: pixel math uses direct `as` casts with clamped inputs
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+# Allowed pedantic: color math uses short variable names (r, g, b, h, s, v)
+many_single_char_names = "allow"
+similar_names = "allow"
+# Allowed pedantic: module names in doc comments
+doc_markdown = "allow"
+# Allowed pedantic: empty line after doc comment in lib.rs
+empty_line_after_doc_comments = "allow"

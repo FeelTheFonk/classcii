@@ -1,0 +1,20 @@
+[package]
+name = "af-audio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+af-core = { path = "../af-core" }
+cpal = { workspace = true }
+realfft = { workspace = true }
+symphonia = { workspace = true }
+rtrb = { workspace = true }
+triple_buffer = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[lints]
+workspace = true

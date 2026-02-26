@@ -1,0 +1,44 @@
+# config/default.toml — Configuration clasSCII par défaut.
+
+[render]
+render_mode = "Ascii"
+charset = " .:-=+*#%@"
+invert = false
+color_enabled = true
+edge_threshold = 0.3
+edge_mix = 0.5
+shape_matching = false
+aspect_ratio = 2.0
+color_mode = "HsvBright"
+saturation = 1.2
+contrast = 1.0
+brightness = 0.0
+target_fps = 30
+
+[audio]
+smoothing = 0.7
+sensitivity = 1.0
+
+[[audio.mappings]]
+source = "bass"
+target = "edge_threshold"
+amount = 0.3
+offset = 0.0
+
+[[audio.mappings]]
+source = "spectral_flux"
+target = "contrast"
+amount = 0.5
+offset = 0.0
+
+[[audio.mappings]]
+source = "onset"
+target = "invert"
+amount = 1.0
+offset = 0.0
+
+[[audio.mappings]]
+source = "rms"
+target = "brightness"
+amount = 0.2
+offset = 0.0

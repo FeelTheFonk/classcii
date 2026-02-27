@@ -47,6 +47,8 @@ fn main() -> Result<()> {
             "halfblock" => af_core::config::RenderMode::HalfBlock,
             "braille" => af_core::config::RenderMode::Braille,
             "quadrant" => af_core::config::RenderMode::Quadrant,
+            "sextant" => af_core::config::RenderMode::Sextant,
+            "octant" => af_core::config::RenderMode::Octant,
             _ => {
                 log::warn!("Mode inconnu '{mode}', utilisation du défaut.");
                 config.render_mode

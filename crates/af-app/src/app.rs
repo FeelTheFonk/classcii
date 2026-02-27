@@ -68,6 +68,7 @@ pub enum AppState {
 }
 
 /// Main application struct holding all state.
+#[allow(clippy::struct_excessive_bools)]
 pub struct App {
     /// Current application state.
     pub state: AppState,
@@ -646,7 +647,7 @@ impl App {
                 };
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('o') | KeyCode::Char('O') => {
+            KeyCode::Char('o' | 'O') => {
                 self.state = AppState::FileOrFolderPrompt;
                 self.sidebar_dirty = true;
             }
@@ -661,12 +662,12 @@ impl App {
                 self.state = AppState::Running;
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('f') | KeyCode::Char('F') => {
+            KeyCode::Char('f' | 'F') => {
                 self.state = AppState::Running;
                 self.open_visual_requested = true;
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('d') | KeyCode::Char('D') => {
+            KeyCode::Char('d' | 'D') => {
                 self.state = AppState::Running; // Will suspend anyway
                 self.open_batch_folder_requested = true;
                 self.sidebar_dirty = true;
@@ -686,21 +687,23 @@ impl App {
                     RenderMode::Ascii => RenderMode::HalfBlock,
                     RenderMode::HalfBlock => RenderMode::Braille,
                     RenderMode::Braille => RenderMode::Quadrant,
-                    RenderMode::Quadrant => RenderMode::Ascii,
+                    RenderMode::Quadrant => RenderMode::Sextant,
+                    RenderMode::Sextant => RenderMode::Octant,
+                    RenderMode::Octant => RenderMode::Ascii,
                 };
                 self.config.store(Arc::new(new));
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('1') => self.set_charset(0, charset::CHARSET_COMPACT),
-            KeyCode::Char('2') => self.set_charset(1, charset::CHARSET_STANDARD),
-            KeyCode::Char('3') => self.set_charset(2, charset::CHARSET_FULL),
+            KeyCode::Char('1') => self.set_charset(0, charset::CHARSET_SOTA_FULL),
+            KeyCode::Char('2') => self.set_charset(1, charset::CHARSET_SOTA_DENSE),
+            KeyCode::Char('3') => self.set_charset(2, charset::CHARSET_SHORT_1),
             KeyCode::Char('4') => self.set_charset(3, charset::CHARSET_BLOCKS),
             KeyCode::Char('5') => self.set_charset(4, charset::CHARSET_MINIMAL),
             KeyCode::Char('6') => self.set_charset(5, charset::CHARSET_GLITCH_1),
             KeyCode::Char('7') => self.set_charset(6, charset::CHARSET_GLITCH_2),
             KeyCode::Char('8') => self.set_charset(7, charset::CHARSET_DIGITAL),
-            KeyCode::Char('9') => self.set_charset(8, charset::CHARSET_CLASSIC_GRADIENT),
-            KeyCode::Char('0') => self.set_charset(9, charset::CHARSET_EXTENDED_SMOOTH),
+            KeyCode::Char('9') => self.set_charset(8, charset::CHARSET_EXTENDED),
+            KeyCode::Char('0') => self.set_charset(9, charset::CHARSET_BINARY),
             KeyCode::Char('d') => {
                 self.toggle_config(|c| c.density_scale = (c.density_scale - 0.25).max(0.25));
             }
@@ -915,13 +918,17 @@ impl App {
                     (f32::from(canvas_width) * density) as u32,
                     (f32::from(canvas_height) * density * 2.0) as u32,
                 ),
-                RenderMode::Braille => (
+                RenderMode::Braille | RenderMode::Octant => (
                     (f32::from(canvas_width) * density * 2.0) as u32,
                     (f32::from(canvas_height) * density * 4.0) as u32,
                 ),
                 RenderMode::Quadrant => (
                     (f32::from(canvas_width) * density * 2.0) as u32,
                     (f32::from(canvas_height) * density * 2.0) as u32,
+                ),
+                RenderMode::Sextant => (
+                    (f32::from(canvas_width) * density * 2.0) as u32,
+                    (f32::from(canvas_height) * density * 3.0) as u32,
                 ),
             };
 
@@ -1039,11 +1046,12 @@ impl App {
             println!("\n=== ASCIIFORGE BATCH EXPORT ===");
             println!("Target Folder: {}", folder.display());
 
+            #[allow(unused_variables)]
             let config = (**self.config.load()).clone();
 
             #[cfg(feature = "video")]
             if let Err(e) = crate::batch::run_batch_export(&folder, None, None, config, 30) {
-                println!("\n[ERROR] Batch export failed: {}", e);
+                println!("\n[ERROR] Batch export failed: {e}");
             } else {
                 println!("\n[SUCCESS] Batch export completed.");
             }

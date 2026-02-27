@@ -23,6 +23,8 @@ pub struct RenderConfig {
     pub charset: String,
     /// Index du charset actif parmi les 5 presets built-in.
     pub charset_index: usize,
+    /// Activer le tramage optique de luminance (Bayer 8x8 Dithering).
+    pub dither_enabled: bool,
     /// Inverser la luminance (pour fond clair).
     pub invert: bool,
     /// Activer la couleur truecolor.
@@ -65,6 +67,8 @@ pub struct RenderConfig {
     pub fade_decay: f32,
     /// Glow intensity factor [0.0, 2.0]. 0.0 = disabled.
     pub glow_intensity: f32,
+    /// Zalgo combinatory string intensity. Dynamically driven by audio onset.
+    pub zalgo_intensity: f32,
 
     // === Performance ===
     /// FPS cible. 30 ou 60.
@@ -104,6 +108,7 @@ pub const AUDIO_TARGETS: &[&str] = &[
     "saturation",
     "density_scale",
     "invert",
+    "zalgo_intensity",
 ];
 
 #[must_use]
@@ -153,6 +158,10 @@ pub enum RenderMode {
     HalfBlock,
     /// Quadrant block characters (2×2 sub-pixels).
     Quadrant,
+    /// Sextant Unicode 13.0 block characters (2x3 sub-pixels).
+    Sextant,
+    /// Octant Unicode 16.0 block characters (2x4 sub-pixels).
+    Octant,
 }
 
 /// Color mapping mode.
@@ -197,8 +206,9 @@ impl Default for RenderConfig {
     fn default() -> Self {
         Self {
             render_mode: RenderMode::Ascii,
-            charset: " .:-=+*#%@".to_string(),
+            charset: crate::charset::CHARSET_SOTA_FULL.to_string(),
             charset_index: 0,
+            dither_enabled: true,
             invert: false,
             color_enabled: true,
             edge_threshold: 0.3,
@@ -245,6 +255,7 @@ impl Default for RenderConfig {
             audio_sensitivity: 1.0,
             fade_decay: 0.3,
             glow_intensity: 0.5,
+            zalgo_intensity: 0.0,
             target_fps: 30,
             fullscreen: false,
             show_spectrum: true,
@@ -265,6 +276,7 @@ struct RenderSection {
     render_mode: Option<RenderMode>,
     charset: Option<String>,
     charset_index: Option<usize>,
+    dither_enabled: Option<bool>,
     invert: Option<bool>,
     color_enabled: Option<bool>,
     edge_threshold: Option<f32>,
@@ -279,6 +291,7 @@ struct RenderSection {
     bg_style: Option<BgStyle>,
     fade_decay: Option<f32>,
     glow_intensity: Option<f32>,
+    zalgo_intensity: Option<f32>,
     target_fps: Option<u32>,
     fullscreen: Option<bool>,
     show_spectrum: Option<bool>,
@@ -322,6 +335,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     if let Some(v) = r.charset_index {
         config.charset_index = v;
     }
+    if let Some(v) = r.dither_enabled {
+        config.dither_enabled = v;
+    }
     if let Some(v) = r.invert {
         config.invert = v;
     }
@@ -363,6 +379,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     }
     if let Some(v) = r.glow_intensity {
         config.glow_intensity = v;
+    }
+    if let Some(v) = r.zalgo_intensity {
+        config.zalgo_intensity = v;
     }
     if let Some(v) = r.target_fps {
         config.target_fps = v;

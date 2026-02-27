@@ -43,7 +43,17 @@ pub fn process_luminance(
             // Apply contrast and brightness
             let adjusted = apply_contrast_brightness(lum, config.contrast, config.brightness);
 
-            let ch = lut.map(adjusted);
+            let mut final_lum = adjusted;
+            if config.dither_enabled {
+                final_lum = crate::dither::apply_bayer_8x8(
+                    final_lum,
+                    u32::from(cx),
+                    u32::from(cy),
+                    config.charset.chars().count() as f32,
+                );
+            }
+
+            let ch = lut.map(final_lum);
             let (r, g, b, _) = frame.pixel(px, py);
 
             let cell = AsciiCell {

@@ -12,9 +12,10 @@ use af_core::frame::{AsciiGrid, FrameBuffer};
 use af_core::traits::Source;
 #[cfg(feature = "video")]
 use af_export::muxer::{Mp4Muxer, mux_audio_video};
-use chrono::Local;
 #[cfg(feature = "video")]
 use af_export::rasterizer::Rasterizer;
+#[cfg(feature = "video")]
+use chrono::Local;
 
 #[cfg(feature = "video")]
 use af_source::folder_batch::FolderBatchSource;
@@ -26,6 +27,7 @@ use crate::generative::AutoGenerativeMapper;
 ///
 /// # Errors
 /// Retourne une erreur si l'analyse audio, le scan du dossier, ou l'encodage échoue.
+#[allow(clippy::too_many_lines)]
 pub fn run_batch_export(
     folder: &Path,
     audio_path_str: Option<&String>,
@@ -47,7 +49,7 @@ pub fn run_batch_export(
         } else {
             log::info!("Recherche d'un fichier audio dans {}...", folder.display());
             let found = std::fs::read_dir(folder)?
-                .filter_map(|e| e.ok())
+                .filter_map(std::result::Result::ok)
                 .map(|e| e.path())
                 .find(|p| {
                     if let Some(ext) = p.extension().and_then(|s| s.to_str()) {
@@ -152,6 +154,8 @@ pub fn run_batch_export(
                         af_core::config::RenderMode::HalfBlock,
                         af_core::config::RenderMode::Braille,
                         af_core::config::RenderMode::Quadrant,
+                        af_core::config::RenderMode::Sextant,
+                        af_core::config::RenderMode::Octant,
                     ];
                     let current = macro_mode_override
                         .as_ref()
@@ -170,20 +174,19 @@ pub fn run_batch_export(
                 if rand::random::<f64>() < 0.33 {
                     let current_idx = macro_charset_override
                         .as_ref()
-                        .map(|(i, _)| *i)
-                        .unwrap_or(frame_config.charset_index);
+                        .map_or(frame_config.charset_index, |(i, _)| *i);
                     let new_idx = (current_idx + 1) % 10;
                     let new_charset = match new_idx {
-                        0 => af_core::charset::CHARSET_COMPACT.to_string(),
-                        1 => af_core::charset::CHARSET_STANDARD.to_string(),
-                        2 => af_core::charset::CHARSET_FULL.to_string(),
+                        0 => af_core::charset::CHARSET_SOTA_FULL.to_string(),
+                        1 => af_core::charset::CHARSET_SOTA_DENSE.to_string(),
+                        2 => af_core::charset::CHARSET_SHORT_1.to_string(),
                         3 => af_core::charset::CHARSET_BLOCKS.to_string(),
                         4 => af_core::charset::CHARSET_MINIMAL.to_string(),
                         5 => af_core::charset::CHARSET_GLITCH_1.to_string(),
                         6 => af_core::charset::CHARSET_GLITCH_2.to_string(),
                         7 => af_core::charset::CHARSET_DIGITAL.to_string(),
-                        8 => af_core::charset::CHARSET_CLASSIC_GRADIENT.to_string(),
-                        _ => af_core::charset::CHARSET_EXTENDED_SMOOTH.to_string(),
+                        8 => af_core::charset::CHARSET_EXTENDED.to_string(),
+                        _ => af_core::charset::CHARSET_BINARY.to_string(),
                     };
                     macro_charset_override = Some((new_idx, new_charset));
                 }
@@ -198,7 +201,7 @@ pub fn run_batch_export(
             }
             if let Some((idx, ref chars)) = macro_charset_override {
                 frame_config.charset_index = idx;
-                frame_config.charset = chars.clone();
+                frame_config.charset.clone_from(chars);
             }
 
             if let Some(src_frame) = source.next_frame() {
@@ -224,7 +227,7 @@ pub fn run_batch_export(
                 // The current rasterizer just paints the characters.
 
                 raster_fb.data.fill(0);
-                rasterizer.render(&grid, &mut raster_fb);
+                rasterizer.render(&grid, &mut raster_fb, frame_config.zalgo_intensity);
                 muxer.write_frame(&raster_fb)?;
             }
 

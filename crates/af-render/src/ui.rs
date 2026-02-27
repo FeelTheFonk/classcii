@@ -55,7 +55,7 @@ pub fn draw(
 
     // Si le mode plein écran exclusif est activé, ne rendre que le canevas ASCII
     if config.fullscreen {
-        canvas::render_grid(frame.buffer_mut(), area, grid);
+        canvas::render_grid(frame.buffer_mut(), area, grid, config.zalgo_intensity);
     } else {
         // === Sidebar & Layout setup ===
         let sidebar_width = 24u16; // Slight expansion for keybind hints
@@ -73,7 +73,12 @@ pub fn draw(
             h_chunks[0]
         };
 
-        canvas::render_grid(frame.buffer_mut(), canvas_area, grid);
+        canvas::render_grid(
+            frame.buffer_mut(),
+            canvas_area,
+            grid,
+            config.zalgo_intensity,
+        );
 
         // === Sidebar ===
         let sidebar_area = h_chunks[1];
@@ -195,6 +200,8 @@ fn draw_sidebar(
         af_core::config::RenderMode::Braille => "Braille",
         af_core::config::RenderMode::HalfBlock => "HalfBlk",
         af_core::config::RenderMode::Quadrant => "Quadrnt",
+        af_core::config::RenderMode::Sextant => "Sextant",
+        af_core::config::RenderMode::Octant => "Octant",
     };
 
     let color_mode_str = match config.color_mode {

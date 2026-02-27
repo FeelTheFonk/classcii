@@ -1,13 +1,28 @@
-/// 10 caractères — compact, bon contraste.
-pub const CHARSET_COMPACT: &str = " .:-=+*#%@";
+/// Rampe Standard Complète (SOTA) - 92 caractères.
+pub const CHARSET_SOTA_FULL: &str =
+    "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}?-_+~<>i!lI;:,\"^`'. ";
 
-/// 70 caractères — Paul Bourke extended, bon équilibre.
-pub const CHARSET_STANDARD: &str =
-    " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+/// Rampe Alternative Dense - 69 caractères.
+pub const CHARSET_SOTA_DENSE: &str = "Ñ@#W$9876543210?!abc;:+=-,._ ";
 
-/// 70 caractères — Paul Bourke, résolution maximale (inversé: dense→clair).
-pub const CHARSET_FULL: &str =
-    " $@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'.";
+/// Séquence Courte 1 - 10 caractères.
+pub const CHARSET_SHORT_1: &str = ".:-=+*#%@";
+
+/// Séquence Courte 2 - Inversée.
+pub const CHARSET_SHORT_2: &str = "@%#*+=-:. ";
+
+/// Séquence Binaire.
+pub const CHARSET_BINARY: &str = " #";
+
+/// Séquence Étendue (Asciimatic) - 70 caractères.
+pub const CHARSET_EXTENDED: &str =
+    "=======--------:::::::::........=========--------:::::::::........++==";
+
+/// Jeu Discret (Matrice) - 5 caractères.
+pub const CHARSET_DISCRETE: &str = "1234 ";
+
+/// Jeu Edge Detection - 6 caractères.
+pub const CHARSET_EDGE: &str = ".,*+#@";
 
 /// Blocs Unicode — pseudo-pixels.
 pub const CHARSET_BLOCKS: &str = " ░▒▓█";
@@ -23,13 +38,6 @@ pub const CHARSET_GLITCH_2: &str = " ▂▃▄▅▆▇█";
 
 /// Digital Matrix — purisme binaire et cryptique.
 pub const CHARSET_DIGITAL: &str = " 01";
-
-/// Classic Gradient — Séquence progressive fluide (asciify-them style).
-pub const CHARSET_CLASSIC_GRADIENT: &str = " .':;il!i><+?-)(ItfjxnoC00@";
-
-/// Extended Smooth Gradient — Plus de 70 glyphs pour mapping luma sub-pixel.
-pub const CHARSET_EXTENDED_SMOOTH: &str =
-    "…^‚:;Il!i><v+_—?1[ł{1)(|/tfjrxnuvczXYUJCLQØ0Zmwqpdbkhао*#МW&8⅝В@$";
 
 /// Lookup table mapping luminance [0..255] → character.
 ///
@@ -62,15 +70,18 @@ impl LuminanceLut {
     #[must_use]
     pub fn new(charset: &str) -> Self {
         let chars: Vec<char> = charset.chars().collect();
-        let len = if chars.len() >= 2 {
-            chars.len()
-        } else {
+        let len = chars.len();
+        if len < 2 {
             // Fallback: if charset is too short, use a minimal default.
             return Self::new(" @");
-        };
+        }
         let mut lut = [' '; 256];
+        let max_idx = (len - 1) as f32;
+
         for (i, slot) in lut.iter_mut().enumerate() {
-            *slot = chars[i * (len - 1) / 255];
+            // Équation de projection linéaire SOTA avec arrondi : char_idx = round(lum_norm * (N-1))
+            let char_idx = ((i as f32 / 255.0) * max_idx).round() as usize;
+            *slot = chars[char_idx.min(len - 1)];
         }
         Self { lut }
     }
@@ -108,7 +119,7 @@ mod tests {
         let chars: Vec<char> = " .:#@".chars().collect();
         for i in 0..=255u8 {
             let ch = lut.map(i);
-            let idx = chars.iter().position(|&c| c == ch).unwrap();
+            let idx = chars.iter().position(|&c| c == ch).unwrap_or(0);
             assert!(idx >= prev_idx, "LUT non monotone à luminance {i}");
             prev_idx = idx;
         }

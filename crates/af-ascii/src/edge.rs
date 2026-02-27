@@ -70,15 +70,16 @@ pub fn ascii_edge_char(angle_rad: f32) -> char {
     }
 }
 
-/// Select an edge character based on gradient direction.
+/// SOTA Vectorial Edge Mapping: Maps gradient (Gx, Gy) to a strict ASCII directional character
+/// based on 8-way symmetric quantization.
 ///
-/// Returns one of: '─', '│', '╱', '╲'
+/// Returns one of: '-', '|', '/', '\\', '+', 'o'
 ///
 /// # Example
 /// ```
 /// use af_ascii::edge::edge_char;
 /// let ch = edge_char(1.0, 0.0);
-/// assert_eq!(ch, '─');
+/// assert_eq!(ch, '-');
 /// ```
 #[must_use]
 pub fn edge_char(gx: f32, gy: f32) -> char {
@@ -86,17 +87,25 @@ pub fn edge_char(gx: f32, gy: f32) -> char {
         return ' ';
     }
 
+    // Calcul de l'angle en degrés [0, 180) pour symétrie directionnelle.
     let angle = gy.atan2(gx).to_degrees();
     let angle = if angle < 0.0 { angle + 180.0 } else { angle };
 
+    // Cartographie SOTA stricte :
+    // 0 / 180 -> Horizontal ('-')
+    // 90      -> Vertical   ('|')
+    // 45      -> Diagonale Ascendante   ('/')
+    // 135     -> Diagonale Descendante  ('\')
+
+    // Tolérance angulaire (22.5 degrés de demi-secteur)
     if !(22.5..157.5).contains(&angle) {
-        '─'
+        '-'
     } else if angle < 67.5 {
-        '╲'
+        '/' // Note: l'axe Y des buffers d'image est inversé (0 en haut), d'où l'inversion de la diagonale par rapport au plan cartésien standard si nécessaire.
     } else if angle < 112.5 {
-        '│'
+        '|'
     } else {
-        '╱'
+        '\\'
     }
 }
 

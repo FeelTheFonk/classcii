@@ -42,6 +42,9 @@ impl Rasterizer {
         rasterizer.cache_charset(&font, scale, 0x2800..=0x28FF);
         rasterizer.cache_charset(&font, scale, 0x2580..=0x259F);
 
+        // Cache combinatory diacritics for Zalgo zero-alloc rasterization
+        rasterizer.cache_charset(&font, scale, 0x0300..=0x036F);
+
         Ok(rasterizer)
     }
 
@@ -81,7 +84,7 @@ impl Rasterizer {
 
     /// Rendu de l'AsciiGrid sur le FrameBuffer.
     /// Zéro allocation dans le hot-loop (R1). Parallélisé.
-    pub fn render(&self, grid: &AsciiGrid, fb: &mut FrameBuffer) {
+    pub fn render(&self, grid: &AsciiGrid, fb: &mut FrameBuffer, zalgo_intensity: f32) {
         let expected_w = u32::from(grid.width) * self.char_width;
         let expected_h = u32::from(grid.height) * self.char_height;
 
@@ -96,16 +99,51 @@ impl Rasterizer {
             .par_chunks_exact_mut(band_size)
             .enumerate()
             .for_each(|(gy, band)| {
+                // Thread-local LCG for deterministic Zalgo
+                let mut seed = 0x1234_5678_u32.wrapping_add(gy as u32 * 1337);
+                let mut rand = || {
+                    seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                    seed
+                };
+
                 for gx in 0..(grid.width as usize) {
                     let cell = grid.get(gx as u16, gy as u16);
                     let char_alpha = self.glyph_cache.get(&cell.ch).unwrap_or(&empty_glyph);
+
+                    // --- Zalgo Combinatory Stack (Zero-alloc references array) ---
+                    let mut diacritics: [&Vec<u8>; 8] = [&empty_glyph; 8];
+                    let mut diacritics_count = 0;
+
+                    if zalgo_intensity > 0.0 && (rand() % 100) < (zalgo_intensity * 10.0) as u32 {
+                        let iterations = (zalgo_intensity * 2.0).clamp(1.0, 8.0) as usize;
+                        for _ in 0..iterations {
+                            let ch = match rand() % 5 {
+                                0 => '\u{0300}',
+                                1 => '\u{0313}',
+                                2 => '\u{0330}',
+                                3 => '\u{0336}',
+                                _ => '\u{0346}',
+                            };
+                            if let Some(d_cache) = self.glyph_cache.get(&ch) {
+                                diacritics[diacritics_count] = d_cache;
+                                diacritics_count += 1;
+                            }
+                        }
+                    }
 
                     let cx_start = gx * self.char_width as usize;
 
                     for cy in 0..(self.char_height as usize) {
                         let fb_y_offset = cy * stride;
                         for cx in 0..(self.char_width as usize) {
-                            let alpha = char_alpha[cy * self.char_width as usize + cx];
+                            let local_idx = cy * self.char_width as usize + cx;
+                            let mut alpha = char_alpha[local_idx];
+
+                            // Composite diacritics atop base char (max blending)
+                            for d in &diacritics[..diacritics_count] {
+                                alpha = alpha.max(d[local_idx]);
+                            }
+
                             let alpha_f = f32::from(alpha) / 255.0;
 
                             let r = (f32::from(cell.fg.0) * alpha_f

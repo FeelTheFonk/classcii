@@ -61,14 +61,17 @@ impl Compositor {
         grid: &mut AsciiGrid,
     ) {
         self.update_if_needed(&config.charset);
+        let charset_len = self.current_charset.chars().count() as f32;
 
-        // 1. Pré-Rendu des modes algorithmiques complexes (Braille, HalfBlock, Quadrant)
+        // 1. Pré-Rendu des modes algorithmiques complexes (Braille, HalfBlock, Quadrant, Sextant, Octant)
         let is_ascii = matches!(config.render_mode, RenderMode::Ascii);
         if !is_ascii {
             match config.render_mode {
                 RenderMode::HalfBlock => crate::halfblock::process_halfblock(frame, config, grid),
                 RenderMode::Braille => crate::braille::process_braille(frame, config, grid),
                 RenderMode::Quadrant => crate::quadrant::process_quadrant(frame, config, grid),
+                RenderMode::Sextant => crate::masks::sextants::process_sextant(frame, config, grid),
+                RenderMode::Octant => crate::masks::octants::process_octant(frame, config, grid),
                 RenderMode::Ascii => {}
             }
         }
@@ -107,6 +110,16 @@ impl Compositor {
                         let adjusted =
                             (val - 128.0) * config.contrast + 128.0 + config.brightness * 255.0;
 
+                        let mut final_lum = adjusted.clamp(0.0, 255.0) as u8;
+                        if config.dither_enabled && !use_shape {
+                            final_lum = crate::dither::apply_bayer_8x8(
+                                final_lum,
+                                cx as u32,
+                                cy as u32,
+                                charset_len,
+                            );
+                        }
+
                         // Shape matching or standard LUT
                         cell.ch = if use_shape {
                             if let Some(ref matcher) = self.shape_matcher {
@@ -120,10 +133,10 @@ impl Compositor {
                                 }
                                 matcher.match_cell(&block)
                             } else {
-                                self.lut.map(adjusted.clamp(0.0, 255.0) as u8)
+                                self.lut.map(final_lum)
                             }
                         } else {
-                            self.lut.map(adjusted.clamp(0.0, 255.0) as u8)
+                            self.lut.map(final_lum)
                         };
 
                         if config.color_enabled {

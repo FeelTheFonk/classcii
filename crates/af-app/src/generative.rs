@@ -89,6 +89,10 @@ impl AutoGenerativeMapper {
                         modulated.invert = !modulated.invert;
                     }
                 }
+                "zalgo_intensity" => {
+                    modulated.zalgo_intensity =
+                        (modulated.zalgo_intensity + final_val).clamp(0.0, 10.0);
+                }
                 _ => {}
             }
         }

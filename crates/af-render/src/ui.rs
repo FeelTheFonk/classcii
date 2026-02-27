@@ -29,12 +29,14 @@ pub enum RenderState {
 }
 
 /// Draw the full UI: canvas + sidebar + spectrum bar.
+#[allow(clippy::too_many_arguments)]
 pub fn draw(
     frame: &mut Frame,
     grid: &AsciiGrid,
     config: &RenderConfig,
     audio: Option<&AudioFeatures>,
     fps_counter: &FpsCounter,
+    preset_name: Option<&str>,
     _sidebar_dirty: bool,
     state: &RenderState,
 ) {
@@ -64,7 +66,7 @@ pub fn draw(
 
         // === Sidebar ===
         let sidebar_area = h_chunks[1];
-        draw_sidebar(frame, sidebar_area, config, audio, fps_counter, state);
+        draw_sidebar(frame, sidebar_area, config, audio, fps_counter, preset_name, state);
     }
 
     // === Help overlay ===
@@ -112,6 +114,7 @@ fn draw_sidebar(
     config: &RenderConfig,
     audio: Option<&AudioFeatures>,
     fps_counter: &FpsCounter,
+    preset_name: Option<&str>,
     state: &RenderState,
 ) {
     let mode_str = match config.render_mode {
@@ -156,6 +159,15 @@ fn draw_sidebar(
         "○"
     };
 
+    // Typographic SOTA closure
+    let kv = |k: &str, lbl: &str, val: String| -> Line {
+        Line::from(vec![
+            Span::styled(format!(" {k:<5} "), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{lbl:<5}: "), Style::default().fg(Color::DarkGray)),
+            Span::styled(val, Style::default().fg(Color::White)),
+        ])
+    };
+
     let mut lines = vec![
         Line::from(Span::styled(state_str, Style::default().fg(Color::Green))),
         Line::from(""),
@@ -163,37 +175,30 @@ fn draw_sidebar(
             "─ Render ──",
             Style::default().fg(Color::Yellow),
         )),
-        Line::from(format!(" [Tab] Mode: {mode_str}")),
-        Line::from(format!(" [1-0] Char: {charset_name}")),
-        Line::from(format!(" [d/D] Dens: {:.2}", config.density_scale)),
-        Line::from(format!(
-            "  [c]  Colr: {}",
-            if config.color_enabled { "ON" } else { "OFF" }
-        )),
-        Line::from(format!("  [m]  CMod: {color_mode_str}")),
-        Line::from(format!(
-            "  [i]  Inv:  {}",
-            if config.invert { "ON" } else { "OFF" }
-        )),
-        Line::from(format!("  [/]  Cont: {:.1}", config.contrast)),
-        Line::from(format!("  {{/}}  Brgt: {:.2}", config.brightness)),
-        Line::from(format!("  -/+  Sat:  {:.1}", config.saturation)),
-        Line::from(format!("  [e]  Edge: {:.1}", config.edge_threshold)),
-        Line::from(format!(
-            "  [s]  Shap: {}",
-            if config.shape_matching { "ON" } else { "OFF" }
-        )),
-        Line::from(format!("  [a]  Aspc: {:.1}", config.aspect_ratio)),
-        Line::from(format!("  [b]  BG:   {bg_str}")),
-        Line::from(format!(" [f/F] Fade: {:.1}", config.fade_decay)),
-        Line::from(format!(" [g/G] Glow: {:.1}", config.glow_intensity)),
+        kv("[Tab]", "Mode", mode_str.to_string()),
+        kv("[p/P]", "Prst", preset_name.unwrap_or("Custom").to_string()),
+        kv("[1-0]", "Char", charset_name.to_string()),
+        kv("[d/D]", "Dens", format!("{:.2}", config.density_scale)),
+        kv("[c]", "Colr", (if config.color_enabled { "ON" } else { "OFF" }).to_string()),
+        kv("[m]", "CMod", color_mode_str.to_string()),
+        kv("[i]", "Inv", (if config.invert { "ON" } else { "OFF" }).to_string()),
+        kv("[/]", "Cont", format!("{:.1}", config.contrast)),
+        kv("{ }", "Brgt", format!("{:.2}", config.brightness)),
+        kv("-/+", "Sat", format!("{:.1}", config.saturation)),
+        kv("[e]", "Edge", format!("{:.1}", config.edge_threshold)),
+        kv("[E]", "EMix", format!("{:.2}", config.edge_mix)),
+        kv("[s]", "Shap", (if config.shape_matching { "ON" } else { "OFF" }).to_string()),
+        kv("[a]", "Aspc", format!("{:.1}", config.aspect_ratio)),
+        kv("[b]", "BG", bg_str.to_string()),
+        kv("[f/F]", "Fade", format!("{:.1}", config.fade_decay)),
+        kv("[g/G]", "Glow", format!("{:.1}", config.glow_intensity)),
         Line::from(""),
         Line::from(Span::styled(
             "─ Audio ───",
             Style::default().fg(Color::Yellow),
         )),
-        Line::from(format!("  ↑/↓  Sens: {:.1}", config.audio_sensitivity)),
-        Line::from(format!("       Smth: {:.2}", config.audio_smoothing)),
+        kv("↑/↓", "Sens", format!("{:.1}", config.audio_sensitivity)),
+        kv("", "Smth", format!("{:.2}", config.audio_smoothing)),
     ];
 
     if let Some(features) = audio {
@@ -245,13 +250,13 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" c        Toggle color"),
         Line::from(" m        Cycle color mode"),
         Line::from(" b        Cycle BG style"),
-        Line::from(" [/]      Contrast ±"),
-        Line::from(" {/}      Brightness ±"),
+        Line::from(" [ ]      Contrast ±"),
+        Line::from(" { }      Brightness ±"),
         Line::from(" -/+      Saturation ±"),
         Line::from(" f/F      Fade decay ±"),
         Line::from(" g/G      Glow intens ±"),
         Line::from(" a        Cycle aspect"),
-        Line::from(" e        Toggle edges"),
+        Line::from(" e/E      Edge toggl/mix"),
         Line::from(" s        Toggle shapes"),
         Line::from(" ↑/↓      Audio sensitivity"),
         Line::from(" ←/→      Seek ±5s"),

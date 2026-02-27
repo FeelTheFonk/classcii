@@ -9,15 +9,15 @@ invert = false
 color_enabled = true
 edge_threshold = 0.3
 edge_mix = 0.5
-shape_matching = false
+shape_matching = true
 aspect_ratio = 2.0
 color_mode = "HsvBright"
 saturation = 1.2
-contrast = 1.0
+contrast = 1.3
 brightness = 0.0
 bg_style = "SourceDim"
-fade_decay = 0.3
-glow_intensity = 0.5
+fade_decay = 0.4
+glow_intensity = 0.2
 target_fps = 60
 
 [audio]

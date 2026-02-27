@@ -236,6 +236,14 @@ impl App {
             let sidebar_dirty = self.sidebar_dirty;
             let grid = &self.grid;
             let fps_counter = &self.fps_counter;
+            let preset_name = if self.presets.is_empty() {
+                None
+            } else {
+                self.presets[self.current_preset_idx]
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+            };
+            
             terminal.draw(|frame| {
                 af_render::ui::draw(
                     frame,
@@ -243,6 +251,7 @@ impl App {
                     &render_config,
                     audio_features.as_ref(),
                     fps_counter,
+                    preset_name,
                     sidebar_dirty,
                     &state,
                 );
@@ -289,6 +298,7 @@ impl App {
                     | '+'
                     | '='
                     | 'e'
+                    | 'E'
                     | 's'
                     | 'a'
                     | 'm'
@@ -394,6 +404,9 @@ impl App {
             }
             KeyCode::Char('e') => self.toggle_config(|c| {
                 c.edge_threshold = if c.edge_threshold > 0.0 { 0.0 } else { 0.3 };
+            }),
+            KeyCode::Char('E') => self.toggle_config(|c| {
+                c.edge_mix = if c.edge_mix >= 1.0 { 0.0 } else { c.edge_mix + 0.25 };
             }),
             KeyCode::Char('s') => self.toggle_config(|c| c.shape_matching = !c.shape_matching),
             KeyCode::Char('a') => self.toggle_config(|c| {

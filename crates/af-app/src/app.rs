@@ -694,8 +694,8 @@ impl App {
                 self.config.store(Arc::new(new));
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('1') => self.set_charset(0, charset::CHARSET_SOTA_FULL),
-            KeyCode::Char('2') => self.set_charset(1, charset::CHARSET_SOTA_DENSE),
+            KeyCode::Char('1') => self.set_charset(0, charset::CHARSET_FULL),
+            KeyCode::Char('2') => self.set_charset(1, charset::CHARSET_DENSE),
             KeyCode::Char('3') => self.set_charset(2, charset::CHARSET_SHORT_1),
             KeyCode::Char('4') => self.set_charset(3, charset::CHARSET_BLOCKS),
             KeyCode::Char('5') => self.set_charset(4, charset::CHARSET_MINIMAL),

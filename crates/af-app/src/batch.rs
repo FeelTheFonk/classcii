@@ -177,8 +177,8 @@ pub fn run_batch_export(
                         .map_or(frame_config.charset_index, |(i, _)| *i);
                     let new_idx = (current_idx + 1) % 10;
                     let new_charset = match new_idx {
-                        0 => af_core::charset::CHARSET_SOTA_FULL.to_string(),
-                        1 => af_core::charset::CHARSET_SOTA_DENSE.to_string(),
+                        0 => af_core::charset::CHARSET_FULL.to_string(),
+                        1 => af_core::charset::CHARSET_DENSE.to_string(),
                         2 => af_core::charset::CHARSET_SHORT_1.to_string(),
                         3 => af_core::charset::CHARSET_BLOCKS.to_string(),
                         4 => af_core::charset::CHARSET_MINIMAL.to_string(),

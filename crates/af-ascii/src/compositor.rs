@@ -82,7 +82,7 @@ impl Compositor {
             self.shape_matcher = Some(ShapeMatcher::new());
         }
 
-        // 2. MEGA-BOUCLE SOTA (SIMD Philosophy)
+        // 2. MEGA-BOUCLE  (SIMD Philosophy)
         let edge_chars = [' ', '.', '-', '|', '/', '\\', '+', '#'];
         let mix = config.edge_mix.clamp(0.0, 1.0);
         let edge_enabled = config.edge_threshold > 0.0 && config.edge_mix > 0.0;

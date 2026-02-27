@@ -6,7 +6,7 @@ use af_core::frame::AudioFeatures;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use triple_buffer::TripleBuffer;
 
-/// Commandes interactives pour le thread audio SOTA.
+/// Commandes interactives pour le thread audio .
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AudioCommand {
     Play,

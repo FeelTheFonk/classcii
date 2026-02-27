@@ -33,7 +33,7 @@ pub const fn get_sextant_char(bitmask: u8) -> char {
 
 /// Lookup Table pré-calculée. Index 0..=63 correspond à la valeur binaire.
 /// Bit 0: HautGauche, Bit 1: MilieuGauche, Bit 2: BasGauche, Bit 3: HautDroit, Bit 4: MilieuDroit, Bit 5: BasDroit.
-/// (Selon la norme SOTA `Recherche exhaustive de combinaisons maximales.md` section 3.2).
+/// (Selon la norme  `Recherche exhaustive de combinaisons maximales.md` section 3.2).
 const SEXTANT_LUT: [char; 64] = [
     ' ',         // 0: Vide
     '\u{1FB00}', // 1

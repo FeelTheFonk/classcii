@@ -52,7 +52,7 @@ pub fn render_grid(buf: &mut Buffer, area: Rect, grid: &AsciiGrid, zalgo_intensi
                 }
 
                 // Emulation Alpha VTE pour U+2591, U+2592, U+2593 (Shade Characters)
-                // S'assure que le composant fg et bg garantissent un alpha blending terminal-native SOTA,
+                // S'assure que le composant fg et bg garantissent un alpha blending terminal-native ,
                 // forçant le pipeline VTE à utiliser un raster vectoriel plutôt qu'un bitmap crénelé.
                 if cell.ch == '\u{2591}' || cell.ch == '\u{2592}' || cell.ch == '\u{2593}' {
                     let term_color_fg = Color::Rgb(cell.fg.0, cell.fg.1, cell.fg.2);

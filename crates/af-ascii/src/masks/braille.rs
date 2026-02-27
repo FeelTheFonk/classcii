@@ -17,7 +17,7 @@
 #[inline(always)]
 pub const fn get_braille_char(bitmask: u8) -> char {
     // Le bloc Unicode Braille est parfaitement mappé bit à bit sur l'offset 0x2800.
-    // Zero-cost abstraction SOTA.
+    // Zero-cost abstraction .
     match std::char::from_u32(0x2800 + bitmask as u32) {
         Some(c) => c,
         None => ' ',

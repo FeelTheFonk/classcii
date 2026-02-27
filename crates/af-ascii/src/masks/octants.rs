@@ -79,7 +79,7 @@ const fn generate_octant_lut() -> [char; 256] {
 pub const OCTANT_LUT: [char; 256] = generate_octant_lut();
 
 /// Lookup Table pré-calculée compilée statique. Index 0..=255.
-/// Assigne les caractères SOTA Octant via macro-const O(1).
+/// Assigne les caractères  Octant via macro-const O(1).
 #[must_use]
 #[inline(always)]
 pub const fn get_octant_char(bitmask: u8) -> char {

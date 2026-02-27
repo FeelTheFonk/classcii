@@ -1,7 +1,7 @@
-//! Table de Correspondance Exhaustive PETSCII -> Unicode SOTA
+//! Table de Correspondance Exhaustive PETSCII -> Unicode 
 //! (CBM PETSCII vers UTF-8)
 //!
-//! Permet le mapping O(1) des dumps mémoires C64 intégrant le semi-graphisme SOTA.
+//! Permet le mapping O(1) des dumps mémoires C64 intégrant le semi-graphisme .
 
 /// Lookup Table (LUT) pour la traduction directe [0..255] de PETSCII en caractères Unicode.
 /// Inclut les éléments de Box Drawing et Demi-Blocs Mosaïque Unicode modernes.
@@ -11,7 +11,7 @@ const fn init_petscii_lut() -> [char; 256] {
     let mut lut = ['?'; 256];
 
     // Remplissage progressif standard PETSCII (0x00 - 0xFF)
-    // Nous définissons la rampe minimale pour l'exemple SOTA et les symboles requis mathématiquement.
+    // Nous définissons la rampe minimale pour l'exemple  et les symboles requis mathématiquement.
 
     // Plage alphanumérique standard (simplifiée)
     let mut i = 0x20;

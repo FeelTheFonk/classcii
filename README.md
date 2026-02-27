@@ -1,6 +1,6 @@
-# clasSCII (SOTA Edition)
+# clasSCII 
 
-A State-of-the-Art (SOTA), real-time, audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to lossless MP4.
+ Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to lossless MP4.
 This engine pushes the limits of typography by integrating advanced topologies (Braille, Quadrants, Sextants, Octants), Bayer 8x8 Dithering, and audio-reactive Zalgo glitches, all while guaranteeing Zero-Allocation in the hot loops and 100% lock-free Safe Rust memory management.
 
 ## Requirements
@@ -27,7 +27,7 @@ A fourth execution mode — **Batch Export** — runs headless (no terminal) and
 |--------|----------|
 | `af-core` | Shared primitives, configuration matrices, `FeatureTimeline`, and lock-free topologies. |
 | `af-audio` | Audio capture (CPAL), FFT analysis, feature extraction, and offline `BatchAnalyzer`. |
-| `af-ascii` | SOTA Projections: Luma-to-ASCII, spatial quantization (Braille, Quadrant, Sextant U+1FB00, Octant U+1CD00), Bayer Dithering, and edge detection. |
+| `af-ascii` |  Projections: Luma-to-ASCII, spatial quantization (Braille, Quadrant, Sextant U+1FB00, Octant U+1CD00), Bayer Dithering, and edge detection. |
 | `af-render` | Display backend (`ratatui`), partial redraws, and Zalgo typographical distortions. |
 | `af-source` | Input stream decoding (Image, FFmpeg, Webcam, `FolderBatchSource`). |
 | `af-export` | Offline rasterizer (`ab_glyph`) with Alpha-blended Zalgo compositing, lossless MP4 muxer (FFmpeg subprocess). |

@@ -41,7 +41,7 @@ pub fn detect_edge(frame: &FrameBuffer, x: u32, y: u32) -> (f32, f32) {
     (norm_mag, angle)
 }
 
-/// ASCIIfy-Them SOTA logic : Maps an edge angle [-PI, PI] to a strict directional ascii char: `|`, `_`, `/`, `\`.
+/// ASCIIfy-Them  logic : Maps an edge angle [-PI, PI] to a strict directional ascii char: `|`, `_`, `/`, `\`.
 ///
 /// Returns `char`
 #[must_use]
@@ -70,7 +70,7 @@ pub fn ascii_edge_char(angle_rad: f32) -> char {
     }
 }
 
-/// SOTA Vectorial Edge Mapping: Maps gradient (Gx, Gy) to a strict ASCII directional character
+///  Vectorial Edge Mapping: Maps gradient (Gx, Gy) to a strict ASCII directional character
 /// based on 8-way symmetric quantization.
 ///
 /// Returns one of: '-', '|', '/', '\\', '+', 'o'
@@ -91,7 +91,7 @@ pub fn edge_char(gx: f32, gy: f32) -> char {
     let angle = gy.atan2(gx).to_degrees();
     let angle = if angle < 0.0 { angle + 180.0 } else { angle };
 
-    // Cartographie SOTA stricte :
+    // Cartographie  stricte :
     // 0 / 180 -> Horizontal ('-')
     // 90      -> Vertical   ('|')
     // 45      -> Diagonale Ascendante   ('/')

@@ -206,7 +206,7 @@ impl Default for RenderConfig {
     fn default() -> Self {
         Self {
             render_mode: RenderMode::Ascii,
-            charset: crate::charset::CHARSET_SOTA_FULL.to_string(),
+            charset: crate::charset::CHARSET_FULL.to_string(),
             charset_index: 0,
             dither_enabled: true,
             invert: false,

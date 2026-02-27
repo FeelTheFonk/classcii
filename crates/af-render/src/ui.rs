@@ -242,7 +242,7 @@ fn draw_sidebar(
         "○"
     };
 
-    // Typographic SOTA closure
+    // Typographic  closure
     let kv = |k: &str, lbl: &str, val: String| -> Line {
         Line::from(vec![
             Span::styled(format!(" {k:<5} "), Style::default().fg(Color::DarkGray)),

@@ -1,9 +1,9 @@
-/// Rampe Standard Complète (SOTA) - 92 caractères.
-pub const CHARSET_SOTA_FULL: &str =
+/// Rampe Standard Complète  - 92 caractères.
+pub const CHARSET_FULL: &str =
     "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}?-_+~<>i!lI;:,\"^`'. ";
 
 /// Rampe Alternative Dense - 69 caractères.
-pub const CHARSET_SOTA_DENSE: &str = "Ñ@#W$9876543210?!abc;:+=-,._ ";
+pub const CHARSET_DENSE: &str = "Ñ@#W$9876543210?!abc;:+=-,._ ";
 
 /// Séquence Courte 1 - 10 caractères.
 pub const CHARSET_SHORT_1: &str = ".:-=+*#%@";
@@ -79,7 +79,7 @@ impl LuminanceLut {
         let max_idx = (len - 1) as f32;
 
         for (i, slot) in lut.iter_mut().enumerate() {
-            // Équation de projection linéaire SOTA avec arrondi : char_idx = round(lum_norm * (N-1))
+            // Équation de projection linéaire  avec arrondi : char_idx = round(lum_norm * (N-1))
             let char_idx = ((i as f32 / 255.0) * max_idx).round() as usize;
             *slot = chars[char_idx.min(len - 1)];
         }

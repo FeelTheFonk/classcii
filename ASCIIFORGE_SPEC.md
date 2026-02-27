@@ -856,7 +856,7 @@ Ou plus simplement : comparer |Gx| et |Gy| et les signes, sans atan2.
 #### 6.2.3 Shape-matching (shape_match.rs)
 
 ```
-ALGORITHME (technique SOTA issue des ASCII shaders) :
+ALGORITHME (technique issue des ASCII shaders) :
 
 Pré-calcul (une fois au démarrage) :
   Pour chaque caractère du charset, rasteriser le glyph en bitmap NxN
@@ -888,7 +888,7 @@ Aucune crate Rust existante n'implémente cette technique.
 #### 6.2.4 Color mapping (color_map.rs)
 
 ```
-ALGORITHME HSV Bright (technique identifiée comme SOTA) :
+ALGORITHME HSV Bright :
 
 Pour chaque cellule :
   1. Obtenir la couleur RGB du pixel source.

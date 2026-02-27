@@ -142,7 +142,7 @@ pub struct AudioMapping {
 /// let mode = RenderMode::default();
 /// assert!(matches!(mode, RenderMode::Ascii));
 /// ```
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum RenderMode {
     /// Standard ASCII character mapping.
     #[default]

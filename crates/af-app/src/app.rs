@@ -61,7 +61,9 @@ pub enum AppState {
     CharsetEdit,
     /// Panneau de mixage audio affiché (touche A).
     AudioPanel,
-    /// L'application doit se terminer au prochain tour de boucle.
+    /// Choix Fichier ou Dossier (Export Batch).
+    FileOrFolderPrompt,
+    /// Fermeture de l'application. doit se terminer au prochain tour de boucle.
     Quitting,
 }
 
@@ -112,6 +114,8 @@ pub struct App {
     pub open_visual_requested: bool,
     /// Flag: l'utilisateur a demandé l'ouverture du file dialog audio.
     pub open_audio_requested: bool,
+    /// Flag: l'utilisateur a demandé l'ouverture du file dialog pour le batch folder.
+    pub open_batch_folder_requested: bool,
     /// Buffer local pour l'édition de charset en live.
     pub charset_edit_buf: String,
     /// Position du curseur dans l'éditeur de charset.
@@ -177,6 +181,7 @@ impl App {
             loaded_audio_name: None,
             open_visual_requested: false,
             open_audio_requested: false,
+            open_batch_folder_requested: false,
             charset_edit_buf: String::new(),
             charset_edit_cursor: 0,
             audio_panel: AudioPanelState::new(audio_mappings_len),
@@ -228,6 +233,10 @@ impl App {
             if self.open_audio_requested {
                 self.open_audio_requested = false;
                 self.open_audio_dialog(&mut terminal);
+            }
+            if self.open_batch_folder_requested {
+                self.open_batch_folder_requested = false;
+                self.open_batch_folder_dialog(&mut terminal);
             }
 
             // === Vérifier resize terminal ===
@@ -348,6 +357,7 @@ impl App {
             AppState::Help => RenderState::Help,
             AppState::CharsetEdit => RenderState::CharsetEdit,
             AppState::AudioPanel => RenderState::AudioPanel,
+            AppState::FileOrFolderPrompt => RenderState::FileOrFolderPrompt,
             AppState::Quitting => RenderState::Quitting,
         }
     }
@@ -366,6 +376,11 @@ impl App {
             }
             if self.state == AppState::AudioPanel {
                 self.handle_audio_panel_key(code);
+                return;
+            }
+
+            if self.state == AppState::FileOrFolderPrompt {
+                self.handle_prompt_key(code);
                 return;
             }
 
@@ -631,11 +646,30 @@ impl App {
                 };
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('o') => {
-                self.open_visual_requested = true;
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                self.state = AppState::FileOrFolderPrompt;
+                self.sidebar_dirty = true;
             }
-            KeyCode::Char('O') => {
-                self.open_audio_requested = true;
+            _ => {}
+        }
+    }
+
+    /// Prompt F or D handler
+    fn handle_prompt_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Char('f') | KeyCode::Char('F') => {
+                self.state = AppState::Running;
+                self.open_visual_requested = true;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                self.state = AppState::Running; // Will suspend anyway
+                self.open_batch_folder_requested = true;
+                self.sidebar_dirty = true;
             }
             _ => {}
         }
@@ -990,6 +1024,39 @@ impl App {
             self.loaded_audio_name = path.file_name().and_then(|n| n.to_str()).map(String::from);
             self.sidebar_dirty = true;
         }
+    }
+
+    /// Open batch folder dialog and run headless batch export.
+    fn open_batch_folder_dialog(&mut self, terminal: &mut DefaultTerminal) {
+        crossterm::terminal::disable_raw_mode().ok();
+        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen).ok();
+
+        let dialog = rfd::FileDialog::new().set_title("Select Batch Folder \u{2014} clasSCII");
+        let picked = dialog.pick_folder();
+
+        if let Some(folder) = picked {
+            // Suspend app visually, do the export offline
+            println!("\n=== ASCIIFORGE BATCH EXPORT ===");
+            println!("Target Folder: {}", folder.display());
+
+            let _config = (**self.config.load()).clone();
+
+            #[cfg(feature = "video")]
+            if let Err(e) = crate::batch::run_batch_export(&folder, None, None, config, 30) {
+                println!("\n[ERROR] Batch export failed: {}", e);
+            } else {
+                println!("\n[SUCCESS] Batch export completed.");
+            }
+
+            println!("\nPress ENTER to return to clasSCII...");
+            let mut buf = String::new();
+            let _ = std::io::stdin().read_line(&mut buf);
+        }
+
+        crossterm::terminal::enable_raw_mode().ok();
+        crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
+        terminal.clear().ok();
+        self.terminal_size = (0, 0);
     }
 
     /// Stop only the visual source (image/video), leave audio untouched.

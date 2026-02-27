@@ -32,6 +32,10 @@ pub trait Source: Send + 'static {
 
     /// Indique si la source est infinie (webcam, procédural) ou finie (fichier).
     fn is_live(&self) -> bool;
+
+    /// Déplace la tête de lecture à un timestamp spécifique (en secondes).
+    /// Par défaut, cette méthode est un no-op.
+    fn seek(&mut self, _timestamp: f64) {}
 }
 
 /// Transforme une frame pixel en une grille de cellules ASCII.

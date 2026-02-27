@@ -6,7 +6,9 @@ use arc_swap::ArcSwap;
 use clap::Parser;
 
 pub mod app;
+pub mod batch;
 pub mod cli;
+pub mod generative;
 pub mod hotreload;
 pub mod pipeline;
 
@@ -19,9 +21,21 @@ fn main() -> Result<()> {
         .filter_level(cli.log_level.parse().unwrap_or(log::LevelFilter::Warn))
         .init();
 
-    // 3. Valider la source (sauf si aucune n'est spécifiée, on affiche l'UI vide)
-    // DECISION: On ne force pas la validation en Phase 1 pour permettre le lancement sans source.
+    // 3. Valider la source
     let _ = cli.validate_source();
+
+    // Export Par lots
+    if let Some(folder) = cli.batch_folder.as_deref() {
+        log::info!("Lancement du traitement par lots offline...");
+        let config = resolve_config(&cli)?;
+        return batch::run_batch_export(
+            folder,
+            cli.audio.as_ref(),
+            cli.batch_out.as_deref(),
+            config,
+            cli.fps.unwrap_or(30),
+        );
+    }
 
     // 4. Charger la config
     let mut config = resolve_config(&cli)?;

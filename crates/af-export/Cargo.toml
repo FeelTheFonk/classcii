@@ -1,0 +1,20 @@
+[package]
+name = "af-export"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+af-core = { path = "../af-core" }
+anyhow = { workspace = true }
+log = { workspace = true }
+rayon = { workspace = true }
+
+# DEVIATION: R9 — ab_glyph est requis pour la rasterisation logicielle de texte
+# hors-ligne (export MP4), permettant d'éviter une dépendance lourde au C comme freetype.
+# Populaire et très rapide.
+ab_glyph = "0.2"
+
+[lints]
+workspace = true

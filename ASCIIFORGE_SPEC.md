@@ -1,4 +1,4 @@
-# ASCIIFORGE — Spécification Technique Définitive
+# classcii — Spécification Technique Définitive
 
 > **Ce document est la source de vérité absolue du projet.**
 > Tout agent IA opérant sur ce codebase DOIT lire ce fichier en premier et s'y conformer sans déviation.
@@ -128,7 +128,7 @@ Si l'étape 4 échoue, NE PAS passer à la phase suivante.
 
 ### 1.1 Quoi
 
-AsciiForge est un moteur de rendu ASCII temps réel, audio-réactif, paramétrable, fonctionnant exclusivement en TUI (terminal). Il transforme n'importe quelle source visuelle (image, vidéo, webcam, génération procédurale) en art ASCII/Unicode animé, modulé par l'analyse spectrale d'une source audio (fichier, microphone, loopback système).
+classcii est un moteur de rendu ASCII temps réel, audio-réactif, paramétrable, fonctionnant exclusivement en TUI (terminal). Il transforme n'importe quelle source visuelle (image, vidéo, webcam, génération procédurale) en art ASCII/Unicode animé, modulé par l'analyse spectrale d'une source audio (fichier, microphone, loopback système).
 
 ### 1.2 Pourquoi en Rust
 
@@ -204,7 +204,7 @@ Latence déterministe (pas de GC), zero-cost abstractions pour le pipeline de tr
 ### 3.1 Structure
 
 ```
-asciiforge/
+classcii/
 ├── Cargo.toml                    # [workspace]
 ├── SPEC.md                       # CE DOCUMENT
 ├── README.md
@@ -216,7 +216,8 @@ asciiforge/
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── config.rs         # Structures de config serde
-│   │       ├── frame.rs          # FrameBuffer, PixelFormat
+│   │       ├── frame.rs          # FrameBuffer, AsciiGrid, AudioFeatures
+│   │       ├── feature_timeline.rs # FeatureTimeline (batch offline)
 │   │       ├── charset.rs        # CharacterSet, ramps, LUT
 │   │       ├── color.rs          # Conversion RGB/HSV, quantization
 │   │       ├── error.rs          # Types d'erreur (thiserror)
@@ -230,6 +231,7 @@ asciiforge/
 │   │       ├── decode.rs         # Décodage fichier (symphonia)
 │   │       ├── fft.rs            # FFT pipeline (realfft)
 │   │       ├── features.rs       # Spectral centroid, flux, RMS, etc.
+│   │       ├── batch_analyzer.rs # BatchAnalyzer — offline full-file analysis
 │   │       ├── beat.rs           # Onset detection, beat tracking
 │   │       ├── smoothing.rs      # EMA, peak hold, envelope follower
 │   │       └── state.rs          # AudioFeatures struct partagée
@@ -239,7 +241,8 @@ asciiforge/
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── image.rs          # Chargement image statique
-│   │       ├── video.rs          # Décodage vidéo (ffmpeg-the-third)
+│   │       ├── video.rs          # Décodage vidéo (ffmpeg subprocess)
+│   │       ├── folder_batch.rs   # FolderBatchSource (batch export)
 │   │       ├── webcam.rs         # Capture webcam (nokhwa)
 │   │       ├── procedural.rs     # Noise, particles, raymarching
 │   │       └── resize.rs         # Wrapper fast_image_resize
@@ -266,14 +269,28 @@ asciiforge/
 │   │       ├── fps.rs            # FPS counter, frame timing
 │   │       └── effects.rs        # Post-processing sur buffer (glow, fade)
 │   │
+│   ├── af-export/                # Export headless (batch)        
+│   │   ├── Cargo.toml
+│   │   ├── assets/
+│   │   │   └── FiraCode-Regular.ttf  # Police embarquée pour rasterisation
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── rasterizer.rs     # AsciiGrid → pixels RGBA (ab_glyph, rayon)
+│   │       └── muxer.rs          # x264 CRF0 lossless MP4 muxer (ffmpeg subprocess)
+│   │
 │   └── af-app/                   # Point d'entrée, orchestration
 │       ├── Cargo.toml
 │       └── src/
 │           ├── main.rs
 │           ├── app.rs            # State machine principale
+│           ├── batch.rs          # Batch export orchestration
+│           ├── generative.rs     # AutoGenerativeMapper
 │           ├── pipeline.rs       # Wiring des modules
 │           ├── hotreload.rs      # Watch config + reload
-│           └── midi.rs           # Contrôle MIDI optionnel
+│           └── cli.rs            # CLI arguments (clap)
+│
+├── docs/
+│   └── USAGE.md                  # User-friendly guide
 │
 ├── tests/                        # Tests d'intégration
 │   ├── pipeline_test.rs
@@ -297,6 +314,7 @@ members = [
     "crates/af-ascii",
     "crates/af-render",
     "crates/af-app",
+    "crates/af-export",
 ]
 
 [workspace.package]
@@ -304,7 +322,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
-authors = ["AsciiForge Contributors"]
+authors = ["classcii Contributors"]
 
 [workspace.dependencies]
 # === Core ===
@@ -998,7 +1016,7 @@ T≈15ms    │ sleep_until(next_frame_time) si en avance.
 ## 8. FICHIER DE CONFIGURATION PAR DÉFAUT
 
 ```toml
-# config/default.toml — Configuration AsciiForge par défaut.
+# config/default.toml — Configuration classcii par défaut.
 
 [render]
 render_mode = "Ascii"
@@ -1436,7 +1454,7 @@ Utiliser `clap` v4 (derive). Défini dans `af-app/src/main.rs`.
 use clap::Parser;
 use std::path::PathBuf;
 
-/// AsciiForge — Audio-reactive ASCII art engine.
+/// classcii — Audio-reactive ASCII art engine.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
@@ -2540,102 +2558,102 @@ L'agent doit créer exactement ces fichiers, dans cet ordre (par phase).
 ### Phase 1
 
 ```
-asciiforge/Cargo.toml
-asciiforge/SPEC.md                           (copie de ce document)
-asciiforge/config/default.toml               (section 8)
-asciiforge/crates/af-core/Cargo.toml
-asciiforge/crates/af-core/src/lib.rs
-asciiforge/crates/af-core/src/config.rs      (RenderConfig + load/save)
-asciiforge/crates/af-core/src/frame.rs       (FrameBuffer)
-asciiforge/crates/af-core/src/charset.rs     (LuminanceLut, charsets constants)
-asciiforge/crates/af-core/src/color.rs       (RGB↔HSV, section 30)
-asciiforge/crates/af-core/src/error.rs       (CoreError, section 17.1)
-asciiforge/crates/af-core/src/traits.rs      (Source, Processor, AudioAnalyzer)
-asciiforge/crates/af-render/Cargo.toml
-asciiforge/crates/af-render/src/lib.rs
-asciiforge/crates/af-render/src/canvas.rs    (écriture directe buffer)
-asciiforge/crates/af-render/src/ui.rs        (layout)
-asciiforge/crates/af-render/src/widgets.rs   (stub vide)
-asciiforge/crates/af-render/src/fps.rs       (FpsCounter)
-asciiforge/crates/af-render/src/effects.rs   (stub vide)
-asciiforge/crates/af-app/Cargo.toml
-asciiforge/crates/af-app/src/main.rs         (section 19)
-asciiforge/crates/af-app/src/app.rs          (section 18 + 29)
-asciiforge/crates/af-app/src/cli.rs          (section 16)
-asciiforge/crates/af-app/src/pipeline.rs     (stub)
-asciiforge/crates/af-app/src/hotreload.rs    (section 20)
+classcii/Cargo.toml
+classcii/SPEC.md                           (copie de ce document)
+classcii/config/default.toml               (section 8)
+classcii/crates/af-core/Cargo.toml
+classcii/crates/af-core/src/lib.rs
+classcii/crates/af-core/src/config.rs      (RenderConfig + load/save)
+classcii/crates/af-core/src/frame.rs       (FrameBuffer)
+classcii/crates/af-core/src/charset.rs     (LuminanceLut, charsets constants)
+classcii/crates/af-core/src/color.rs       (RGB↔HSV, section 30)
+classcii/crates/af-core/src/error.rs       (CoreError, section 17.1)
+classcii/crates/af-core/src/traits.rs      (Source, Processor, AudioAnalyzer)
+classcii/crates/af-render/Cargo.toml
+classcii/crates/af-render/src/lib.rs
+classcii/crates/af-render/src/canvas.rs    (écriture directe buffer)
+classcii/crates/af-render/src/ui.rs        (layout)
+classcii/crates/af-render/src/widgets.rs   (stub vide)
+classcii/crates/af-render/src/fps.rs       (FpsCounter)
+classcii/crates/af-render/src/effects.rs   (stub vide)
+classcii/crates/af-app/Cargo.toml
+classcii/crates/af-app/src/main.rs         (section 19)
+classcii/crates/af-app/src/app.rs          (section 18 + 29)
+classcii/crates/af-app/src/cli.rs          (section 16)
+classcii/crates/af-app/src/pipeline.rs     (stub)
+classcii/crates/af-app/src/hotreload.rs    (section 20)
 ```
 
 ### Phase 2
 
 ```
-asciiforge/crates/af-source/Cargo.toml
-asciiforge/crates/af-source/src/lib.rs
-asciiforge/crates/af-source/src/image.rs
-asciiforge/crates/af-source/src/resize.rs
-asciiforge/crates/af-ascii/Cargo.toml
-asciiforge/crates/af-ascii/src/lib.rs
-asciiforge/crates/af-ascii/src/luminance.rs
-asciiforge/crates/af-ascii/src/color_map.rs
-asciiforge/crates/af-ascii/src/compositor.rs (délègue au mode actif)
+classcii/crates/af-source/Cargo.toml
+classcii/crates/af-source/src/lib.rs
+classcii/crates/af-source/src/image.rs
+classcii/crates/af-source/src/resize.rs
+classcii/crates/af-ascii/Cargo.toml
+classcii/crates/af-ascii/src/lib.rs
+classcii/crates/af-ascii/src/luminance.rs
+classcii/crates/af-ascii/src/color_map.rs
+classcii/crates/af-ascii/src/compositor.rs (délègue au mode actif)
 ```
 
 ### Phase 3
 
 ```
-asciiforge/crates/af-ascii/src/halfblock.rs  (section 6.3.1 mode HalfBlock)
-asciiforge/crates/af-ascii/src/braille.rs    (section 24)
-asciiforge/crates/af-ascii/src/quadrant.rs   (section 25)
-asciiforge/crates/af-ascii/src/edge.rs       (section 6.2.2)
-asciiforge/crates/af-ascii/src/shape_match.rs (section 6.2.3)
+classcii/crates/af-ascii/src/halfblock.rs  (section 6.3.1 mode HalfBlock)
+classcii/crates/af-ascii/src/braille.rs    (section 24)
+classcii/crates/af-ascii/src/quadrant.rs   (section 25)
+classcii/crates/af-ascii/src/edge.rs       (section 6.2.2)
+classcii/crates/af-ascii/src/shape_match.rs (section 6.2.3)
 ```
 
 ### Phase 4
 
 ```
-asciiforge/crates/af-audio/Cargo.toml
-asciiforge/crates/af-audio/src/lib.rs
-asciiforge/crates/af-audio/src/capture.rs    (section 6.1.1)
-asciiforge/crates/af-audio/src/fft.rs        (section 6.1.3)
-asciiforge/crates/af-audio/src/features.rs   (section 6.1.4)
-asciiforge/crates/af-audio/src/beat.rs       (section 6.1.4 onset+BPM)
-asciiforge/crates/af-audio/src/smoothing.rs  (section 6.1.5)
-asciiforge/crates/af-audio/src/state.rs      (AudioFeatures → triple_buffer wiring)
-asciiforge/crates/af-audio/src/error.rs      (section 17.2)
+classcii/crates/af-audio/Cargo.toml
+classcii/crates/af-audio/src/lib.rs
+classcii/crates/af-audio/src/capture.rs    (section 6.1.1)
+classcii/crates/af-audio/src/fft.rs        (section 6.1.3)
+classcii/crates/af-audio/src/features.rs   (section 6.1.4)
+classcii/crates/af-audio/src/beat.rs       (section 6.1.4 onset+BPM)
+classcii/crates/af-audio/src/smoothing.rs  (section 6.1.5)
+classcii/crates/af-audio/src/state.rs      (AudioFeatures → triple_buffer wiring)
+classcii/crates/af-audio/src/error.rs      (section 17.2)
 ```
 
 ### Phase 5
 
 ```
-asciiforge/crates/af-app/src/pipeline.rs     (compléter avec audio wiring, section 31)
+classcii/crates/af-app/src/pipeline.rs     (compléter avec audio wiring, section 31)
 ```
 
 ### Phase 6
 
 ```
-asciiforge/crates/af-audio/src/decode.rs     (section 6.1.2)
+classcii/crates/af-audio/src/decode.rs     (section 6.1.2)
 ```
 
 ### Phase 7
 
 ```
-asciiforge/crates/af-source/src/video.rs
+classcii/crates/af-source/src/video.rs
 ```
 
 ### Phase 8
 
 ```
-asciiforge/crates/af-source/src/webcam.rs
-asciiforge/crates/af-source/src/procedural.rs (section 26)
+classcii/crates/af-source/src/webcam.rs
+classcii/crates/af-source/src/procedural.rs (section 26)
 ```
 
 ### Phase 9
 
 ```
-asciiforge/crates/af-app/src/midi.rs
-asciiforge/README.md
-asciiforge/tests/pipeline_test.rs            (section 27.2)
-asciiforge/benches/ascii_bench.rs            (section 27.3)
+classcii/crates/af-app/src/midi.rs
+classcii/README.md
+classcii/tests/pipeline_test.rs            (section 27.2)
+classcii/benches/ascii_bench.rs            (section 27.3)
 ```
 
 ---
@@ -3242,7 +3260,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "asciiforge"
+name = "classcii"
 path = "src/main.rs"
 
 [dependencies]
@@ -3394,13 +3412,13 @@ pub fn start_midi_listener(
     config: Arc<ArcSwap<RenderConfig>>,
     mappings: Vec<MidiMapping>,
 ) -> anyhow::Result<MidiInputConnection<()>> {
-    let midi_in = MidiInput::new("asciiforge-midi")?;
+    let midi_in = MidiInput::new("classcii-midi")?;
     let ports = midi_in.ports();
     let port = ports.first()
         .ok_or_else(|| anyhow::anyhow!("Aucun port MIDI d'entrée trouvé"))?;
     log::info!("MIDI connecté à : {}", midi_in.port_name(port).unwrap_or_default());
 
-    let conn = midi_in.connect(port, "asciiforge-midi-in", move |_ts, msg, _| {
+    let conn = midi_in.connect(port, "classcii-midi-in", move |_ts, msg, _| {
         if msg.len() == 3 && (msg[0] & 0xF0) == 0xB0 {
             let cc = msg[1];
             let value = msg[2] as f32 / 127.0;
@@ -4058,107 +4076,107 @@ impl LuminanceLut {
 ### Phase 1 — Squelette (~22 fichiers)
 
 ```
-asciiforge/Cargo.toml                           § 3.2
-asciiforge/SPEC.md                               ce document
-asciiforge/config/default.toml                   § 8
-asciiforge/crates/af-core/Cargo.toml             § 40
-asciiforge/crates/af-core/src/lib.rs             § 41
-asciiforge/crates/af-core/src/config.rs          § 5.4 + § 34
-asciiforge/crates/af-core/src/frame.rs           § 5.1 + § 5.2 + § 5.3
-asciiforge/crates/af-core/src/charset.rs         § 50
-asciiforge/crates/af-core/src/color.rs           § 30
-asciiforge/crates/af-core/src/error.rs           § 17.1
-asciiforge/crates/af-core/src/traits.rs          § 4
-asciiforge/crates/af-render/Cargo.toml           § 40
-asciiforge/crates/af-render/src/lib.rs           § 41
-asciiforge/crates/af-render/src/canvas.rs        § 6.3.1
-asciiforge/crates/af-render/src/ui.rs            § 6.3.2
-asciiforge/crates/af-render/src/widgets.rs       stub
-asciiforge/crates/af-render/src/fps.rs           § 33
-asciiforge/crates/af-render/src/effects.rs       stub
-asciiforge/crates/af-app/Cargo.toml              § 40
-asciiforge/crates/af-app/src/main.rs             § 19
-asciiforge/crates/af-app/src/app.rs              § 18 + § 29
-asciiforge/crates/af-app/src/cli.rs              § 16
-asciiforge/crates/af-app/src/pipeline.rs         stub
-asciiforge/crates/af-app/src/hotreload.rs        § 20
+classcii/Cargo.toml                           § 3.2
+classcii/SPEC.md                               ce document
+classcii/config/default.toml                   § 8
+classcii/crates/af-core/Cargo.toml             § 40
+classcii/crates/af-core/src/lib.rs             § 41
+classcii/crates/af-core/src/config.rs          § 5.4 + § 34
+classcii/crates/af-core/src/frame.rs           § 5.1 + § 5.2 + § 5.3
+classcii/crates/af-core/src/charset.rs         § 50
+classcii/crates/af-core/src/color.rs           § 30
+classcii/crates/af-core/src/error.rs           § 17.1
+classcii/crates/af-core/src/traits.rs          § 4
+classcii/crates/af-render/Cargo.toml           § 40
+classcii/crates/af-render/src/lib.rs           § 41
+classcii/crates/af-render/src/canvas.rs        § 6.3.1
+classcii/crates/af-render/src/ui.rs            § 6.3.2
+classcii/crates/af-render/src/widgets.rs       stub
+classcii/crates/af-render/src/fps.rs           § 33
+classcii/crates/af-render/src/effects.rs       stub
+classcii/crates/af-app/Cargo.toml              § 40
+classcii/crates/af-app/src/main.rs             § 19
+classcii/crates/af-app/src/app.rs              § 18 + § 29
+classcii/crates/af-app/src/cli.rs              § 16
+classcii/crates/af-app/src/pipeline.rs         stub
+classcii/crates/af-app/src/hotreload.rs        § 20
 ```
 
 ### Phase 2 — Image → ASCII (+9 fichiers)
 
 ```
-asciiforge/crates/af-source/Cargo.toml           § 40
-asciiforge/crates/af-source/src/lib.rs           § 41
-asciiforge/crates/af-source/src/image.rs         § 36
-asciiforge/crates/af-source/src/resize.rs        § 35
-asciiforge/crates/af-ascii/Cargo.toml            § 40
-asciiforge/crates/af-ascii/src/lib.rs            § 41
-asciiforge/crates/af-ascii/src/luminance.rs      fn process utilisant LuminanceLut
-asciiforge/crates/af-ascii/src/color_map.rs      § 47
-asciiforge/crates/af-ascii/src/compositor.rs     § 38
+classcii/crates/af-source/Cargo.toml           § 40
+classcii/crates/af-source/src/lib.rs           § 41
+classcii/crates/af-source/src/image.rs         § 36
+classcii/crates/af-source/src/resize.rs        § 35
+classcii/crates/af-ascii/Cargo.toml            § 40
+classcii/crates/af-ascii/src/lib.rs            § 41
+classcii/crates/af-ascii/src/luminance.rs      fn process utilisant LuminanceLut
+classcii/crates/af-ascii/src/color_map.rs      § 47
+classcii/crates/af-ascii/src/compositor.rs     § 38
 ```
 
 ### Phase 3 — Modes avancés (+5 fichiers)
 
 ```
-asciiforge/crates/af-ascii/src/halfblock.rs      § 37
-asciiforge/crates/af-ascii/src/braille.rs        § 24
-asciiforge/crates/af-ascii/src/quadrant.rs       § 25
-asciiforge/crates/af-ascii/src/edge.rs           § 48
-asciiforge/crates/af-ascii/src/shape_match.rs    § 49
+classcii/crates/af-ascii/src/halfblock.rs      § 37
+classcii/crates/af-ascii/src/braille.rs        § 24
+classcii/crates/af-ascii/src/quadrant.rs       § 25
+classcii/crates/af-ascii/src/edge.rs           § 48
+classcii/crates/af-ascii/src/shape_match.rs    § 49
 ```
 
 ### Phase 4 — Audio (+9 fichiers)
 
 ```
-asciiforge/crates/af-audio/Cargo.toml            § 40
-asciiforge/crates/af-audio/src/lib.rs            § 41
-asciiforge/crates/af-audio/src/capture.rs        § 45
-asciiforge/crates/af-audio/src/fft.rs            § 6.1.3
-asciiforge/crates/af-audio/src/features.rs       § 6.1.4
-asciiforge/crates/af-audio/src/beat.rs           § 6.1.4
-asciiforge/crates/af-audio/src/smoothing.rs      § 46
-asciiforge/crates/af-audio/src/state.rs          § 39
-asciiforge/crates/af-audio/src/error.rs          § 17.2
+classcii/crates/af-audio/Cargo.toml            § 40
+classcii/crates/af-audio/src/lib.rs            § 41
+classcii/crates/af-audio/src/capture.rs        § 45
+classcii/crates/af-audio/src/fft.rs            § 6.1.3
+classcii/crates/af-audio/src/features.rs       § 6.1.4
+classcii/crates/af-audio/src/beat.rs           § 6.1.4
+classcii/crates/af-audio/src/smoothing.rs      § 46
+classcii/crates/af-audio/src/state.rs          § 39
+classcii/crates/af-audio/src/error.rs          § 17.2
 ```
 
 ### Phase 5 — Audio-réactivité (modification)
 
 ```
-asciiforge/crates/af-app/src/pipeline.rs         § 44
+classcii/crates/af-app/src/pipeline.rs         § 44
 ```
 
 ### Phase 6 — Décodage fichier (+1)
 
 ```
-asciiforge/crates/af-audio/src/decode.rs         § 6.1.2
+classcii/crates/af-audio/src/decode.rs         § 6.1.2
 ```
 
 ### Phase 7 — Vidéo (+1)
 
 ```
-asciiforge/crates/af-source/src/video.rs
+classcii/crates/af-source/src/video.rs
 ```
 
 ### Phase 8 — Webcam + Procédural (+2)
 
 ```
-asciiforge/crates/af-source/src/webcam.rs
-asciiforge/crates/af-source/src/procedural.rs    § 26
+classcii/crates/af-source/src/webcam.rs
+classcii/crates/af-source/src/procedural.rs    § 26
 ```
 
 ### Phase 9 — MIDI + Polish (+8)
 
 ```
-asciiforge/crates/af-app/src/midi.rs             § 42
-asciiforge/config/presets/ambient.toml            § 43
-asciiforge/config/presets/aggressive.toml         § 43
-asciiforge/config/presets/minimal.toml            § 43
-asciiforge/config/presets/retro.toml              § 43
-asciiforge/config/presets/psychedelic.toml        § 43
-asciiforge/README.md
-asciiforge/tests/pipeline_test.rs                § 27.2
-asciiforge/benches/ascii_bench.rs                § 27.3
+classcii/crates/af-app/src/midi.rs             § 42
+classcii/config/presets/ambient.toml            § 43
+classcii/config/presets/aggressive.toml         § 43
+classcii/config/presets/minimal.toml            § 43
+classcii/config/presets/retro.toml              § 43
+classcii/config/presets/psychedelic.toml        § 43
+classcii/README.md
+classcii/tests/pipeline_test.rs                § 27.2
+classcii/benches/ascii_bench.rs                § 27.3
 ```
 
 **Total : ~56 fichiers source, 9 phases.**

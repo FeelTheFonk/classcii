@@ -29,6 +29,8 @@ pub enum RenderState {
     CharsetEdit,
     /// Panneau de mixage audio affiché (touche A).
     AudioPanel,
+    /// Invite choix Fichier/Dossier.
+    FileOrFolderPrompt,
     /// Quitting (should not reach draw).
     Quitting,
 }
@@ -92,11 +94,56 @@ pub fn draw(
     // Force draw help even in fullscreen if toggled
     if *state == RenderState::Help {
         draw_help_overlay(frame, area);
+    } else if *state == RenderState::FileOrFolderPrompt {
+        draw_prompt_overlay(frame, area);
     } else if let Some((buf, cursor)) = layout_charset_edit {
         draw_charset_edit_overlay(frame, area, buf, cursor);
     } else if let Some((panel_state, rcfg)) = layout_audio_panel {
         draw_audio_panel_overlay(frame, area, rcfg, panel_state, audio);
     }
+}
+
+/// Draw the File/Folder prompt overlay.
+fn draw_prompt_overlay(frame: &mut Frame, area: Rect) {
+    let lines = vec![
+        Line::from(Span::styled(
+            "Select Action",
+            Style::default().fg(Color::Yellow),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(" [F] ", Style::default().fg(Color::Green)),
+            Span::styled("Open Single Media File", Style::default().fg(Color::White)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(" [D] ", Style::default().fg(Color::Magenta)),
+            Span::styled(
+                "Select Folder for Batch Export Generation",
+                Style::default().fg(Color::White),
+            ),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Esc to cancel ",
+            Style::default().fg(Color::DarkGray),
+        )),
+    ];
+
+    let overlay_width = 48u16;
+    let overlay_height = 9u16;
+    let x = area.x + area.width.saturating_sub(overlay_width) / 2;
+    let y = area.y + area.height.saturating_sub(overlay_height) / 2;
+    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
+
+    let widget = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Action ")
+            .style(Style::default().bg(Color::Black).fg(Color::White)),
+    );
+
+    frame.render_widget(widget, overlay_area);
 }
 
 /// Draw the spectrum sparkline bar with intensity coloring.
@@ -168,6 +215,7 @@ fn draw_sidebar(
         RenderState::Help => "? HELP",
         RenderState::CharsetEdit => "C EDIT",
         RenderState::AudioPanel => "A MIX",
+        RenderState::FileOrFolderPrompt => "? SELECT",
         RenderState::Quitting => "⏹ QUIT",
     };
 

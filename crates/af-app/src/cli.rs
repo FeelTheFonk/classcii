@@ -26,6 +26,14 @@ pub struct Cli {
     #[arg(long)]
     pub audio: Option<String>,
 
+    /// Dossier contenant les médias pour l'export génératif par lots.
+    #[arg(long)]
+    pub batch_folder: Option<PathBuf>,
+
+    /// Fichier de destination final MP4. Requis si --batch-folder est utilisé.
+    #[arg(long)]
+    pub batch_out: Option<PathBuf>,
+
     /// Fichier de configuration TOML. Défaut : config/default.toml.
     #[arg(short, long, default_value = "config/default.toml")]
     pub config: PathBuf,
@@ -60,18 +68,22 @@ impl Cli {
         let count = usize::from(self.image.is_some())
             + usize::from(self.video.is_some())
             + usize::from(self.webcam)
-            + usize::from(self.procedural.is_some());
+            + usize::from(self.procedural.is_some())
+            + usize::from(self.batch_folder.is_some());
 
         if count == 0 {
             anyhow::bail!(
-                "Aucune source visuelle spécifiée. Utilisez --image, --video, --webcam, ou --procedural."
+                "Aucune source visuelle spécifiée. Utilisez --image, --video, --webcam, --procedural, ou --batch-folder."
             );
         }
         if count > 1 {
             anyhow::bail!(
-                "Une seule source visuelle à la fois. Spécifiez --image, --video, --webcam, OU --procedural."
+                "Une seule source visuelle à la fois. Spécifiez --image, --video, --webcam, --procedural, OU --batch-folder."
             );
         }
+
+        // We no longer require `batch_out` and `audio` to be set explicitly.
+        // They will be auto-discovered/auto-generated in `run_batch_export`.
         Ok(())
     }
 }

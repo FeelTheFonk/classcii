@@ -15,6 +15,7 @@ af-audio = { path = "../af-audio" }
 af-source = { path = "../af-source" }
 af-ascii = { path = "../af-ascii" }
 af-render = { path = "../af-render" }
+af-export = { path = "../af-export" }
 clap = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
@@ -28,6 +29,8 @@ notify = { workspace = true }
 ctrlc = { workspace = true }
 rfd = { workspace = true }
 midir = { workspace = true, optional = true }
+rand = { version = "0.10.0", features = ["std"] }
+chrono = "0.4.44"
 
 [features]
 default = ["image-source"]

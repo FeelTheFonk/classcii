@@ -5,6 +5,7 @@
 pub mod charset;
 pub mod color;
 pub mod config;
+pub mod feature_timeline;
 pub mod frame;
 pub mod traits;
 

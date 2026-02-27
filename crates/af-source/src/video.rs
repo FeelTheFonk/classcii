@@ -48,11 +48,11 @@ pub enum VideoCommand {
 
 /// Métadonnées extraites via ffprobe.
 #[derive(Clone, Copy)]
-struct VideoInfo {
-    width: u32,
-    height: u32,
+pub struct VideoInfo {
+    pub width: u32,
+    pub height: u32,
     /// Images par seconde (ex: 23.976, 24.0, 30.0, 60.0).
-    fps: f64,
+    pub fps: f64,
 }
 
 /// État mutable centralisé du thread vidéo.
@@ -103,7 +103,7 @@ impl VideoState {
 /// // Nécessite ffprobe en PATH
 /// // let info = probe_video(Path::new("video.mkv"));
 /// ```
-fn probe_video(path: &Path) -> Result<VideoInfo> {
+pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     let path_str = path.to_str().context("Chemin vidéo invalide (non-UTF8)")?;
 
     let output = Command::new("ffprobe")
@@ -171,7 +171,14 @@ fn probe_video(path: &Path) -> Result<VideoInfo> {
 /// `-an` supprime l'audio (géré séparément par symphonia).
 ///
 /// Retourne `None` si le spawn échoue (log::warn émis).
-fn spawn_ffmpeg_pipe(path: &Path, w: u32, h: u32, pos_secs: f64, target_fps: u32) -> Option<Child> {
+#[must_use]
+pub fn spawn_ffmpeg_pipe(
+    path: &Path,
+    w: u32,
+    h: u32,
+    pos_secs: f64,
+    target_fps: u32,
+) -> Option<Child> {
     let Some(path_str) = path.to_str() else {
         log::warn!("spawn_ffmpeg_pipe: chemin non-UTF8");
         return None;
@@ -222,7 +229,7 @@ fn spawn_ffmpeg_pipe(path: &Path, w: u32, h: u32, pos_secs: f64, target_fps: u32
 /// # Errors
 /// Retourne `Ok(true)` si lu avec succès, `Ok(false)` sur EOF avant complétion,
 /// `Err` sur erreur I/O fatale.
-fn read_exact_or_eof<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<bool> {
+pub fn read_exact_or_eof<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<bool> {
     let mut total = 0usize;
     while total < buf.len() {
         match reader.read(&mut buf[total..]) {

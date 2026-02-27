@@ -1,5 +1,6 @@
 // Audio capture, analysis, and feature extraction for clasSCII.
 
+pub mod batch_analyzer;
 pub mod beat;
 pub mod capture;
 pub mod decode;

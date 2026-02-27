@@ -6,3 +6,5 @@ pub mod effects;
 pub mod fps;
 pub mod ui;
 pub mod widgets;
+
+pub use widgets::AudioPanelState;

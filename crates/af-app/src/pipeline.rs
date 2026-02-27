@@ -104,6 +104,10 @@ pub fn apply_audio_mappings(config: &mut RenderConfig, features: &AudioFeatures)
     let sensitivity = config.audio_sensitivity;
 
     for mapping in &config.audio_mappings {
+        if !mapping.enabled {
+            continue;
+        }
+
         let source_value = match mapping.source.as_str() {
             "rms" => features.rms,
             "peak" => features.peak,

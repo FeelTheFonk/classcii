@@ -7,6 +7,7 @@ use af_audio::state::AudioCommand;
 use af_core::charset;
 use af_core::config::{BgStyle, ColorMode, RenderConfig, RenderMode};
 use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
+use af_render::AudioPanelState;
 use af_render::fps::FpsCounter;
 use af_render::ui::RenderState;
 use af_source::resize::Resizer;
@@ -56,6 +57,10 @@ pub enum AppState {
     Paused,
     /// Overlay d'aide affiché (touche ?).
     Help,
+    /// Éditeur de charset personnalisé affiché (touche C).
+    CharsetEdit,
+    /// Panneau de mixage audio affiché (touche A).
+    AudioPanel,
     /// L'application doit se terminer au prochain tour de boucle.
     Quitting,
 }
@@ -107,6 +112,12 @@ pub struct App {
     pub open_visual_requested: bool,
     /// Flag: l'utilisateur a demandé l'ouverture du file dialog audio.
     pub open_audio_requested: bool,
+    /// Buffer local pour l'édition de charset en live.
+    pub charset_edit_buf: String,
+    /// Position du curseur dans l'éditeur de charset.
+    pub charset_edit_cursor: usize,
+    /// État local du panneau de mixage audio.
+    pub audio_panel: AudioPanelState,
 }
 
 impl App {
@@ -138,6 +149,8 @@ impl App {
         }
         presets.sort(); // Predictable iteration order
 
+        let audio_mappings_len = config.load().audio_mappings.len();
+
         Ok(Self {
             state: AppState::Running,
             config,
@@ -164,6 +177,9 @@ impl App {
             loaded_audio_name: None,
             open_visual_requested: false,
             open_audio_requested: false,
+            charset_edit_buf: String::new(),
+            charset_edit_cursor: 0,
+            audio_panel: AudioPanelState::new(audio_mappings_len),
         })
     }
 
@@ -291,6 +307,17 @@ impl App {
 
             let loaded_visual = self.loaded_visual_name.as_deref();
             let loaded_audio = self.loaded_audio_name.as_deref();
+            let layout_audio_panel = if state == RenderState::AudioPanel {
+                Some((&self.audio_panel, &render_config))
+            } else {
+                None
+            };
+            let layout_charset_edit = if state == RenderState::CharsetEdit {
+                Some((self.charset_edit_buf.as_str(), self.charset_edit_cursor))
+            } else {
+                None
+            };
+
             terminal.draw(|frame| {
                 af_render::ui::draw(
                     frame,
@@ -303,6 +330,8 @@ impl App {
                     loaded_audio,
                     sidebar_dirty,
                     &state,
+                    layout_charset_edit,
+                    layout_audio_panel,
                 );
             })?;
             self.sidebar_dirty = false;
@@ -317,6 +346,8 @@ impl App {
             AppState::Running => RenderState::Running,
             AppState::Paused => RenderState::Paused,
             AppState::Help => RenderState::Help,
+            AppState::CharsetEdit => RenderState::CharsetEdit,
+            AppState::AudioPanel => RenderState::AudioPanel,
             AppState::Quitting => RenderState::Quitting,
         }
     }
@@ -329,6 +360,15 @@ impl App {
             ..
         }) = *event
         {
+            if self.state == AppState::CharsetEdit {
+                self.handle_charset_edit_key(code);
+                return;
+            }
+            if self.state == AppState::AudioPanel {
+                self.handle_audio_panel_key(code);
+                return;
+            }
+
             match code {
                 KeyCode::Char('q' | '?' | ' ' | 'o' | 'O') | KeyCode::Esc => {
                     self.handle_navigation_key(code);
@@ -357,7 +397,9 @@ impl App {
                     | 'x'
                     | 'v'
                     | 'p'
-                    | 'P',
+                    | 'P'
+                    | 'C'
+                    | 'A',
                 ) => self.handle_render_key(code),
                 KeyCode::Char('f' | 'F' | 'g' | 'G') => self.handle_effect_key(code),
                 KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
@@ -365,6 +407,193 @@ impl App {
                 }
                 _ => {}
             }
+        }
+    }
+
+    /// Charset Editor logic
+    #[allow(clippy::assigning_clones)]
+    fn handle_charset_edit_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Enter => {
+                if self.charset_edit_buf.chars().count() >= 2 {
+                    let new_charset = self.charset_edit_buf.clone();
+                    self.toggle_config(|c| {
+                        c.charset = new_charset;
+                        c.charset_index = 10;
+                    });
+                    self.state = AppState::Running;
+                    self.sidebar_dirty = true;
+                }
+            }
+            KeyCode::Backspace => {
+                if self.charset_edit_cursor > 0 {
+                    let mut chars: Vec<char> = self.charset_edit_buf.chars().collect();
+                    chars.remove(self.charset_edit_cursor - 1);
+                    self.charset_edit_buf = chars.into_iter().collect();
+                    self.charset_edit_cursor -= 1;
+                    self.apply_charset_preview();
+                }
+            }
+            KeyCode::Delete => {
+                let chars: Vec<char> = self.charset_edit_buf.chars().collect();
+                if self.charset_edit_cursor < chars.len() {
+                    let mut chars = chars;
+                    chars.remove(self.charset_edit_cursor);
+                    self.charset_edit_buf = chars.into_iter().collect();
+                    self.apply_charset_preview();
+                }
+            }
+            KeyCode::Left => {
+                if self.charset_edit_cursor > 0 {
+                    self.charset_edit_cursor -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.charset_edit_cursor < self.charset_edit_buf.chars().count() {
+                    self.charset_edit_cursor += 1;
+                }
+            }
+            KeyCode::Home => {
+                self.charset_edit_cursor = 0;
+            }
+            KeyCode::End => {
+                self.charset_edit_cursor = self.charset_edit_buf.chars().count();
+            }
+            KeyCode::Char(ch) => {
+                let mut chars: Vec<char> = self.charset_edit_buf.chars().collect();
+                chars.insert(self.charset_edit_cursor, ch);
+                self.charset_edit_buf = chars.into_iter().collect();
+                self.charset_edit_cursor += 1;
+                self.apply_charset_preview();
+            }
+            _ => {}
+        }
+    }
+
+    #[allow(clippy::assigning_clones)]
+    fn apply_charset_preview(&mut self) {
+        if self.charset_edit_buf.chars().count() >= 2 {
+            let buf = self.charset_edit_buf.clone();
+            self.toggle_config(|c| {
+                c.charset = buf;
+                c.charset_index = 10;
+            });
+        }
+    }
+
+    /// Audio Panel logic
+    fn handle_audio_panel_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Up => {
+                if self.audio_panel.selected_row > 0 {
+                    self.audio_panel.selected_row -= 1;
+                    self.audio_panel.selected_col = 0;
+                }
+            }
+            KeyCode::Down => {
+                if self.audio_panel.selected_row + 1 < self.audio_panel.total_rows {
+                    self.audio_panel.selected_row += 1;
+                    self.audio_panel.selected_col = 0;
+                }
+            }
+            KeyCode::Left => {
+                if self.audio_panel.selected_row >= 2 && self.audio_panel.selected_col > 0 {
+                    self.audio_panel.selected_col -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.audio_panel.selected_row >= 2 && self.audio_panel.selected_col < 4 {
+                    self.audio_panel.selected_col += 1;
+                }
+            }
+            KeyCode::Char('-') => self.adjust_panel_value(-1.0),
+            KeyCode::Char('+' | '=') => self.adjust_panel_value(1.0),
+            KeyCode::Enter | KeyCode::Char(' ') => self.toggle_panel_cell(),
+            KeyCode::Char('n') => {
+                self.toggle_config(|c| {
+                    c.audio_mappings.push(af_core::config::AudioMapping {
+                        enabled: true,
+                        source: "rms".into(),
+                        target: "brightness".into(),
+                        amount: 0.5,
+                        offset: 0.0,
+                    });
+                });
+                self.audio_panel.total_rows = 2 + self.config.load().audio_mappings.len();
+                self.audio_panel.selected_row = self.audio_panel.total_rows - 1;
+                self.audio_panel.selected_col = 0;
+            }
+            KeyCode::Char('x') | KeyCode::Delete => {
+                if self.audio_panel.selected_row >= 2 {
+                    let idx = self.audio_panel.selected_row - 2;
+                    self.toggle_config(|c| {
+                        if idx < c.audio_mappings.len() {
+                            c.audio_mappings.remove(idx);
+                        }
+                    });
+                    self.audio_panel.total_rows = 2 + self.config.load().audio_mappings.len();
+                    if self.audio_panel.selected_row >= self.audio_panel.total_rows {
+                        self.audio_panel.selected_row =
+                            self.audio_panel.total_rows.saturating_sub(1);
+                    }
+                    self.audio_panel.selected_col = 0;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn adjust_panel_value(&mut self, sign: f32) {
+        let row = self.audio_panel.selected_row;
+        let col = self.audio_panel.selected_col;
+        self.toggle_config(|c| {
+            if row == 0 {
+                c.audio_sensitivity = (c.audio_sensitivity + sign * 0.1).clamp(0.0, 5.0);
+            } else if row == 1 {
+                c.audio_smoothing = (c.audio_smoothing + sign * 0.05).clamp(0.0, 1.0);
+            } else if row >= 2 {
+                let idx = row - 2;
+                if idx < c.audio_mappings.len() {
+                    let m = &mut c.audio_mappings[idx];
+                    if col == 3 {
+                        m.amount = (m.amount + sign * 0.1).clamp(0.0, 5.0);
+                    } else if col == 4 {
+                        m.offset = (m.offset + sign * 0.05).clamp(-1.0, 1.0);
+                    }
+                }
+            }
+        });
+    }
+
+    fn toggle_panel_cell(&mut self) {
+        let row = self.audio_panel.selected_row;
+        let col = self.audio_panel.selected_col;
+        if row >= 2 {
+            let idx = row - 2;
+            self.toggle_config(|c| {
+                if idx < c.audio_mappings.len() {
+                    let m = &mut c.audio_mappings[idx];
+                    if col == 0 {
+                        m.enabled = !m.enabled;
+                    } else if col == 1 {
+                        let sources = af_core::config::AUDIO_SOURCES;
+                        let pos = sources.iter().position(|&s| s == m.source).unwrap_or(0);
+                        m.source = sources[(pos + 1) % sources.len()].to_string();
+                    } else if col == 2 {
+                        let targets = af_core::config::AUDIO_TARGETS;
+                        let pos = targets.iter().position(|&s| s == m.target).unwrap_or(0);
+                        m.target = targets[(pos + 1) % targets.len()].to_string();
+                    }
+                }
+            });
         }
     }
 
@@ -413,6 +642,7 @@ impl App {
     }
 
     /// Render parameter keys: mode, charset, density, color, etc.
+    #[allow(clippy::too_many_lines)]
     fn handle_render_key(&mut self, code: KeyCode) {
         match code {
             KeyCode::Tab => {
@@ -502,6 +732,18 @@ impl App {
             }
             KeyCode::Char('p') => self.cycle_preset(true),
             KeyCode::Char('P') => self.cycle_preset(false),
+            KeyCode::Char('C') => {
+                let config = self.config.load();
+                self.charset_edit_buf.clone_from(&config.charset);
+                self.charset_edit_cursor = self.charset_edit_buf.chars().count();
+                self.state = AppState::CharsetEdit;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Char('A') => {
+                self.audio_panel = AudioPanelState::new(self.config.load().audio_mappings.len());
+                self.state = AppState::AudioPanel;
+                self.sidebar_dirty = true;
+            }
             _ => {}
         }
     }
@@ -810,6 +1052,7 @@ impl App {
     }
 
     #[cfg(not(feature = "video"))]
+    #[allow(clippy::unused_self)]
     fn start_video(&mut self, path: &Path) {
         log::warn!("Feature 'video' non compilée: {}", path.display());
     }
@@ -850,6 +1093,14 @@ impl App {
                 new_cfg.show_spectrum = old_cfg.show_spectrum;
 
                 self.config.store(Arc::new(new_cfg));
+                // Recalculate rows if audio panel is open (even barely)
+                let new_len = self.config.load().audio_mappings.len();
+                self.audio_panel.total_rows = 2 + new_len;
+                self.audio_panel.selected_row = self
+                    .audio_panel
+                    .selected_row
+                    .min(self.audio_panel.total_rows.saturating_sub(1));
+
                 self.sidebar_dirty = true;
                 self.terminal_size = (0, 0); // Force redraw / reallocation au cas où le mode de rendu (Braille/Ascii) ait changé.
                 log::info!("Preset chargé à vif : {}", path.display());

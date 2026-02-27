@@ -77,16 +77,53 @@ pub struct RenderConfig {
     pub show_spectrum: bool,
 }
 
+pub const AUDIO_SOURCES: &[&str] = &[
+    "rms",
+    "peak",
+    "sub_bass",
+    "bass",
+    "low_mid",
+    "mid",
+    "high_mid",
+    "presence",
+    "brilliance",
+    "spectral_centroid",
+    "spectral_flux",
+    "spectral_flatness",
+    "beat_intensity",
+    "onset",
+    "beat_phase",
+    "bpm",
+];
+
+pub const AUDIO_TARGETS: &[&str] = &[
+    "edge_threshold",
+    "edge_mix",
+    "contrast",
+    "brightness",
+    "saturation",
+    "density_scale",
+    "invert",
+];
+
+#[must_use]
+pub fn default_true() -> bool {
+    true
+}
+
 /// A single audio-to-visual parameter mapping.
 ///
 /// # Example
 /// ```
 /// use af_core::config::AudioMapping;
-/// let m = AudioMapping { source: "bass".into(), target: "contrast".into(), amount: 0.5, offset: 0.0 };
+/// let m = AudioMapping { enabled: true, source: "bass".into(), target: "contrast".into(), amount: 0.5, offset: 0.0 };
 /// assert_eq!(m.source, "bass");
 /// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AudioMapping {
+    /// Mapping actif ou désactivé.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     /// Feature source : "rms", "bass", "spectral_flux", "onset", etc.
     pub source: String,
     /// Paramètre cible : "edge_threshold", "contrast", "charset_index", etc.
@@ -176,24 +213,28 @@ impl Default for RenderConfig {
             bg_style: BgStyle::Black,
             audio_mappings: vec![
                 AudioMapping {
+                    enabled: true,
                     source: "bass".into(),
                     target: "edge_threshold".into(),
                     amount: 0.3,
                     offset: 0.0,
                 },
                 AudioMapping {
+                    enabled: true,
                     source: "spectral_flux".into(),
                     target: "contrast".into(),
                     amount: 0.5,
                     offset: 0.0,
                 },
                 AudioMapping {
+                    enabled: true,
                     source: "onset".into(),
                     target: "invert".into(),
                     amount: 1.0,
                     offset: 0.0,
                 },
                 AudioMapping {
+                    enabled: true,
                     source: "rms".into(),
                     target: "brightness".into(),
                     amount: 0.2,

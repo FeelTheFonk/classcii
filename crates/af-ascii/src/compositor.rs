@@ -53,6 +53,7 @@ impl Compositor {
     /// let config = RenderConfig::default();
     /// compositor.process(&frame, None, &config, &mut grid);
     /// ```
+    #[allow(clippy::too_many_lines)]
     pub fn process(
         &mut self,
         frame: &FrameBuffer,

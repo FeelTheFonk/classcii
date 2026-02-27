@@ -15,7 +15,7 @@ use af_source::resize::Resizer;
 use af_source::video::VideoCommand;
 use anyhow::Result;
 use arc_swap::ArcSwap;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::DefaultTerminal;
 
 use crate::pipeline;
@@ -367,10 +367,19 @@ impl App {
     fn handle_event(&mut self, event: &Event) {
         if let Event::Key(KeyEvent {
             code,
+            modifiers,
             kind: KeyEventKind::Press,
             ..
         }) = *event
         {
+            if modifiers.contains(KeyModifiers::CONTROL) {
+                if let KeyCode::Char('d' | 'o') = code {
+                    self.open_batch_folder_requested = true;
+                    self.sidebar_dirty = true;
+                }
+                return;
+            }
+
             if self.state == AppState::CharsetEdit {
                 self.handle_charset_edit_key(code);
                 return;
@@ -647,8 +656,12 @@ impl App {
                 };
                 self.sidebar_dirty = true;
             }
-            KeyCode::Char('o' | 'O') => {
-                self.state = AppState::FileOrFolderPrompt;
+            KeyCode::Char('o') => {
+                self.open_visual_requested = true;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Char('O') => {
+                self.open_audio_requested = true;
                 self.sidebar_dirty = true;
             }
             _ => {}

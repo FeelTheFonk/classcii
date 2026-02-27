@@ -59,6 +59,8 @@ impl BatchAnalyzer {
         let num_frames = samples.len().div_ceil(samples_per_frame);
         let mut frames = Vec::with_capacity(num_frames);
 
+        let mut prev_magnitudes: Vec<f32> = Vec::new();
+
         for i in 0..num_frames {
             let start = i * samples_per_frame;
             // L'analyseur prend `fft_size` échantillons s'ils sont disponibles,
@@ -72,7 +74,22 @@ impl BatchAnalyzer {
             };
 
             let magnitudes = self.fft.process(frame_samples);
-            let features = extract_features(frame_samples, magnitudes, self.sample_rate);
+            let mut features = extract_features(frame_samples, magnitudes, self.sample_rate);
+
+            // Compute positive spectral flux for proper offline onset detection
+            let mut flux = 0.0;
+            if prev_magnitudes.len() == magnitudes.len() {
+                for (curr, prev) in magnitudes.iter().zip(prev_magnitudes.iter()) {
+                    let diff = curr - prev;
+                    if diff > 0.0 {
+                        flux += diff;
+                    }
+                }
+            } else {
+                prev_magnitudes.resize(magnitudes.len(), 0.0);
+            }
+            features.spectral_flux = flux;
+            prev_magnitudes.copy_from_slice(magnitudes);
 
             // FIXME: Offline Onset detection/smoothing could go here.
             // Pour l'instant on garde les features brutes. Le rendu lissera à la volée.

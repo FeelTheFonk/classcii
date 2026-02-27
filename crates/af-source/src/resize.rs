@@ -50,7 +50,8 @@ impl Resizer {
             return Ok(());
         }
 
-        // Copy source data into owned buffer (fast_image_resize requires mut slice for from_slice_u8)
+        // Copy source data into owned buffer
+        // R1: forced copy by fast_image_resize API (requires &mut on source)
         self.src_buf.clear();
         self.src_buf.extend_from_slice(&src.data);
 

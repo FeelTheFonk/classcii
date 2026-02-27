@@ -166,6 +166,7 @@ impl App {
 
             // === Appliquer audio mappings à la config ===
             let config = self.config.load();
+            // R1: acceptable — ~200B/frame allocation for mutable audio mapping overlay
             let mut render_config = (**config).clone();
             if let Some(ref features) = audio_features {
                 pipeline::apply_audio_mappings(&mut render_config, features);
@@ -207,9 +208,8 @@ impl App {
                     );
                 }
 
-                // Save current grid for next frame's fade trails (zero-alloc swap + copy)
-                std::mem::swap(&mut self.grid, &mut self.prev_grid);
-                self.grid.copy_from(&self.prev_grid);
+                // Save current grid for next frame's fade trails (zero-alloc copy)
+                self.prev_grid.copy_from(&self.grid);
             }
 
             // === Rendu terminal ===

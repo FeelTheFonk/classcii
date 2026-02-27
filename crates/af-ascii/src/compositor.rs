@@ -68,7 +68,7 @@ impl Compositor {
                 RenderMode::HalfBlock => crate::halfblock::process_halfblock(frame, config, grid),
                 RenderMode::Braille => crate::braille::process_braille(frame, config, grid),
                 RenderMode::Quadrant => crate::quadrant::process_quadrant(frame, config, grid),
-                RenderMode::Ascii => unreachable!(),
+                RenderMode::Ascii => {}
             }
         }
 

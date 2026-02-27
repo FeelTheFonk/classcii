@@ -5,7 +5,6 @@
 pub mod charset;
 pub mod color;
 pub mod config;
-pub mod error;
 pub mod frame;
 pub mod traits;
 

@@ -69,15 +69,12 @@ pub fn draw(
 
 /// Draw the spectrum sparkline bar with intensity coloring.
 fn draw_spectrum(frame: &mut Frame, area: Rect, audio: Option<&AudioFeatures>) {
-    let data: Vec<u64> = if let Some(features) = audio {
-        features
-            .spectrum_bands
-            .iter()
-            .map(|&v| (v * 64.0).clamp(0.0, 64.0) as u64)
-            .collect()
-    } else {
-        vec![0u64; 32]
-    };
+    let mut data = [0u64; 32];
+    if let Some(features) = audio {
+        for (i, &v) in features.spectrum_bands.iter().enumerate() {
+            data[i] = (v * 64.0).clamp(0.0, 64.0) as u64;
+        }
+    }
 
     // Color by average intensity
     let avg: f32 = if let Some(features) = audio {
@@ -95,7 +92,7 @@ fn draw_spectrum(frame: &mut Frame, area: Rect, audio: Option<&AudioFeatures>) {
 
     let sparkline = Sparkline::default()
         .block(Block::default().borders(Borders::TOP).title(" Spectrum "))
-        .data(&data)
+        .data(data)
         .style(Style::default().fg(bar_color));
 
     frame.render_widget(sparkline, area);
@@ -247,7 +244,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" e        Toggle edges"),
         Line::from(" s        Toggle shapes"),
         Line::from(" ↑/↓      Audio sensitivity"),
-        Line::from(" ←/→      Audio smoothing"),
+        Line::from(" ←/→      Seek ±5s"),
         Line::from(" ?        Toggle help"),
         Line::from(""),
         Line::from(Span::styled(

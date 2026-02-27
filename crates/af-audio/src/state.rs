@@ -26,7 +26,7 @@ use crate::smoothing::FeatureSmoother;
 ///
 /// # Errors
 /// Returns an error if audio capture fails to initialize.
-pub fn spawn_audio_thread(target_fps: u32) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
+pub fn spawn_audio_thread(target_fps: u32, audio_smoothing: f32) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
     let mut capture = AudioCapture::start_default()?;
     let sample_rate = capture.sample_rate();
 
@@ -35,7 +35,7 @@ pub fn spawn_audio_thread(target_fps: u32) -> anyhow::Result<triple_buffer::Outp
     thread::Builder::new()
         .name("af-audio".to_string())
         .spawn(move || {
-            run_analysis_loop(&mut buf_input, target_fps, sample_rate, &mut |out| {
+            run_analysis_loop(&mut buf_input, target_fps, sample_rate, audio_smoothing, &mut |out| {
                 capture.read_samples(out);
             });
         })?;
@@ -53,6 +53,7 @@ pub fn spawn_audio_thread(target_fps: u32) -> anyhow::Result<triple_buffer::Outp
 pub fn spawn_audio_file_thread(
     path: &std::path::Path,
     target_fps: u32,
+    audio_smoothing: f32,
     cmd_rx: flume::Receiver<AudioCommand>,
 ) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
     let (all_samples, sample_rate) = decode::decode_file(path)?;
@@ -129,6 +130,7 @@ pub fn spawn_audio_file_thread(
                 &mut buf_input,
                 target_fps,
                 sample_rate,
+                audio_smoothing,
                 &analysis_samples,
                 &analysis_pos,
                 &is_paused,
@@ -140,10 +142,12 @@ pub fn spawn_audio_file_thread(
 }
 
 /// Core analysis loop for file playback mode.
+#[allow(clippy::too_many_arguments)]
 fn run_file_analysis_loop(
     buf_input: &mut triple_buffer::Input<AudioFeatures>,
     target_fps: u32,
     sample_rate: u32,
+    audio_smoothing: f32,
     samples: &[f32],
     playback_pos: &AtomicUsize,
     is_paused: &AtomicBool,
@@ -152,7 +156,7 @@ fn run_file_analysis_loop(
     let fft_size = 2048;
     let mut fft = FftPipeline::new(fft_size);
     let mut beat = BeatDetector::new();
-    let mut smoother = FeatureSmoother::new(0.3);
+    let mut smoother = FeatureSmoother::new(audio_smoothing);
     let mut window_buf: Vec<f32> = vec![0.0; fft_size];
 
     let frame_period = std::time::Duration::from_secs_f64(1.0 / f64::from(target_fps.max(1)));
@@ -215,12 +219,13 @@ fn run_analysis_loop(
     buf_input: &mut triple_buffer::Input<AudioFeatures>,
     target_fps: u32,
     sample_rate: u32,
+    audio_smoothing: f32,
     read_fn: &mut dyn FnMut(&mut Vec<f32>),
 ) {
     let fft_size = 2048;
     let mut fft = FftPipeline::new(fft_size);
     let mut beat = BeatDetector::new();
-    let mut smoother = FeatureSmoother::new(0.3);
+    let mut smoother = FeatureSmoother::new(audio_smoothing);
     let mut sample_buf: Vec<f32> = Vec::with_capacity(fft_size * 2);
 
     let frame_period = std::time::Duration::from_secs_f64(1.0 / f64::from(target_fps.max(1)));

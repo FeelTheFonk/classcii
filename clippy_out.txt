@@ -1,0 +1,42 @@
+    Checking af-audio v0.1.0 (C:\Users\CleS\Desktop\asciiforge\crates\af-audio)
+    Checking af-render v0.1.0 (C:\Users\CleS\Desktop\asciiforge\crates\af-render)
+error: the borrowed expression implements the required traits
+  --> crates\af-render\src\ui.rs:95:15
+   |
+95 |         .data(&data)
+   |               ^^^^^ help: change this to: `data`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#needless_borrows_for_generic_args
+   = note: `-D clippy::needless-borrows-for-generic-args` implied by `-D clippy::all`
+   = help: to override `-D clippy::all` add `#[allow(clippy::needless_borrows_for_generic_args)]`
+
+error: could not compile `af-render` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: this function has a `#[must_use]` attribute with no message, but returns a type already marked as `#[must_use]`
+  --> crates\af-audio\src\capture.rs:23:5
+   |
+23 |     pub fn stream(&self) -> &cpal::Stream {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: either add some descriptive message or remove the attribute
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#double_must_use
+   = note: `-D clippy::double-must-use` implied by `-D clippy::all`
+   = help: to override `-D clippy::all` add `#[allow(clippy::double_must_use)]`
+
+error: this function has too many arguments (8/7)
+   --> crates\af-audio\src\state.rs:145:1
+    |
+145 | / fn run_file_analysis_loop(
+146 | |     buf_input: &mut triple_buffer::Input<AudioFeatures>,
+147 | |     target_fps: u32,
+148 | |     sample_rate: u32,
+...   |
+153 | |     cmd_rx: &flume::Receiver<AudioCommand>,
+154 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D clippy::all`
+    = help: to override `-D clippy::all` add `#[allow(clippy::too_many_arguments)]`
+
+error: could not compile `af-audio` (lib) due to 2 previous errors

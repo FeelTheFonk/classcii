@@ -12,13 +12,17 @@ use rtrb::{Consumer, RingBuffer};
 /// let capture = AudioCapture::start_default().unwrap();
 /// ```
 pub struct AudioCapture {
-    #[allow(dead_code)]
     stream: cpal::Stream,
     consumer: Consumer<f32>,
     sample_rate: u32,
 }
 
 impl AudioCapture {
+    /// Reference to the underlying cpal stream (kept alive for capture).
+    pub fn stream(&self) -> &cpal::Stream {
+        &self.stream
+    }
+
     /// Start capturing from the default input device.
     ///
     /// # Errors

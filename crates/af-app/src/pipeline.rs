@@ -33,11 +33,12 @@ pub fn start_audio(
     Option<flume::Sender<af_audio::state::AudioCommand>>,
 )> {
     let fps = config.load().target_fps;
+    let smoothing = config.load().audio_smoothing;
 
     match audio_arg {
         "default" | "mic" | "microphone" => {
             log::info!("Starting microphone capture");
-            let out = af_audio::state::spawn_audio_thread(fps)?;
+            let out = af_audio::state::spawn_audio_thread(fps, smoothing)?;
             Ok((out, None))
         }
         path => {
@@ -45,7 +46,7 @@ pub fn start_audio(
             if audio_path.exists() {
                 log::info!("Starting audio file analysis: {path}");
                 let (cmd_tx, cmd_rx) = flume::bounded(10);
-                let out = af_audio::state::spawn_audio_file_thread(audio_path, fps, cmd_rx)?;
+                let out = af_audio::state::spawn_audio_file_thread(audio_path, fps, smoothing, cmd_rx)?;
                 Ok((out, Some(cmd_tx)))
             } else {
                 anyhow::bail!("Audio source not found: {path}")

@@ -72,49 +72,51 @@ pub fn spawn_audio_file_thread(
         .default_output_device()
         .ok_or_else(|| anyhow::anyhow!("No audio output device found"))?;
 
-    let output_config = cpal::StreamConfig {
-        channels: 2, // stereo output
-        sample_rate: cpal::SampleRate(sample_rate),
-        buffer_size: cpal::BufferSize::Default,
-    };
+    let supported_config = output_device.default_output_config()?;
+    let out_sample_format = supported_config.sample_format();
+    let output_config = supported_config.config();
 
-    let playback_samples = Arc::clone(&samples);
-    let playback_pos_write = Arc::clone(&playback_pos);
+    let out_channels = output_config.channels as usize;
+    let out_sample_rate = output_config.sample_rate.0;
+    
+    // Resampling ratio for local zero-alloc linear read
+    let sample_rate_ratio = f64::from(sample_rate) / f64::from(out_sample_rate);
 
     let is_paused = Arc::new(AtomicBool::new(false));
-    let is_paused_play = Arc::clone(&is_paused);
 
-    let output_stream = output_device.build_output_stream(
-        &output_config,
-        move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            if is_paused_play.load(Ordering::Relaxed) {
-                data.fill(0.0);
-                return;
-            }
-            let total = playback_samples.len();
-            let mut pos = playback_pos_write.load(Ordering::Relaxed);
-
-            for frame in data.chunks_mut(2) {
-                let sample = playback_samples[pos % total];
-                frame[0] = sample;
-                if frame.len() > 1 {
-                    frame[1] = sample;
-                }
-                pos += 1;
-                if pos >= total {
-                    pos = 0;
-                }
-            }
-            playback_pos_write.store(pos, Ordering::Relaxed);
-        },
-        |err| {
-            log::error!("Audio output error: {err}");
-        },
-        None,
-    )?;
+    let output_stream = match out_sample_format {
+        cpal::SampleFormat::F32 => build_playback_stream::<f32>(
+            &output_device,
+            &output_config,
+            Arc::clone(&samples),
+            Arc::clone(&playback_pos),
+            Arc::clone(&is_paused),
+            sample_rate_ratio,
+            out_channels,
+        )?,
+        cpal::SampleFormat::I16 => build_playback_stream::<i16>(
+            &output_device,
+            &output_config,
+            Arc::clone(&samples),
+            Arc::clone(&playback_pos),
+            Arc::clone(&is_paused),
+            sample_rate_ratio,
+            out_channels,
+        )?,
+        cpal::SampleFormat::U16 => build_playback_stream::<u16>(
+            &output_device,
+            &output_config,
+            Arc::clone(&samples),
+            Arc::clone(&playback_pos),
+            Arc::clone(&is_paused),
+            sample_rate_ratio,
+            out_channels,
+        )?,
+        fmt => anyhow::bail!("Unsupported audio format: {fmt:?}"),
+    };
 
     output_stream.play()?;
-    log::info!("Audio playback started @ {sample_rate}Hz");
+    log::info!("Audio playback started @ {out_sample_rate}Hz, {out_channels} channels");
 
     // --- Start analysis thread ---
     let analysis_samples = Arc::clone(&samples);
@@ -258,4 +260,69 @@ fn run_analysis_loop(
 
         thread::sleep(frame_period);
     }
+}
+
+/// Generic stream builder to support U16, I16, F32 dynamic dispatch for CPAL.
+fn build_playback_stream<T>(
+    output_device: &cpal::Device,
+    output_config: &cpal::StreamConfig,
+    playback_samples: Arc<Vec<f32>>,
+    playback_pos_write: Arc<AtomicUsize>,
+    is_paused_play: Arc<AtomicBool>,
+    sample_rate_ratio: f64,
+    out_channels: usize,
+) -> anyhow::Result<cpal::Stream>
+where
+    T: cpal::SizedSample + cpal::FromSample<f32>,
+{
+    let mut local_pos_f = playback_pos_write.load(Ordering::Relaxed) as f64;
+    let mut last_sync_pos = local_pos_f as usize;
+
+    let stream = output_device.build_output_stream(
+        output_config,
+        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+            if is_paused_play.load(Ordering::Relaxed) {
+                for sample in data.iter_mut() {
+                    *sample = T::from_sample(0.0f32);
+                }
+                return;
+            }
+
+            let total = playback_samples.len();
+            if total == 0 {
+                return;
+            }
+
+            let current_shared = playback_pos_write.load(Ordering::Relaxed);
+            
+            // Resync if seek externally modified playback_pos (threshold = 4 frames of drift)
+            if current_shared.abs_diff(last_sync_pos) > out_channels * 4 {
+                local_pos_f = current_shared as f64;
+            }
+
+            for frame in data.chunks_mut(out_channels) {
+                let pos_usize = (local_pos_f as usize) % total;
+                let sample = playback_samples[pos_usize];
+                
+                let out_sample = T::from_sample(sample);
+                for out_channel in frame.iter_mut() {
+                    *out_channel = out_sample;
+                }
+                
+                local_pos_f += sample_rate_ratio;
+            }
+            
+            if local_pos_f >= total as f64 {
+                local_pos_f -= total as f64;
+            }
+            last_sync_pos = local_pos_f as usize;
+            playback_pos_write.store(last_sync_pos, Ordering::Relaxed);
+        },
+        |err| {
+            log::error!("Audio output error: {err}");
+        },
+        None,
+    )?;
+
+    Ok(stream)
 }

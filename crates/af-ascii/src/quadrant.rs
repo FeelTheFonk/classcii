@@ -39,8 +39,8 @@ pub fn process_quadrant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut A
             // TL=bit0, TR=bit1, BL=bit2, BR=bit3
             for dy in 0..2u32 {
                 for dx in 0..2u32 {
-                    let px =
-                        (base_x + dx * frame.width / pixel_w.max(1)).min(frame.width.saturating_sub(1));
+                    let px = (base_x + dx * frame.width / pixel_w.max(1))
+                        .min(frame.width.saturating_sub(1));
                     let py = (base_y + dy * frame.height / pixel_h.max(1))
                         .min(frame.height.saturating_sub(1));
 
@@ -66,7 +66,15 @@ pub fn process_quadrant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut A
             let ch = QUADRANT_CHARS[bitmap as usize];
             let fg = ((avg_r / 4) as u8, (avg_g / 4) as u8, (avg_b / 4) as u8);
 
-            grid.set(cx, cy, AsciiCell { ch, fg, bg: (0, 0, 0) });
+            grid.set(
+                cx,
+                cy,
+                AsciiCell {
+                    ch,
+                    fg,
+                    bg: (0, 0, 0),
+                },
+            );
         }
     }
 }

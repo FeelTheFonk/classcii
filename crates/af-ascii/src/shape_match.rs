@@ -132,8 +132,7 @@ fn estimate_density(ch: char) -> u32 {
     };
     // Centre-out fill pattern
     let order: [u32; 25] = [
-        12, 7, 2, 8, 14, 6, 1, 0, 3, 9, 11, 5, 4, 10, 16, 13, 17, 18, 19, 23, 20, 21, 22, 24,
-        15,
+        12, 7, 2, 8, 14, 6, 1, 0, 3, 9, 11, 5, 4, 10, 16, 13, 17, 18, 19, 23, 20, 21, 22, 24, 15,
     ];
     let mut bm = 0u32;
     for &bit in order.iter().take(density) {

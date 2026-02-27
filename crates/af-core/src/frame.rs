@@ -1,4 +1,3 @@
-
 /// Buffer de pixels réutilisable. Pré-alloué, jamais redimensionné en hot path.
 ///
 /// Stocke les pixels en RGBA row-major, 4 bytes par pixel.
@@ -50,7 +49,11 @@ impl FrameBuffer {
     #[inline(always)]
     #[must_use]
     pub fn pixel(&self, x: u32, y: u32) -> (u8, u8, u8, u8) {
+        debug_assert!(x < self.width && y < self.height, "pixel out of bounds");
         let idx = ((y * self.width + x) * 4) as usize;
+        if idx + 3 >= self.data.len() {
+            return (0, 0, 0, 0);
+        }
         (
             self.data[idx],
             self.data[idx + 1],
@@ -167,6 +170,17 @@ impl AsciiGrid {
     #[must_use]
     pub fn get(&self, x: u16, y: u16) -> &AsciiCell {
         &self.cells[y as usize * self.width as usize + x as usize]
+    }
+
+    /// Copy all cells from `other` into this grid.
+    ///
+    /// If dimensions differ, this is a no-op.
+    /// Zero allocation — reuses the existing buffer.
+    #[inline]
+    pub fn copy_from(&mut self, other: &AsciiGrid) {
+        if self.width == other.width && self.height == other.height {
+            self.cells.copy_from_slice(&other.cells);
+        }
     }
 
     /// Clear all cells to default (space, black).

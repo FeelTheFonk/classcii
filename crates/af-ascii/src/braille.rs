@@ -123,7 +123,15 @@ pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
                 (255, 255, 255)
             };
 
-            grid.set(cx, cy, AsciiCell { ch, fg, bg: (0, 0, 0) });
+            grid.set(
+                cx,
+                cy,
+                AsciiCell {
+                    ch,
+                    fg,
+                    bg: (0, 0, 0),
+                },
+            );
         }
     }
 }

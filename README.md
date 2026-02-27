@@ -1,78 +1,101 @@
 # clasSCII
 
-Audio-reactive ASCII art engine. Transforms images into animated ASCII/Unicode art, modulated by real-time audio analysis.
-
-## Features
-
-- **4 render modes**: ASCII, HalfBlock (▄), Braille (⠿), Quadrant (▞)
-- **5 built-in charsets**: Compact, Standard (Paul Bourke), Full, Blocks, Minimal
-- **Audio-reactive**: 7-band spectral analysis, beat detection, BPM estimation
-- **Audio playback**: Decoded audio files play through speakers while driving visuals
-- **Post-processing**: Glow, fade trails, beat flash effects
-- **25+ keyboard controls**: Density, contrast, brightness, saturation, color mode, aspect ratio, edge detection, shape matching, audio sensitivity/smoothing, effect tuning
-- **Hot-reloadable config**: TOML-based, file-watched
-- **Lock-free architecture**: Triple-buffer audio → render, zero-allocation hot paths
+Real-time, audio-reactive ASCII/Unicode art engine for terminal-based TUI applications.
 
 ## Architecture
 
+clasSCII uses a three-thread model (Main, Audio, Source) with lock-free communication via `triple_buffer` and `flume` channels.
+
 ```
-clasSCII workspace (6 crates)
-├── af-core     — Types, traits, config, charset LUT, color
-├── af-audio    — cpal capture, symphonia decode, FFT, features, beat, smoothing
-├── af-source   — Image loading, fast_image_resize
-├── af-ascii    — Luminance, color map, compositor, edge, shape, braille, quadrant, halfblock
-├── af-render   — Canvas, UI layout, FPS, effects
-└── af-app      — CLI, event loop, pipeline, hot-reload
+┌──────────┐    ┌──────────┐    ┌──────────┐
+│  Source   │───▶│   Main   │◀───│  Audio   │
+│  Thread   │    │  Thread  │    │  Thread  │
+│ (frames)  │    │ (render) │    │  (FFT)   │
+└──────────┘    └──────────┘    └──────────┘
+```
+
+## Workspace
+
+| Crate | Role |
+|-------|------|
+| `af-core` | Shared types, config, traits, frame buffers |
+| `af-audio` | Audio capture, FFT, beat detection, feature extraction |
+| `af-ascii` | Pixel→ASCII conversion (luminance, edge, braille, halfblock, quadrant, shape matching) |
+| `af-render` | Terminal rendering via ratatui (canvas, UI, effects, FPS) |
+| `af-source` | Visual input sources (image, video, webcam, procedural) |
+| `af-app` | Application entry point, event loop, pipeline orchestration |
+
+## Build
+
+```bash
+# Development
+cargo build --workspace
+
+# Release with video support
+cargo build --release --features video
 ```
 
 ## Usage
 
 ```bash
-# Image only
-cargo run --release -- --image path/to/image.png
+# Image source
+classcii --image path/to/image.png
 
-# Image + audio file (plays audio, visuals react)
-cargo run --release -- --audio path/to/track.wav --image path/to/image.png
+# Image + audio from microphone
+classcii --image path/to/image.png --audio mic
 
-# Image + microphone
-cargo run --release -- --audio default --image path/to/image.png
+# Video with embedded audio
+classcii --video path/to/video.mp4
+
+# Override render mode and FPS
+classcii --image photo.jpg --mode braille --fps 60
+
+# Load a preset
+classcii --image photo.jpg --preset psychedelic
 ```
 
 ## Controls
 
 | Key | Action |
-|---|---|
-| `q` / `Esc` | Quit |
-| `Space` | Pause/Resume |
-| `Tab` | Cycle render mode |
-| `1-5` | Select charset |
-| `d` / `D` | Density −/+ |
-| `i` | Toggle invert |
+|-----|--------|
+| `Tab` | Cycle render mode (Ascii → HalfBlock → Braille → Quadrant) |
+| `1`–`5` | Select charset |
 | `c` | Toggle color |
-| `m` | Cycle color mode |
-| `b` | Cycle BG style |
-| `[` / `]` | Contrast −/+ |
-| `{` / `}` | Brightness −/+ |
-| `-` / `+` | Saturation −/+ |
-| `f` / `F` | Fade decay −/+ |
-| `g` / `G` | Glow intensity −/+ |
-| `a` | Cycle aspect ratio |
-| `e` | Toggle edges |
+| `i` | Invert |
+| `e` | Toggle edge detection |
 | `s` | Toggle shape matching |
-| `↑` / `↓` | Audio sensitivity |
-| `←` / `→` | Audio smoothing |
+| `m` | Cycle color mode |
+| `b` | Cycle background style |
+| `d`/`D` | Density scale ±0.25 |
+| `[`/`]` | Contrast ±0.1 |
+| `{`/`}` | Brightness ±0.05 |
+| `-`/`+` | Saturation ±0.1 |
+| `f`/`F` | Fade decay ±0.1 |
+| `g`/`G` | Glow intensity ±0.1 |
+| `↑`/`↓` | Audio sensitivity ±0.1 |
+| `←`/`→` | Seek ±5s (video/audio file) |
+| `Space` | Pause/Resume |
 | `?` | Help overlay |
+| `q`/`Esc` | Quit |
 
-## Build
+## Configuration
 
-Requires Rust 1.85+ (Edition 2024).
+Default config: `config/default.toml`. Presets in `config/presets/`.
 
 ```bash
-cargo build --release
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
+classcii --image photo.jpg --config my_config.toml
+classcii --image photo.jpg --preset ambient
 ```
+
+Hot-reload: edit the config file while the app is running.
+
+## Design Principles
+
+- **Zero allocation in hot paths** — pre-allocated buffers, no per-frame Vec creation
+- **No `unwrap()` outside tests** — all errors handled gracefully
+- **Clean clippy** — `cargo clippy --workspace -- -D warnings` = 0
+- **Three-thread model** — lock-free, no mutex contention
 
 ## License
 
-MIT OR Apache-2.0
+MIT

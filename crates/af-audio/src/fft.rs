@@ -15,6 +15,8 @@ pub struct FftPipeline {
     spectrum_buf: Vec<realfft::num_complex::Complex<f32>>,
     scratch: Vec<realfft::num_complex::Complex<f32>>,
     plan: std::sync::Arc<dyn realfft::RealToComplex<f32>>,
+    /// Pre-allocated magnitude buffer for zero allocation process.
+    magnitude_buf: Vec<f32>,
     /// Hann window coefficients.
     window: Vec<f32>,
 }
@@ -38,10 +40,11 @@ impl FftPipeline {
         // Hann window
         let window: Vec<f32> = (0..size)
             .map(|i| {
-                0.5 * (1.0
-                    - (2.0 * std::f32::consts::PI * i as f32 / (size as f32 - 1.0)).cos())
+                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (size as f32 - 1.0)).cos())
             })
             .collect();
+
+        let magnitude_buf = vec![0.0; spectrum_buf.len()];
 
         Self {
             fft_size: size,
@@ -49,6 +52,7 @@ impl FftPipeline {
             spectrum_buf,
             scratch,
             plan,
+            magnitude_buf,
             window,
         }
     }
@@ -65,7 +69,7 @@ impl FftPipeline {
     /// let spectrum = fft.process(&samples);
     /// assert_eq!(spectrum.len(), 129); // N/2 + 1
     /// ```
-    pub fn process(&mut self, samples: &[f32]) -> Vec<f32> {
+    pub fn process(&mut self, samples: &[f32]) -> &[f32] {
         let n = self.fft_size.min(samples.len());
 
         // Copy and window
@@ -78,19 +82,27 @@ impl FftPipeline {
         }
 
         // Forward FFT
-        if self.plan.process_with_scratch(
-            &mut self.input_buf,
-            &mut self.spectrum_buf,
-            &mut self.scratch,
-        ).is_err() {
-            return vec![0.0; self.spectrum_buf.len()];
+        if self
+            .plan
+            .process_with_scratch(
+                &mut self.input_buf,
+                &mut self.spectrum_buf,
+                &mut self.scratch,
+            )
+            .is_err()
+        {
+            self.magnitude_buf.fill(0.0);
+            return &self.magnitude_buf;
         }
 
-        // Magnitude
-        self.spectrum_buf
-            .iter()
-            .map(|c| (c.re * c.re + c.im * c.im).sqrt() / self.fft_size as f32)
-            .collect()
+        // Magnitude (Zero-Allocation)
+        let scale = self.fft_size as f32;
+        let it = self.spectrum_buf.iter().zip(self.magnitude_buf.iter_mut());
+        for (c, mag) in it {
+            *mag = (c.re * c.re + c.im * c.im).sqrt() / scale;
+        }
+
+        &self.magnitude_buf
     }
 
     /// FFT window size.

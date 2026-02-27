@@ -25,5 +25,9 @@ fn quantize(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
         let level = c / 43; // 256 / 6 ≈ 43
         level * 51 // 255 / 5 = 51
     };
-    (quantize_channel(r), quantize_channel(g), quantize_channel(b))
+    (
+        quantize_channel(r),
+        quantize_channel(g),
+        quantize_channel(b),
+    )
 }

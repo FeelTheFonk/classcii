@@ -46,8 +46,12 @@ impl LuminanceLut {
     #[must_use]
     pub fn new(charset: &str) -> Self {
         let chars: Vec<char> = charset.chars().collect();
-        let len = chars.len();
-        assert!(len >= 2, "Charset doit avoir >= 2 caractères");
+        let len = if chars.len() >= 2 {
+            chars.len()
+        } else {
+            // Fallback: if charset is too short, use a minimal default.
+            return Self::new(" @");
+        };
         let mut lut = [' '; 256];
         for (i, slot) in lut.iter_mut().enumerate() {
             *slot = chars[i * (len - 1) / 255];

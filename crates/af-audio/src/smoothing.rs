@@ -51,9 +51,11 @@ impl FeatureSmoother {
         smoothed.high_mid = self.ar(current.high_mid, self.prev.high_mid);
         smoothed.presence = self.ar(current.presence, self.prev.presence);
         smoothed.brilliance = self.ar(current.brilliance, self.prev.brilliance);
-        smoothed.spectral_centroid = self.ar(current.spectral_centroid, self.prev.spectral_centroid);
+        smoothed.spectral_centroid =
+            self.ar(current.spectral_centroid, self.prev.spectral_centroid);
         smoothed.spectral_flux = self.ar(current.spectral_flux, self.prev.spectral_flux);
-        smoothed.spectral_flatness = self.ar(current.spectral_flatness, self.prev.spectral_flatness);
+        smoothed.spectral_flatness =
+            self.ar(current.spectral_flatness, self.prev.spectral_flatness);
         smoothed.bpm = self.ar(current.bpm, self.prev.bpm);
         smoothed.beat_intensity = self.ar(current.beat_intensity, self.prev.beat_intensity);
 

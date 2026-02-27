@@ -31,23 +31,22 @@ pub fn spawn_config_watcher(
     let config = Arc::clone(config);
     let path = config_path.to_path_buf();
 
-    let mut watcher =
-        notify::recommended_watcher(move |res: notify::Result<Event>| {
-            if let Ok(event) = res {
-                if matches!(event.kind, EventKind::Modify(_)) {
-                    match af_core::config::load_config(&path) {
-                        Ok(new_config) => {
-                            config.store(Arc::new(new_config));
-                            log::info!("Config rechargée depuis {}", path.display());
-                        }
-                        Err(e) => {
-                            log::warn!("Erreur de rechargement config : {e}");
-                            // On garde l'ancienne config. Pas de panic.
-                        }
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
+        if let Ok(event) = res {
+            if matches!(event.kind, EventKind::Modify(_)) {
+                match af_core::config::load_config(&path) {
+                    Ok(new_config) => {
+                        config.store(Arc::new(new_config));
+                        log::info!("Config rechargée depuis {}", path.display());
+                    }
+                    Err(e) => {
+                        log::warn!("Erreur de rechargement config : {e}");
+                        // On garde l'ancienne config. Pas de panic.
                     }
                 }
             }
-        })?;
+        }
+    })?;
 
     watcher.watch(config_path, RecursiveMode::NonRecursive)?;
     Ok(watcher)

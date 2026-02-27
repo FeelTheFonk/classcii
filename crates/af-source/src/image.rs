@@ -1,5 +1,4 @@
 /// Placeholder for image source. Phase 2.
-
 use std::path::Path;
 use std::sync::Arc;
 
@@ -64,8 +63,7 @@ impl Source for ImageSource {
 /// let frame = load_image("test.png").unwrap();
 /// ```
 pub fn load_image(path: &str) -> Result<FrameBuffer> {
-    let img =
-        image::open(path).with_context(|| format!("Impossible de charger {path}"))?;
+    let img = image::open(path).with_context(|| format!("Impossible de charger {path}"))?;
     let rgba = img.to_rgba8();
     let (w, h) = rgba.dimensions();
     Ok(FrameBuffer {

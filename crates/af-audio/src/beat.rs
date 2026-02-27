@@ -1,4 +1,4 @@
-/// Simple onset / beat detection.
+use std::collections::VecDeque;
 
 /// Simple onset / beat detection.
 ///
@@ -10,7 +10,7 @@
 /// let detector = BeatDetector::new();
 /// ```
 pub struct BeatDetector {
-    /// Previous spectrum for flux calculation.
+    /// Previous spectrum for flux calculation (pre-allocated, reused via copy_from_slice).
     prev_spectrum: Vec<f32>,
     /// Running average of flux for adaptive threshold.
     flux_avg: f32,
@@ -22,8 +22,8 @@ pub struct BeatDetector {
     last_onset_frame: u64,
     /// Current frame counter.
     frame_count: u64,
-    /// Onset interval accumulator for BPM estimation.
-    intervals: Vec<u64>,
+    /// Onset interval accumulator for BPM estimation (VecDeque for O(1) pop_front).
+    intervals: VecDeque<u64>,
     /// Minimum frames between onsets (cooldown).
     onset_cooldown: u64,
 }
@@ -39,7 +39,7 @@ impl BeatDetector {
             phase: 0.0,
             last_onset_frame: 0,
             frame_count: 0,
-            intervals: Vec::with_capacity(16),
+            intervals: VecDeque::with_capacity(16),
             onset_cooldown: 4, // ~133ms @ 30fps, prevents machine-gun
         }
     }
@@ -87,15 +87,14 @@ impl BeatDetector {
             self.last_onset_frame = self.frame_count;
 
             if interval > 5 && interval < 300 {
-                self.intervals.push(interval);
+                self.intervals.push_back(interval);
                 if self.intervals.len() > 16 {
-                    self.intervals.remove(0);
+                    self.intervals.pop_front();
                 }
 
                 if self.intervals.len() >= 4 {
-                    let avg_interval: f64 =
-                        self.intervals.iter().map(|&i| i as f64).sum::<f64>()
-                            / self.intervals.len() as f64;
+                    let avg_interval: f64 = self.intervals.iter().map(|&i| i as f64).sum::<f64>()
+                        / self.intervals.len() as f64;
                     if avg_interval > 0.0 {
                         self.bpm = (60.0 * f64::from(fps) / avg_interval) as f32;
                         self.bpm = self.bpm.clamp(30.0, 300.0);
@@ -109,8 +108,11 @@ impl BeatDetector {
             self.phase = (self.phase + beats_per_frame) % 1.0;
         }
 
-        self.prev_spectrum.clear();
-        self.prev_spectrum.extend_from_slice(spectrum);
+        // Zero-alloc update: resize only on first call or format change, then copy_from_slice
+        if self.prev_spectrum.len() != spectrum.len() {
+            self.prev_spectrum.resize(spectrum.len(), 0.0);
+        }
+        self.prev_spectrum.copy_from_slice(spectrum);
 
         (onset, beat_intensity, self.bpm, self.phase)
     }

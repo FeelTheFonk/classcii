@@ -1,10 +1,10 @@
 use af_core::config::{BgStyle, ColorMode, RenderConfig};
 use af_core::frame::{AsciiGrid, AudioFeatures};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Sparkline};
-use ratatui::Frame;
 
 use crate::canvas;
 use crate::fps::FpsCounter;
@@ -42,18 +42,12 @@ pub fn draw(
 
     // Horizontal split: [canvas | sidebar(20)]
     let sidebar_width = 20u16;
-    let h_chunks = Layout::horizontal([
-        Constraint::Min(40),
-        Constraint::Length(sidebar_width),
-    ])
-    .split(area);
+    let h_chunks =
+        Layout::horizontal([Constraint::Min(40), Constraint::Length(sidebar_width)]).split(area);
 
     // Vertical split of left panel: [canvas | spectrum(3)]
-    let v_chunks = Layout::vertical([
-        Constraint::Min(10),
-        Constraint::Length(3),
-    ])
-    .split(h_chunks[0]);
+    let v_chunks =
+        Layout::vertical([Constraint::Min(10), Constraint::Length(3)]).split(h_chunks[0]);
 
     // === Canvas ===
     let canvas_area = v_chunks[0];
@@ -100,11 +94,7 @@ fn draw_spectrum(frame: &mut Frame, area: Rect, audio: Option<&AudioFeatures>) {
     };
 
     let sparkline = Sparkline::default()
-        .block(
-            Block::default()
-                .borders(Borders::TOP)
-                .title(" Spectrum "),
-        )
+        .block(Block::default().borders(Borders::TOP).title(" Spectrum "))
         .data(&data)
         .style(Style::default().fg(bar_color));
 
@@ -147,9 +137,7 @@ fn draw_sidebar(
     };
 
     let charset_names = ["Compact", "Standard", "Full", "Blocks", "Minimal"];
-    let charset_name = charset_names
-        .get(config.charset_index)
-        .unwrap_or(&"Custom");
+    let charset_name = charset_names.get(config.charset_index).unwrap_or(&"Custom");
 
     let fps_str = format!("{:.0} FPS", fps_counter.fps());
     let ft_str = format!("{:.1}ms", fps_counter.frame_time_ms);
@@ -164,24 +152,39 @@ fn draw_sidebar(
     let mut lines = vec![
         Line::from(Span::styled(state_str, Style::default().fg(Color::Green))),
         Line::from(""),
-        Line::from(Span::styled("─ Render ──", Style::default().fg(Color::Yellow))),
+        Line::from(Span::styled(
+            "─ Render ──",
+            Style::default().fg(Color::Yellow),
+        )),
         Line::from(format!(" Mode: {mode_str}")),
         Line::from(format!(" Chars: {charset_name}")),
         Line::from(format!(" Density: {:.2}", config.density_scale)),
-        Line::from(format!(" Color: {}", if config.color_enabled { "ON" } else { "OFF" })),
+        Line::from(format!(
+            " Color: {}",
+            if config.color_enabled { "ON" } else { "OFF" }
+        )),
         Line::from(format!(" CMode: {color_mode_str}")),
-        Line::from(format!(" Invert: {}", if config.invert { "ON" } else { "OFF" })),
+        Line::from(format!(
+            " Invert: {}",
+            if config.invert { "ON" } else { "OFF" }
+        )),
         Line::from(format!(" Contr: {:.1}", config.contrast)),
         Line::from(format!(" Bright: {:.2}", config.brightness)),
         Line::from(format!(" Satur: {:.1}", config.saturation)),
         Line::from(format!(" Edges: {:.1}", config.edge_threshold)),
-        Line::from(format!(" Shape: {}", if config.shape_matching { "ON" } else { "OFF" })),
+        Line::from(format!(
+            " Shape: {}",
+            if config.shape_matching { "ON" } else { "OFF" }
+        )),
         Line::from(format!(" Aspect: {:.1}", config.aspect_ratio)),
         Line::from(format!(" BG: {bg_str}")),
         Line::from(format!(" Fade: {:.1}", config.fade_decay)),
         Line::from(format!(" Glow: {:.1}", config.glow_intensity)),
         Line::from(""),
-        Line::from(Span::styled("─ Audio ───", Style::default().fg(Color::Yellow))),
+        Line::from(Span::styled(
+            "─ Audio ───",
+            Style::default().fg(Color::Yellow),
+        )),
         Line::from(format!(" Sens: {:.1}", config.audio_sensitivity)),
         Line::from(format!(" Smooth: {:.2}", config.audio_smoothing)),
     ];
@@ -191,22 +194,29 @@ fn draw_sidebar(
         lines.push(Line::from(format!(" BPM: {:.0}", features.bpm)));
         lines.push(Line::from(Span::styled(
             format!(" {onset_str}"),
-            Style::default().fg(if features.onset { Color::Red } else { Color::DarkGray }),
+            Style::default().fg(if features.onset {
+                Color::Red
+            } else {
+                Color::DarkGray
+            }),
         )));
     }
 
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("─ Info ────", Style::default().fg(Color::Yellow))));
+    lines.push(Line::from(Span::styled(
+        "─ Info ────",
+        Style::default().fg(Color::Yellow),
+    )));
     lines.push(Line::from(format!(" {fps_str}")));
     lines.push(Line::from(format!(" {ft_str}")));
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(" ? = help", Style::default().fg(Color::DarkGray))));
+    lines.push(Line::from(Span::styled(
+        " ? = help",
+        Style::default().fg(Color::DarkGray),
+    )));
 
-    let sidebar = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::LEFT)
-            .title(" Params "),
-    );
+    let sidebar =
+        Paragraph::new(lines).block(Block::default().borders(Borders::LEFT).title(" Params "));
 
     frame.render_widget(sidebar, area);
 }

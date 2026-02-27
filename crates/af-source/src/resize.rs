@@ -54,21 +54,13 @@ impl Resizer {
         self.src_buf.clear();
         self.src_buf.extend_from_slice(&src.data);
 
-        let src_image = Image::from_slice_u8(
-            src.width,
-            src.height,
-            &mut self.src_buf,
-            PixelType::U8x4,
-        )
-        .context("Invalid source dimensions")?;
+        let src_image =
+            Image::from_slice_u8(src.width, src.height, &mut self.src_buf, PixelType::U8x4)
+                .context("Invalid source dimensions")?;
 
-        let mut dst_image = Image::from_slice_u8(
-            dst.width,
-            dst.height,
-            &mut dst.data,
-            PixelType::U8x4,
-        )
-        .context("Invalid destination dimensions")?;
+        let mut dst_image =
+            Image::from_slice_u8(dst.width, dst.height, &mut dst.data, PixelType::U8x4)
+                .context("Invalid destination dimensions")?;
 
         self.inner
             .resize(&src_image, &mut dst_image, Some(&self.options))

@@ -15,14 +15,14 @@ color_mode = "HsvBright"
 saturation = 1.2
 contrast = 1.0
 brightness = 0.0
-bg_style = "Black"
+bg_style = "SourceDim"
 fade_decay = 0.3
 glow_intensity = 0.5
-target_fps = 30
+target_fps = 60
 
 [audio]
-smoothing = 0.7
-sensitivity = 1.0
+smoothing = 1.0
+sensitivity = 0.5
 
 [[audio.mappings]]
 source = "bass"

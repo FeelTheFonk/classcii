@@ -44,7 +44,7 @@ fast_image_resize = "6"
 # === Audio ===
 cpal = "0.16"
 realfft = "3.5"
-symphonia = { version = "0.5", features = ["mp3", "flac", "ogg", "wav", "aac"] }
+symphonia = { version = "0.5", features = ["mp3", "flac", "ogg", "wav", "aac", "isomp4", "mkv"] }
 
 # === Vidéo (feature-gated) ===
 # ffmpeg-the-third = "2"    # Activé via feature flag

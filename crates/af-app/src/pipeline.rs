@@ -6,31 +6,47 @@ use arc_swap::ArcSwap;
 
 use crate::cli::Cli;
 
-/// Result from starting a visual source: (initial_frame, dynamic_frame_receiver).
-pub type SourceResult = (Option<Arc<FrameBuffer>>, Option<flume::Receiver<Arc<FrameBuffer>>>);
+#[cfg(feature = "video")]
+pub type SourceResult = (
+    Option<Arc<FrameBuffer>>,
+    Option<flume::Receiver<Arc<FrameBuffer>>>,
+    Option<flume::Sender<af_source::video::VideoCommand>>,
+);
+
+#[cfg(not(feature = "video"))]
+pub type SourceResult = (
+    Option<Arc<FrameBuffer>>,
+    Option<flume::Receiver<Arc<FrameBuffer>>>,
+);
 /// Start the audio pipeline.
 ///
 /// `audio_arg` can be `"default"` or `"mic"` for microphone capture,
 /// or a file path for audio file analysis.
 ///
 /// # Errors
-/// Returns an error if audio initialization fails.
+/// Returns an error if the audio device or file is unavailable.
 pub fn start_audio(
     audio_arg: &str,
     config: &Arc<ArcSwap<RenderConfig>>,
-) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
+) -> anyhow::Result<(
+    triple_buffer::Output<AudioFeatures>,
+    Option<flume::Sender<af_audio::state::AudioCommand>>,
+)> {
     let fps = config.load().target_fps;
 
     match audio_arg {
         "default" | "mic" | "microphone" => {
             log::info!("Starting microphone capture");
-            af_audio::state::spawn_audio_thread(fps)
+            let out = af_audio::state::spawn_audio_thread(fps)?;
+            Ok((out, None))
         }
         path => {
             let audio_path = std::path::Path::new(path);
             if audio_path.exists() {
                 log::info!("Starting audio file analysis: {path}");
-                af_audio::state::spawn_audio_file_thread(audio_path, fps)
+                let (cmd_tx, cmd_rx) = flume::bounded(10);
+                let out = af_audio::state::spawn_audio_file_thread(audio_path, fps, cmd_rx)?;
+                Ok((out, Some(cmd_tx)))
             } else {
                 anyhow::bail!("Audio source not found: {path}")
             }
@@ -45,16 +61,29 @@ pub fn start_audio(
 ///
 /// # Errors
 /// Returns an error if source initialization fails.
-pub fn start_source(
-    cli: &Cli,
-) -> anyhow::Result<SourceResult> {
+pub fn start_source(cli: &Cli) -> anyhow::Result<SourceResult> {
     if let Some(ref path) = cli.image {
-        let source = af_source::image::ImageSource::new(path)?;
-        let frame = af_core::traits::Source::next_frame(&mut { source });
-        Ok((frame, None))
-    } else {
-        Ok((None, None))
+        let mut source = af_source::image::ImageSource::new(path)?;
+        let frame = af_core::traits::Source::next_frame(&mut source);
+        #[cfg(feature = "video")]
+        return Ok((frame, None, None));
+        #[cfg(not(feature = "video"))]
+        return Ok((frame, None));
     }
+
+    #[cfg(feature = "video")]
+    if let Some(ref path) = cli.video {
+        log::info!("Starting video source: {}", path.display());
+        let (frame_tx, frame_rx) = flume::bounded(3);
+        let (cmd_tx, cmd_rx) = flume::bounded(10);
+        af_source::video::spawn_video_thread(path.clone(), frame_tx, cmd_rx)?;
+        return Ok((None, Some(frame_rx), Some(cmd_tx)));
+    }
+
+    #[cfg(feature = "video")]
+    return Ok((None, None, None));
+    #[cfg(not(feature = "video"))]
+    return Ok((None, None));
 }
 
 /// Applique les mappings audio à une copie de la config avant le rendu.

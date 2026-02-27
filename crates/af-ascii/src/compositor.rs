@@ -1,9 +1,9 @@
 use af_core::charset::LuminanceLut;
 use af_core::config::{BgStyle, RenderConfig, RenderMode};
-use af_core::frame::{AsciiCell, AsciiGrid, AudioFeatures, FrameBuffer};
+use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
 
 use crate::color_map;
-use crate::luminance;
+use crate::shape_match::ShapeMatcher;
 
 /// Compositor orchestre les différents modes de conversion pixel→ASCII.
 ///
@@ -15,6 +15,8 @@ use crate::luminance;
 pub struct Compositor {
     lut: LuminanceLut,
     current_charset: String,
+    /// Lazy-initialized shape matcher (only created when first needed).
+    shape_matcher: Option<ShapeMatcher>,
 }
 
 impl Compositor {
@@ -24,6 +26,7 @@ impl Compositor {
         Self {
             lut: LuminanceLut::new(charset),
             current_charset: charset.to_string(),
+            shape_matcher: None,
         }
     }
 
@@ -58,112 +61,100 @@ impl Compositor {
     ) {
         self.update_if_needed(&config.charset);
 
-        match config.render_mode {
-            RenderMode::Ascii => {
-                luminance::process_luminance(frame, config, &self.lut, grid);
-                if config.color_enabled {
-                    apply_color_mapping(grid, frame, config);
+        // 1. Pré-Rendu des modes algorithmiques complexes (Braille, HalfBlock, Quadrant)
+        let is_ascii = matches!(config.render_mode, RenderMode::Ascii);
+        if !is_ascii {
+            match config.render_mode {
+                RenderMode::HalfBlock => crate::halfblock::process_halfblock(frame, config, grid),
+                RenderMode::Braille => crate::braille::process_braille(frame, config, grid),
+                RenderMode::Quadrant => crate::quadrant::process_quadrant(frame, config, grid),
+                RenderMode::Ascii => unreachable!(),
+            }
+        }
+
+        // Lazy-init shape matcher if needed
+        let use_shape = is_ascii && config.shape_matching;
+        if use_shape && self.shape_matcher.is_none() {
+            self.shape_matcher = Some(ShapeMatcher::new());
+        }
+
+        // 2. MEGA-BOUCLE SOTA (SIMD Philosophy)
+        let edge_chars = [' ', '.', '-', '|', '/', '\\', '+', '#'];
+        let mix = config.edge_mix.clamp(0.0, 1.0);
+        let edge_enabled = config.edge_threshold > 0.0 && config.edge_mix > 0.0;
+        let apply_bg = matches!(config.bg_style, BgStyle::SourceDim);
+
+        for cy in 0..grid.height {
+            for cx in 0..grid.width {
+                let px = u32::from(cx) * frame.width / u32::from(grid.width).max(1);
+                let py = u32::from(cy) * frame.height / u32::from(grid.height).max(1);
+                let px = px.min(frame.width.saturating_sub(1));
+                let py = py.min(frame.height.saturating_sub(1));
+
+                let (r, g, b, _) = frame.pixel(px, py);
+                let mut cell = *grid.get(cx, cy);
+
+                // A. Base Ascii (Luminance + Couleur Directe)
+                if is_ascii {
+                    let mut lum = frame.luminance(px, py);
+                    if config.invert {
+                        lum = 255 - lum;
+                    }
+                    let val = f32::from(lum);
+                    let adjusted =
+                        (val - 128.0) * config.contrast + 128.0 + config.brightness * 255.0;
+
+                    // Shape matching or standard LUT
+                    cell.ch = if use_shape {
+                        if let Some(ref matcher) = self.shape_matcher {
+                            let mut block = [0u8; 25];
+                            for dy in 0..5u32 {
+                                for dx in 0..5u32 {
+                                    let sx = (px + dx).min(frame.width.saturating_sub(1));
+                                    let sy = (py + dy).min(frame.height.saturating_sub(1));
+                                    block[(dy * 5 + dx) as usize] = frame.luminance(sx, sy);
+                                }
+                            }
+                            matcher.match_cell(&block)
+                        } else {
+                            self.lut.map(adjusted.clamp(0.0, 255.0) as u8)
+                        }
+                    } else {
+                        self.lut.map(adjusted.clamp(0.0, 255.0) as u8)
+                    };
+
+                    if config.color_enabled {
+                        let (mr, mg, mb) =
+                            color_map::map_color(r, g, b, &config.color_mode, config.saturation);
+                        cell.fg = (mr, mg, mb);
+                    } else {
+                        cell.fg = (r, g, b);
+                    }
+                    cell.bg = match config.bg_style {
+                        BgStyle::Black | BgStyle::Transparent => (0, 0, 0),
+                        BgStyle::SourceDim => (r / 4, g / 4, b / 4),
+                    };
                 }
-            }
-            RenderMode::HalfBlock => {
-                crate::halfblock::process_halfblock(frame, config, grid);
-            }
-            RenderMode::Braille => {
-                crate::braille::process_braille(frame, config, grid);
-            }
-            RenderMode::Quadrant => {
-                crate::quadrant::process_quadrant(frame, config, grid);
-            }
-        }
 
-        // Edge blending: if edges enabled, overlay edge chars with mix ratio
-        if config.edge_threshold > 0.0 && config.edge_mix > 0.0 {
-            apply_edge_blend(grid, frame, config);
-        }
-
-        // Background style
-        apply_bg_style(grid, frame, config);
-    }
-}
-
-/// Apply color mapping to all cells in the grid.
-fn apply_color_mapping(grid: &mut AsciiGrid, frame: &FrameBuffer, config: &RenderConfig) {
-    for cy in 0..grid.height {
-        for cx in 0..grid.width {
-            let px = u32::from(cx) * frame.width / u32::from(grid.width).max(1);
-            let py = u32::from(cy) * frame.height / u32::from(grid.height).max(1);
-            let px = px.min(frame.width.saturating_sub(1));
-            let py = py.min(frame.height.saturating_sub(1));
-
-            let (r, g, b, _) = frame.pixel(px, py);
-            let (mr, mg, mb) = color_map::map_color(r, g, b, &config.color_mode, config.saturation);
-
-            let cell = grid.get(cx, cy);
-            grid.set(cx, cy, AsciiCell {
-                ch: cell.ch,
-                fg: (mr, mg, mb),
-                bg: cell.bg,
-            });
-        }
-    }
-}
-
-/// Edge blending overlay using edge_mix ratio.
-fn apply_edge_blend(grid: &mut AsciiGrid, frame: &FrameBuffer, config: &RenderConfig) {
-    let edge_chars = [' ', '.', '-', '|', '/', '\\', '+', '#'];
-    let mix = config.edge_mix.clamp(0.0, 1.0);
-
-    for cy in 0..grid.height {
-        for cx in 0..grid.width {
-            let px = u32::from(cx) * frame.width / u32::from(grid.width).max(1);
-            let py = u32::from(cy) * frame.height / u32::from(grid.height).max(1);
-            let px = px.min(frame.width.saturating_sub(1));
-            let py = py.min(frame.height.saturating_sub(1));
-
-            // detect_edge returns normalized [0.0, 1.0]
-            let normalized = crate::edge::detect_edge(frame, px, py);
-
-            if normalized > config.edge_threshold {
-                let idx = ((normalized * (edge_chars.len() - 1) as f32) as usize)
-                    .min(edge_chars.len() - 1);
-                let edge_ch = edge_chars[idx];
-                let cell = grid.get(cx, cy);
-
-                // Blend: if mix=1.0, full edge; if mix=0.5, 50% chance of keeping original
-                if mix >= 1.0 || normalized * mix > 0.5 {
-                    grid.set(cx, cy, AsciiCell {
-                        ch: edge_ch,
-                        fg: cell.fg,
-                        bg: cell.bg,
-                    });
+                // B. Edge Blending
+                if edge_enabled {
+                    let normalized = crate::edge::detect_edge(frame, px, py);
+                    if normalized > config.edge_threshold {
+                        let idx = ((normalized * (edge_chars.len() - 1) as f32) as usize)
+                            .min(edge_chars.len() - 1);
+                        if mix >= 1.0 || normalized * mix > 0.5 {
+                            cell.ch = edge_chars[idx];
+                        }
+                    }
                 }
-            }
-        }
-    }
-}
 
-/// Apply background style to grid cells.
-fn apply_bg_style(grid: &mut AsciiGrid, frame: &FrameBuffer, config: &RenderConfig) {
-    match config.bg_style {
-        BgStyle::Black | BgStyle::Transparent => {} // Already default (0,0,0)
-        BgStyle::SourceDim => {
-            for cy in 0..grid.height {
-                for cx in 0..grid.width {
-                    let px = u32::from(cx) * frame.width / u32::from(grid.width).max(1);
-                    let py = u32::from(cy) * frame.height / u32::from(grid.height).max(1);
-                    let px = px.min(frame.width.saturating_sub(1));
-                    let py = py.min(frame.height.saturating_sub(1));
-
-                    let (r, g, b, _) = frame.pixel(px, py);
-                    let cell = grid.get(cx, cy);
-                    grid.set(cx, cy, AsciiCell {
-                        ch: cell.ch,
-                        fg: cell.fg,
-                        bg: (r / 4, g / 4, b / 4), // 25% brightness
-                    });
+                // C. Override Bg Style (for non-ascii modes that don't do it)
+                if !is_ascii && apply_bg {
+                    cell.bg = (r / 4, g / 4, b / 4);
                 }
+
+                grid.set(cx, cy, cell);
             }
         }
     }
 }
-

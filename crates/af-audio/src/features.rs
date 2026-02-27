@@ -48,21 +48,16 @@ pub fn extract_features(samples: &[f32], spectrum: &[f32], sample_rate: u32) -> 
                 .enumerate()
                 .map(|(i, &mag)| i as f32 * bin_hz * mag)
                 .sum();
-            features.spectral_centroid =
-                (weighted / total_energy / 20000.0).clamp(0.0, 1.0);
+            features.spectral_centroid = (weighted / total_energy / 20000.0).clamp(0.0, 1.0);
         }
 
         // Spectral flatness (geometric mean / arithmetic mean)
         if total_energy > 1e-10 {
             let n = spectrum.len() as f32;
-            let log_sum: f32 = spectrum
-                .iter()
-                .map(|&m| (m + 1e-10).ln())
-                .sum();
+            let log_sum: f32 = spectrum.iter().map(|&m| (m + 1e-10).ln()).sum();
             let geo_mean = (log_sum / n).exp();
             let arith_mean = total_energy / n;
-            features.spectral_flatness =
-                (geo_mean / arith_mean).clamp(0.0, 1.0);
+            features.spectral_flatness = (geo_mean / arith_mean).clamp(0.0, 1.0);
         }
 
         // Spectrum bands (32 log-frequency bands)

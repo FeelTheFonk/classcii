@@ -1,4 +1,4 @@
-//! Algorithmique de Tramage Ordonné (Ordered Dithering) 
+//! Algorithmique de Tramage Ordonné (Ordered Dithering)
 //! Déploiement des matrices de Bayer pour l'élargissement d'histogramme sans banding.
 
 /// Matrice de Bayer 2x2. Normalisée sur 4 niveaux (0-3).

@@ -1,4 +1,4 @@
-//! Table de Correspondance Exhaustive PETSCII -> Unicode 
+//! Table de Correspondance Exhaustive PETSCII -> Unicode
 //! (CBM PETSCII vers UTF-8)
 //!
 //! Permet le mapping O(1) des dumps mémoires C64 intégrant le semi-graphisme .

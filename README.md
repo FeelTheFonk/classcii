@@ -1,4 +1,4 @@
-<img width="32" height="32" alt="classcii_32" src="https://github.com/user-attachments/assets/ec99168e-60d2-4818-9330-67b95ab0f674" /> 
+https://github.com/user-attachments/assets/942d140b-20d6-4c8b-acbb-9b1e2a568df1
 
 # _classcii
 

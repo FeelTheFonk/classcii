@@ -164,6 +164,7 @@ pub const EFFECT_NAMES: [&str; NUM_EFFECTS] = [
 impl CreationEngine {
     /// Modulate the render config based on audio features and image analysis.
     ///
+    /// Sets effect values proportionally each frame (no accumulation).
     /// Only active when `auto_mode` is true and preset is not Custom.
     pub fn modulate(
         &mut self,
@@ -179,46 +180,60 @@ impl CreationEngine {
 
         let mi = self.master_intensity;
 
-        // Image-adaptive adjustments
-        if image.avg_luminance < 0.2 {
-            config.brightness = (config.brightness + 0.1 * mi).clamp(-1.0, 1.0);
-        }
-        if image.contrast_ratio > 0.7 {
-            config.contrast = (config.contrast - 0.05 * mi).clamp(0.1, 3.0);
-        }
-        if image.edge_density > 0.8 {
-            config.edge_mix = (config.edge_mix + 0.05 * mi).clamp(0.0, 1.0);
-        }
+        // Image-adaptive brightness compensation (direct set, no accumulation)
+        let bright_comp = if image.avg_luminance < 0.2 {
+            (0.2 - image.avg_luminance) * mi
+        } else {
+            0.0
+        };
+        config.brightness = bright_comp.clamp(-1.0, 1.0);
+
+        // Advance internal phase
+        self.color_pulse_phase += dt * mi;
 
         match self.active_preset {
             CreationPreset::Ambient => {
-                config.fade_decay = (config.fade_decay + audio.rms * 0.5 * mi).clamp(0.0, 1.0);
-                config.glow_intensity =
-                    (config.glow_intensity + audio.spectral_centroid * 0.3 * mi).clamp(0.0, 2.0);
-                self.color_pulse_phase += audio.beat_phase * 0.1 * mi * dt;
+                // Smooth, breath-like modulation driven by RMS and spectral centroid
+                config.fade_decay = (audio.rms * 0.8 * mi).clamp(0.0, 1.0);
+                config.glow_intensity = (audio.spectral_centroid * 0.6 * mi).clamp(0.0, 2.0);
                 config.color_pulse_speed =
-                    (self.color_pulse_phase.sin().abs() * 0.5 * mi).clamp(0.0, 5.0);
+                    (self.color_pulse_phase.sin().abs() * 0.8 * mi).clamp(0.0, 5.0);
+                config.wave_amplitude =
+                    ((self.color_pulse_phase * 0.3).sin().abs() * 0.15 * mi).clamp(0.0, 1.0);
+                config.chromatic_offset = 0.0;
+                config.beat_flash_intensity = (onset_envelope * 0.3 * mi).clamp(0.0, 2.0);
             }
             CreationPreset::Percussive => {
-                config.beat_flash_intensity = (onset_envelope * 1.5 * mi).clamp(0.0, 2.0);
-                config.chromatic_offset = (audio.bass * 2.0 * mi).clamp(0.0, 5.0);
-                config.wave_amplitude = (audio.beat_phase * 0.3 * mi).clamp(0.0, 1.0);
+                // Beat-locked: heavy strobe, chromatic, wave on hits
+                config.beat_flash_intensity = (onset_envelope * 1.8 * mi).clamp(0.0, 2.0);
+                config.chromatic_offset = (audio.bass * 3.0 * mi).clamp(0.0, 5.0);
+                config.wave_amplitude = (onset_envelope * 0.5 * mi).clamp(0.0, 1.0);
+                config.fade_decay = (audio.rms * 0.4 * mi).clamp(0.0, 1.0);
+                config.glow_intensity = (audio.mid * 0.5 * mi).clamp(0.0, 2.0);
+                config.color_pulse_speed = 0.0;
             }
             CreationPreset::Psychedelic => {
-                self.color_pulse_phase += dt * 3.0 * mi;
+                // Everything cranked — fast color rotation, heavy visual artifacts
                 config.color_pulse_speed = (3.0 * mi).clamp(0.0, 5.0);
-                config.wave_amplitude = (audio.mid * 0.5 * mi).clamp(0.0, 1.0);
-                config.chromatic_offset = (audio.spectral_flux * 1.0 * mi).clamp(0.0, 5.0);
-                config.beat_flash_intensity = (onset_envelope * 0.5 * mi).clamp(0.0, 2.0);
+                config.wave_amplitude = (audio.mid * 0.6 * mi).clamp(0.0, 1.0);
+                config.chromatic_offset =
+                    (audio.spectral_flux * 3.0 * mi + audio.bass * 1.0).clamp(0.0, 5.0);
+                config.beat_flash_intensity = (onset_envelope * 1.0 * mi).clamp(0.0, 2.0);
+                config.glow_intensity = (audio.rms * 1.2 * mi).clamp(0.0, 2.0);
+                config.fade_decay = (audio.spectral_centroid * 0.6 * mi).clamp(0.0, 1.0);
+                let scan = (audio.presence * 4.0 * mi) as u8;
+                config.scanline_gap = if scan >= 2 { scan.min(8) } else { 0 };
             }
             CreationPreset::Cinematic => {
-                config.fade_decay = (config.fade_decay + audio.rms * 0.6 * mi).clamp(0.0, 1.0);
-                config.glow_intensity =
-                    (config.glow_intensity + audio.spectral_centroid * 0.4 * mi).clamp(0.0, 2.0);
+                // Smooth, controlled dynamics — fade/glow dominant, subtle scan lines
+                config.fade_decay = (audio.rms * 0.9 * mi).clamp(0.0, 1.0);
+                config.glow_intensity = (audio.spectral_centroid * 0.7 * mi).clamp(0.0, 2.0);
+                config.chromatic_offset = (audio.bass * 0.5 * mi).clamp(0.0, 5.0);
+                config.wave_amplitude = 0.0;
+                config.color_pulse_speed = (audio.rms * 0.3 * mi).clamp(0.0, 5.0);
+                config.beat_flash_intensity = (onset_envelope * 0.5 * mi).clamp(0.0, 2.0);
                 let scan = (audio.presence * 3.0 * mi) as u8;
-                if scan >= 2 {
-                    config.scanline_gap = scan.min(8);
-                }
+                config.scanline_gap = if scan >= 2 { scan.min(6) } else { 0 };
             }
             CreationPreset::Custom => {} // Handled by early return above
         }

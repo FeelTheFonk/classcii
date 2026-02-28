@@ -13,14 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MappingCurve**: 4 response curves for audio mappings (Linear, Exponential, Threshold, Smooth).
 - **Per-mapping smoothing**: Optional per-mapping EMA smoothing override via `AudioMapping.smoothing`.
 - **Curve column** in Audio Mixer panel: 6th editable column for response curve selection.
-- **Dither mode toggle** (`F2`): Cycle between Bayer8x8, BlueNoise16, and Off.
+- **Dither mode toggle** (`n`): Cycle between Bayer8x8, BlueNoise16, and Off.
 
 ### Changed
 - `apply_audio_mappings` signature extended with `onset_envelope` and `smooth_state` parameters.
 - `AudioMapping` struct extended with `curve` and `smoothing` fields.
 - Help overlay updated with all new keybindings. Charset range corrected to `1-0`.
+- Creation Mode modulation rewritten: proportional per-frame set (no accumulation bug). Manual mode allows direct effect adjustment via Left/Right on selected effect.
 
 ### Fixed
+- **Key routing**: `K` (Creation Mode) and `n` (dither toggle) now correctly dispatched in main event loop.
 - `DitherMode::BlueNoise64` renamed to `BlueNoise16` to match actual 16x16 matrix. Serde alias preserves backward compatibility with existing TOML configs.
 
 ## [0.3.0] — 2026-02-28

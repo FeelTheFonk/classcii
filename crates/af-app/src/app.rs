@@ -555,7 +555,9 @@ impl App {
                     | 'p'
                     | 'P'
                     | 'C'
-                    | 'A',
+                    | 'A'
+                    | 'K'
+                    | 'n',
                 ) => self.handle_render_key(code),
                 KeyCode::Char(
                     'f' | 'F' | 'g' | 'G' | 'r' | 'R' | 'w' | 'W' | 'h' | 'H' | 'l' | 'L' | 't'
@@ -812,7 +814,7 @@ impl App {
         }
     }
 
-    /// Prompt F or D handler
+    /// Creation Mode key handler.
     fn handle_creation_key(&mut self, code: KeyCode) {
         match code {
             KeyCode::Esc => {
@@ -830,12 +832,22 @@ impl App {
                 }
             }
             KeyCode::Right => {
-                self.creation_engine.master_intensity =
-                    (self.creation_engine.master_intensity + 0.1).min(2.0);
+                if self.creation_engine.auto_mode {
+                    // In auto mode: adjust master intensity
+                    self.creation_engine.master_intensity =
+                        (self.creation_engine.master_intensity + 0.1).min(2.0);
+                } else {
+                    // In manual mode: adjust selected effect directly
+                    self.adjust_creation_effect(0.1);
+                }
             }
             KeyCode::Left => {
-                self.creation_engine.master_intensity =
-                    (self.creation_engine.master_intensity - 0.1).max(0.0);
+                if self.creation_engine.auto_mode {
+                    self.creation_engine.master_intensity =
+                        (self.creation_engine.master_intensity - 0.1).max(0.0);
+                } else {
+                    self.adjust_creation_effect(-0.1);
+                }
             }
             KeyCode::Char('a') => {
                 self.creation_engine.auto_mode = !self.creation_engine.auto_mode;
@@ -845,6 +857,26 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// Adjust the selected effect value in creation manual mode.
+    fn adjust_creation_effect(&mut self, delta: f32) {
+        let idx = self.creation_engine.selected_effect;
+        let max = self.creation_engine.effect_max(idx);
+        self.toggle_config(|c| match idx {
+            0 => c.beat_flash_intensity = (c.beat_flash_intensity + delta).clamp(0.0, max),
+            1 => c.fade_decay = (c.fade_decay + delta).clamp(0.0, max),
+            2 => c.glow_intensity = (c.glow_intensity + delta).clamp(0.0, max),
+            3 => c.chromatic_offset = (c.chromatic_offset + delta * 5.0).clamp(0.0, max),
+            4 => c.wave_amplitude = (c.wave_amplitude + delta).clamp(0.0, max),
+            5 => c.color_pulse_speed = (c.color_pulse_speed + delta * 5.0).clamp(0.0, max),
+            6 => {
+                let v = (f32::from(c.scanline_gap) + delta * 10.0).clamp(0.0, max) as u8;
+                c.scanline_gap = v;
+            }
+            7 => c.strobe_decay = (c.strobe_decay + delta).clamp(0.0, max),
+            _ => {}
+        });
     }
 
     fn handle_prompt_key(&mut self, code: KeyCode) {
@@ -977,7 +1009,7 @@ impl App {
                 self.state = AppState::CreationMode;
                 self.sidebar_dirty = true;
             }
-            KeyCode::F(2) => {
+            KeyCode::Char('n') => {
                 self.toggle_config(|c| {
                     c.dither_mode = match c.dither_mode {
                         DitherMode::Bayer8x8 => DitherMode::BlueNoise16,

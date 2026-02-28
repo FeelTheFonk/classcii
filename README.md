@@ -135,7 +135,7 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `h` / `H` | Adjust color pulse speed |
 | `l` / `L` | Adjust scan line gap |
 | `v` | Toggle spectrum display |
-| `F2` | Cycle dither mode (Bayer8x8 / BlueNoise16 / Off) |
+| `n` | Cycle dither mode (Bayer8x8 / BlueNoise16 / Off) |
 | `↑` / `↓` | Adjust general audio sensitivity |
 | `←` / `→` | Seek temporal stream |
 | `Space` | Pause / Resume engine |
@@ -197,12 +197,12 @@ Press `K` to enter Creation Mode, an auto-modulation engine that drives all visu
 | Psychedelic | High chromatic aberration, fast color pulse |
 | Cinematic | Smooth fade, wide glow, controlled dynamics |
 
-Navigation: `Up/Down` select effect, `Left/Right` adjust, `a` toggle auto-mode, `p` cycle preset, `Esc` exit.
+Navigation: `Up/Down` select effect, `Left/Right` adjust master intensity (auto) or selected effect (manual), `a` toggle auto/manual mode, `p` cycle preset, `Esc` exit.
 
 ## R&D: Perceptual Color and Dithering
 
 - **Oklab color space**: Perceptually uniform brightness adjustments via `rgb_to_oklab` / `oklab_to_rgb`. Selectable via `m` key (Direct / HSV / Oklab / Quantized).
-- **Blue Noise 16x16 dithering**: Perceptually superior to Bayer ordered dithering. Cycle with `F2` (Bayer8x8 / BlueNoise16 / Off).
+- **Blue Noise 16x16 dithering**: Perceptually superior to Bayer ordered dithering. Cycle with `n` (Bayer8x8 / BlueNoise16 / Off).
 - **Temporal Stability**: Anti-flicker heuristic based on character density distance, preventing rapid ASCII character oscillation.
 
 ## Presets

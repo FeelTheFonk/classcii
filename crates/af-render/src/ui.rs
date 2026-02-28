@@ -307,7 +307,7 @@ fn draw_sidebar(
         kv("[a]", "Aspc", format!("{:.1}", config.aspect_ratio)),
         kv("[b]", "BG", bg_str.to_string()),
         kv(
-            "[F2]",
+            "[n]",
             "Dthr",
             match config.dither_mode {
                 af_core::config::DitherMode::Bayer8x8 => "Bayer8",
@@ -436,7 +436,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" C        Edit charset"),
         Line::from(" A        Audio mixer"),
         Line::from(" K        Creation mode"),
-        Line::from(" F2       Cycle dither mode"),
+        Line::from(" n        Cycle dither mode"),
         Line::from(" x        Toggle fullscreen"),
         Line::from(" ?        Toggle help"),
         Line::from(""),

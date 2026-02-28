@@ -123,6 +123,6 @@ mod tests {
     #[test]
     fn clock_zero_sample_rate() {
         let clock = MediaClock::new(0);
-        assert_eq!(clock.pos_secs(), 0.0);
+        assert!(clock.pos_secs().abs() < f64::EPSILON);
     }
 }

@@ -1,14 +1,58 @@
+# Standard luminance gradient — balanced effects, classic look with subtle audio.
 [render]
 render_mode = "Ascii"
 charset_index = 8
 color_enabled = true
 color_mode = "HsvBright"
+dither_mode = "BlueNoise16"
 density_scale = 1.0
-glow_intensity = 0.5
-fade_decay = 0.4
-audio_sensitivity = 1.5
+invert = false
+contrast = 1.3
+brightness = 0.0
+saturation = 1.2
 edge_threshold = 0.2
 edge_mix = 0.5
+shape_matching = false
+aspect_ratio = 2.0
+bg_style = "SourceDim"
+fade_decay = 0.4
+glow_intensity = 0.5
+beat_flash_intensity = 0.5
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 2.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+strobe_decay = 0.85
+temporal_stability = 0.3
+target_fps = 60
+fullscreen = false
+show_spectrum = true
 
 [audio]
+sensitivity = 1.5
 smoothing = 0.8
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "edge_threshold"
+amount = 0.3
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "contrast"
+amount = 0.5
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.2
+offset = 0.0
+curve = "Smooth"

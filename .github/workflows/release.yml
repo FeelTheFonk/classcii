@@ -80,6 +80,7 @@ jobs:
           mkdir -p "${ASSET_NAME}"
           cp "target/release/${BINARY_NAME}" "${ASSET_NAME}/"
           cp README.md LICENSE "${ASSET_NAME}/"
+          cp -r config/ "${ASSET_NAME}/config/"
           tar czf "${ASSET_NAME}.tar.gz" "${ASSET_NAME}"
           echo "ASSET=${ASSET_NAME}.tar.gz" >> "$GITHUB_ENV"
 
@@ -91,6 +92,7 @@ jobs:
           mkdir -p "${ASSET_NAME}"
           cp "target/release/${BINARY_NAME}.exe" "${ASSET_NAME}/"
           cp README.md LICENSE "${ASSET_NAME}/"
+          cp -r config/ "${ASSET_NAME}/config/"
           7z a "${ASSET_NAME}.zip" "${ASSET_NAME}"
           echo "ASSET=${ASSET_NAME}.zip" >> "$GITHUB_ENV"
 

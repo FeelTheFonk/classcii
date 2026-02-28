@@ -1,13 +1,58 @@
+# Braille matrix, high contrast cyberpunk — neon glow, heavy chromatic, scan lines.
 [render]
 render_mode = "Braille"
 charset_index = 0
 color_enabled = true
 color_mode = "HsvBright"
+dither_mode = "BlueNoise16"
 density_scale = 1.0
-glow_intensity = 1.5
-fade_decay = 0.6
-audio_sensitivity = 1.5
+invert = false
+contrast = 1.6
+brightness = 0.0
+saturation = 1.8
 edge_threshold = 0.0
+edge_mix = 0.0
+shape_matching = false
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.6
+glow_intensity = 1.5
+beat_flash_intensity = 1.0
+chromatic_offset = 1.5
+wave_amplitude = 0.0
+wave_speed = 2.0
+color_pulse_speed = 0.0
+scanline_gap = 3
+strobe_decay = 0.85
+temporal_stability = 0.3
+target_fps = 60
+fullscreen = false
+show_spectrum = true
 
 [audio]
+sensitivity = 1.5
 smoothing = 0.8
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "brightness"
+amount = 0.4
+offset = 0.0
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "zalgo_intensity"
+amount = 0.8
+offset = 0.0
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "contrast"
+amount = 0.6
+offset = 0.0
+curve = "Smooth"

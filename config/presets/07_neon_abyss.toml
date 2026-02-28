@@ -1,25 +1,67 @@
+# Neon colors, deep glow, high saturation — cyberpunk abyss with audio reactive glow.
 [render]
-target_fps = 60
 render_mode = "Ascii"
-density_scale = 1.0
+charset_index = 8
+charset = " .':;il!i><+?!-ItfjxnoC00@"
 color_enabled = true
 color_mode = "Direct"
-bg_style = "Black"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
 invert = false
 contrast = 2.0
 brightness = 0.05
 saturation = 1.0
-charset_index = 8
-charset = " .':;il!i><+?!-ItfjxnoC00@"
-shape_matching = false
 edge_threshold = 0.4
 edge_mix = 1.0
+shape_matching = false
 aspect_ratio = 1.5
-glow_intensity = 0.8
+bg_style = "Black"
 fade_decay = 0.15
-show_spectrum = true
+glow_intensity = 0.8
+beat_flash_intensity = 0.8
+chromatic_offset = 1.0
+wave_amplitude = 0.1
+wave_speed = 2.0
+color_pulse_speed = 0.5
+scanline_gap = 0
+strobe_decay = 0.8
+temporal_stability = 0.2
+target_fps = 60
 fullscreen = false
+show_spectrum = true
 
 [audio]
 sensitivity = 1.5
 smoothing = 0.2
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "brightness"
+amount = 0.5
+offset = 0.0
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "saturation"
+amount = 0.6
+offset = 0.5
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "zalgo_intensity"
+amount = 1.0
+offset = 0.0
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "timbral_roughness"
+target = "contrast"
+amount = 0.4
+offset = 0.0
+curve = "Linear"

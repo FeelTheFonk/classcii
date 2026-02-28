@@ -1,25 +1,67 @@
+# Shape matching, soft ethereal — transparent bg, warm glow, gentle wave.
 [render]
-target_fps = 60
 render_mode = "Ascii"
-density_scale = 0.8
+charset_index = 9
+charset = "…^‚:;Il!i><v+_—?1[ł{1)(|/tfjrxnuvczXYUJCLQØ0Zmwqpdbkhао*#МW&8⅝В@$"
 color_enabled = true
-color_mode = "HsvBright"
-bg_style = "Transparent"
+color_mode = "Oklab"
+dither_mode = "BlueNoise16"
+density_scale = 0.8
 invert = false
 contrast = 1.2
 brightness = 0.3
 saturation = 1.5
-charset_index = 9
-charset = "…^‚:;Il!i><v+_—?1[ł{1)(|/tfjrxnuvczXYUJCLQØ0Zmwqpdbkhао*#МW&8⅝В@$"
-shape_matching = true
 edge_threshold = 0.25
 edge_mix = 0.5
+shape_matching = true
 aspect_ratio = 1.5
-glow_intensity = 0.5
+bg_style = "Transparent"
 fade_decay = 0.3
-show_spectrum = true
+glow_intensity = 0.5
+beat_flash_intensity = 0.2
+chromatic_offset = 0.3
+wave_amplitude = 0.08
+wave_speed = 1.5
+color_pulse_speed = 0.4
+scanline_gap = 0
+strobe_decay = 0.9
+temporal_stability = 0.6
+target_fps = 60
 fullscreen = false
+show_spectrum = true
 
 [audio]
 sensitivity = 1.2
 smoothing = 0.5
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "brightness"
+amount = 0.3
+offset = 0.1
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "timbral_brightness"
+target = "saturation"
+amount = 0.4
+offset = 0.5
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "edge_mix"
+amount = 0.3
+offset = 0.3
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "contrast"
+amount = 0.2
+offset = 0.0
+curve = "Exponential"

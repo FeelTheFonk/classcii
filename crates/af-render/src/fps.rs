@@ -29,7 +29,7 @@ impl FpsCounter {
     /// ```
     /// use af_render::fps::FpsCounter;
     /// let counter = FpsCounter::new(60);
-    /// assert_eq!(counter.fps(), 0.0);
+    /// assert!(counter.fps().abs() < f64::EPSILON);
     /// ```
     #[must_use]
     pub fn new(window: usize) -> Self {
@@ -75,7 +75,7 @@ impl FpsCounter {
     /// ```
     /// use af_render::fps::FpsCounter;
     /// let counter = FpsCounter::new(60);
-    /// assert_eq!(counter.fps(), 0.0);
+    /// assert!(counter.fps().abs() < f64::EPSILON);
     /// ```
     #[must_use]
     pub fn fps(&self) -> f64 {

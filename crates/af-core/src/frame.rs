@@ -289,7 +289,7 @@ impl AsciiGrid {
 /// ```
 /// use af_core::frame::AudioFeatures;
 /// let f = AudioFeatures::default();
-/// assert_eq!(f.rms, 0.0);
+/// assert!(f.rms.abs() < f32::EPSILON);
 /// ```
 #[derive(Clone, Copy, Default)]
 pub struct AudioFeatures {

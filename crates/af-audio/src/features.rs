@@ -10,7 +10,7 @@ use af_core::frame::AudioFeatures;
 /// let samples = vec![0.0f32; 1024];
 /// let spectrum = vec![0.0f32; 513];
 /// let features = extract_features(&samples, &spectrum, 44100);
-/// assert_eq!(features.rms, 0.0);
+/// assert!(features.rms.abs() < f32::EPSILON);
 /// ```
 pub fn extract_features(samples: &[f32], spectrum: &[f32], sample_rate: u32) -> AudioFeatures {
     let mut features = AudioFeatures::default();

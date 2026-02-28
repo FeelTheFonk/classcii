@@ -1,13 +1,58 @@
+# Classic Matrix digital rain — green on black, heavy fade trails, digital charset.
 [render]
 render_mode = "Ascii"
 charset_index = 7
 color_enabled = true
 color_mode = "HsvBright"
+dither_mode = "Bayer8x8"
 density_scale = 1.0
-glow_intensity = 0.2
-fade_decay = 0.8
-audio_sensitivity = 2.0
+invert = false
+contrast = 1.4
+brightness = -0.1
+saturation = 2.0
 edge_threshold = 0.0
+edge_mix = 0.0
+shape_matching = false
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.85
+glow_intensity = 0.3
+beat_flash_intensity = 0.5
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 2.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+strobe_decay = 0.9
+temporal_stability = 0.0
+target_fps = 60
+fullscreen = false
+show_spectrum = true
 
 [audio]
+sensitivity = 2.0
 smoothing = 0.5
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "density_scale"
+amount = 0.5
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_intensity"
+target = "brightness"
+amount = 0.3
+offset = -0.1
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "zalgo_intensity"
+amount = 0.6
+offset = 0.0
+curve = "Threshold"

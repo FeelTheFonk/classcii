@@ -1,4 +1,6 @@
-# classcii
+<img width="32" height="32" alt="classcii_32" src="https://github.com/user-attachments/assets/ec99168e-60d2-4818-9330-67b95ab0f674" /> 
+
+# _classcii
 
  Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to lossless MP4.
 This engine pushes the limits of typography by integrating advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, 8 real-time post-processing effects, a Creation Mode with auto-modulation presets, and audio-reactive Zalgo glitches — all while guaranteeing zero-allocation in the hot loops and 100% lock-free Safe Rust memory management.

@@ -162,6 +162,19 @@ fn apply_target(config: &mut RenderConfig, target: &str, delta: f32) {
         "zalgo_intensity" => {
             config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 1.0);
         }
+        "camera_zoom_amplitude" => {
+            config.camera_zoom_amplitude =
+                (config.camera_zoom_amplitude + delta * 2.0).clamp(0.1, 10.0);
+        }
+        "camera_rotation" => {
+            config.camera_rotation += delta * 0.1;
+        }
+        "camera_pan_x" => {
+            config.camera_pan_x = (config.camera_pan_x + delta * 0.5).clamp(-2.0, 2.0);
+        }
+        "camera_pan_y" => {
+            config.camera_pan_y = (config.camera_pan_y + delta * 0.5).clamp(-2.0, 2.0);
+        }
         _ => {}
     }
 }

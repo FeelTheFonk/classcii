@@ -34,15 +34,15 @@ impl Mp4Muxer {
                 "-i",
                 "-",
                 "-c:v",
-                "libx264",
+                "libx264rgb", // FORCE SOTA LOSSLESS RGB ENCODER
                 "-crf",
                 "0",
                 "-preset",
                 "veryslow",
                 "-pix_fmt",
-                "yuv444p",
+                "rgb24", // FORCE PURITY OF CHROMA (NO YUV SUBSAMPLING)
                 "-color_range",
-                "tv",
+                "pc", // Use full PC range (0-255) for RGB instead of limited tv range
                 "-hide_banner",
                 "-loglevel",
                 "error",

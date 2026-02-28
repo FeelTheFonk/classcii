@@ -1,6 +1,6 @@
 # Preset Guide
 
-Complete reference for classcii's 11 built-in presets, with creation tutorials and TOML structure.
+Complete reference for classcii's 17 built-in presets, with creation tutorials and TOML structure.
 
 ## Using Presets
 
@@ -107,6 +107,54 @@ Mode: Ascii (Full charset) | Color: Direct | Dither: BlueNoise16 | FPS: 60
 
 Demonstrates all 8 visual effects simultaneously at moderate, non-fatiguing levels. Chromatic (1.5), wave (0.25), glow (0.8), color pulse (1.0), scan lines (3), fade (0.4), temporal stability (0.3), zalgo (0.5). Four audio mappings: bass→wave, spectral_centroid→glow, spectral_flux→chromatic, rms→brightness.
 
+### 12_deep_zoom — Mandelbrot Camera-Reactive
+
+```
+Mode: Braille | Color: Direct | Dither: BlueNoise16 | FPS: 60
+```
+
+Designed for `--procedural mandelbrot`. Bass drives camera zoom depth (Smooth curve), spectral centroid steers rotation. Glow (0.6), fade (0.5), color pulse (0.5). Four audio mappings targeting camera and visual effects.
+
+### 13_breath — Ultra-Minimalist Contemplative
+
+```
+Mode: Ascii (charset " .:░") | Color: disabled | FPS: 30 | Fullscreen
+```
+
+Extreme minimalism. A single RMS→brightness mapping (Smooth, 0.4) creates a slow organic breathing effect. High temporal stability (0.7), very high smoothing (0.9). Zero aggressive effects. Silence is space, sound is light.
+
+### 14_interference — Wave Interference Patterns
+
+```
+Mode: Braille | Color: Oklab | Dither: BlueNoise16 | FPS: 60
+```
+
+High wave speed (7.0) and amplitude (0.4) create moiré-like distortions. Scan lines (3), chromatic (1.0). Bass→wave (Exponential), beat_phase→color_pulse, bpm→wave, spectral_flux→chromatic. Low smoothing (0.4) for responsive patterns.
+
+### 15_noir — Cinematic Film Noir
+
+```
+Mode: HalfBlock | Color: disabled | Shape matching | FPS: 30
+```
+
+Monochrome, high contrast (2.0), strong edges (threshold 0.5, mix 0.8). Subtle glow (0.3), fade (0.85), temporal stability (0.4). Three audio mappings: rms→glow, centroid→edge_mix, onset_envelope→brightness. Pure light and shadow drama.
+
+### 16_aurora — Aurora Borealis
+
+```
+Mode: Quadrant | Color: Direct | Dither: BlueNoise16 | FPS: 60
+```
+
+Saturated colors (1.8), strong glow (0.8), chromatic drift (0.5), wave (0.15), color pulse (0.8). Exploits spectral_rolloff→color_pulse_speed and zero_crossing_rate→wave_amplitude. Audio-driven camera pan via rms→camera_pan_x.
+
+### 17_static — Broken TV / White Noise
+
+```
+Mode: Ascii (charset " 01") | Color: Quantized | FPS: 60
+```
+
+Binary charset, no fade (0.0), high density (1.5), high contrast (1.8), scan lines (2). Spectral_flatness→density_scale (Linear, 0.8), zero_crossing_rate→zalgo (Threshold, 0.6), onset_envelope→beat_flash (Smooth, 0.4). Very low smoothing (0.2) for intentional instability.
+
 ---
 
 ## Creating a Custom Preset
@@ -155,6 +203,12 @@ scanline_gap = 0               # 0–8
 strobe_decay = 0.75            # 0.5–0.99
 temporal_stability = 0.0       # 0.0–1.0
 zalgo_intensity = 0.0          # 0.0–5.0
+
+# Virtual Camera
+camera_zoom_amplitude = 1.0    # 0.1–10.0
+camera_rotation = 0.0          # any (radians)
+camera_pan_x = 0.0             # -2.0–2.0
+camera_pan_y = 0.0             # -2.0–2.0
 
 # Display
 target_fps = 60

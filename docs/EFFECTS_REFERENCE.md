@@ -190,6 +190,26 @@ Requires color to be enabled. Applied last in the pipeline so it operates on fin
 
 ---
 
+## Virtual Camera
+
+Affine transformation applied to the source frame *before* ASCII conversion. Operates on raw pixels, not on the ASCII grid.
+
+| Property | Value |
+|----------|-------|
+| Parameters | `camera_zoom_amplitude`, `camera_rotation`, `camera_pan_x`, `camera_pan_y` |
+| Ranges | 0.1–10.0 (zoom), any (rotation), −2.0–2.0 (pan) |
+| Defaults | 1.0, 0.0, 0.0, 0.0 |
+| Keybinds | `<`/`>` (zoom ±0.1), `,`/`.` (rotation ±0.05), `;`/`'` (pan X ±0.05) |
+| Sidebar | Zoom, Rot, PanX, PanY |
+
+The camera applies a 2D affine transform (zoom, rotation, translation) to every pixel of the source frame using bilinear interpolation. This runs before any ASCII rasterization, so the effect is sub-pixel smooth.
+
+For procedural sources with native camera integration (e.g. Mandelbrot), the camera parameters are applied analytically by the generator itself (`is_camera_baked = true`), bypassing the pixel-level transform for mathematical precision.
+
+All 4 camera parameters are valid audio mapping targets — they can be driven by any of the 21 audio sources for reactive zoom, rotation, and panning.
+
+---
+
 ## Combining Effects
 
 ### Ethereal / Dreamy

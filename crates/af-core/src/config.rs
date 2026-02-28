@@ -86,6 +86,16 @@ pub struct RenderConfig {
     /// Temporal stability (anti-flicker) [0.0, 1.0]. 0.0 = disabled.
     pub temporal_stability: f32,
 
+    // === Camera & Geometry ===
+    /// Zoom affine (1.0 = normal, >1.0 = zoom in, <1.0 = zoom out/infinite fields).
+    pub camera_zoom_amplitude: f32,
+    /// Rotation en radians.
+    pub camera_rotation: f32,
+    /// Décalage horizontal (Pan X) normalisé par rapport à la largeur.
+    pub camera_pan_x: f32,
+    /// Décalage vertical (Pan Y) normalisé par rapport à la hauteur.
+    pub camera_pan_y: f32,
+
     // === Performance ===
     /// FPS cible. 30 ou 60.
     pub target_fps: u32,
@@ -136,6 +146,10 @@ pub const AUDIO_TARGETS: &[&str] = &[
     "color_pulse_speed",
     "fade_decay",
     "glow_intensity",
+    "camera_zoom_amplitude",
+    "camera_rotation",
+    "camera_pan_x",
+    "camera_pan_y",
 ];
 
 #[must_use]
@@ -343,6 +357,10 @@ impl Default for RenderConfig {
             scanline_gap: 0,
             strobe_decay: 0.75,
             temporal_stability: 0.0,
+            camera_zoom_amplitude: 1.0,
+            camera_rotation: 0.0,
+            camera_pan_x: 0.0,
+            camera_pan_y: 0.0,
             target_fps: 30,
             fullscreen: false,
             show_spectrum: true,
@@ -388,6 +406,10 @@ struct RenderSection {
     scanline_gap: Option<u8>,
     strobe_decay: Option<f32>,
     temporal_stability: Option<f32>,
+    camera_zoom_amplitude: Option<f32>,
+    camera_rotation: Option<f32>,
+    camera_pan_x: Option<f32>,
+    camera_pan_y: Option<f32>,
     target_fps: Option<u32>,
     fullscreen: Option<bool>,
     show_spectrum: Option<bool>,
@@ -509,6 +531,18 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     }
     if let Some(v) = r.temporal_stability {
         config.temporal_stability = v;
+    }
+    if let Some(v) = r.camera_zoom_amplitude {
+        config.camera_zoom_amplitude = v;
+    }
+    if let Some(v) = r.camera_rotation {
+        config.camera_rotation = v;
+    }
+    if let Some(v) = r.camera_pan_x {
+        config.camera_pan_x = v;
+    }
+    if let Some(v) = r.camera_pan_y {
+        config.camera_pan_y = v;
     }
     if let Some(v) = r.target_fps {
         config.target_fps = v;

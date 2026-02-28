@@ -21,6 +21,8 @@ flume = { workspace = true }
 # ffmpeg-the-third = { version = "2", optional = true }
 noise = { version = "0.9", optional = true }
 glam = { workspace = true, optional = true }
+rayon.workspace = true
+arc-swap.workspace = true
 
 [features]
 default = ["image-source"]

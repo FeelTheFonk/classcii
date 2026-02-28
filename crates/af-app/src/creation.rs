@@ -253,6 +253,9 @@ impl CreationEngine {
                 config.zalgo_intensity = (audio.spectral_flux * 2.0 * mi).clamp(0.0, 5.0);
                 let scan = (audio.presence * 4.0 * mi) as u8;
                 config.scanline_gap = if scan >= 2 { scan.min(8) } else { 0 };
+                // Camera: rotation from centroid, zoom from bass
+                config.camera_rotation += audio.spectral_centroid * 0.02 * mi;
+                config.camera_zoom_amplitude = (1.0 + audio.bass * 0.3 * mi).clamp(0.1, 10.0);
             }
             CreationPreset::Cinematic => {
                 // Smooth, controlled dynamics — fade/glow dominant, subtle scan lines
@@ -311,6 +314,9 @@ impl CreationEngine {
                 config.fade_decay = (audio.spectral_flux * 0.7 * mi).clamp(0.0, 1.0);
                 config.beat_flash_intensity = (onset_envelope * 0.6 * mi).clamp(0.0, 2.0);
                 config.zalgo_intensity = (audio.timbral_brightness * 1.5 * mi).clamp(0.0, 5.0);
+                // Camera: pan from flatness, rotation from roughness
+                config.camera_pan_x = (audio.spectral_flatness * 0.3 * mi - 0.15).clamp(-2.0, 2.0);
+                config.camera_rotation += audio.timbral_roughness * 0.01 * mi;
             }
             CreationPreset::Glitch => {
                 // Digital corruption: zalgo dominant, chromatic aggressive
@@ -347,6 +353,9 @@ impl CreationEngine {
                 config.zalgo_intensity = (audio.brilliance * 2.0 * mi).clamp(0.0, 5.0);
                 config.fade_decay = (audio.rms * 0.5 * mi).clamp(0.0, 1.0);
                 config.beat_flash_intensity = (onset_envelope * 0.5 * mi).clamp(0.0, 2.0);
+                // Camera: zoom from sub_bass, pan from brilliance
+                config.camera_zoom_amplitude = (1.0 + audio.sub_bass * 0.2 * mi).clamp(0.1, 10.0);
+                config.camera_pan_x = ((audio.brilliance - 0.5) * 0.2 * mi).clamp(-2.0, 2.0);
             }
             CreationPreset::Custom => {} // Handled by early return above
         }

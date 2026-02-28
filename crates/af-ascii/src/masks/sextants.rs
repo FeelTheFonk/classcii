@@ -31,73 +31,77 @@ pub const fn get_sextant_char(bitmask: u8) -> char {
     }
 }
 
-/// Lookup Table pré-calculée. Index 0..=63 correspond à la valeur binaire.
-/// Bit 0: HautGauche, Bit 1: MilieuGauche, Bit 2: BasGauche, Bit 3: HautDroit, Bit 4: MilieuDroit, Bit 5: BasDroit.
-/// (Selon la norme  `Recherche exhaustive de combinaisons maximales.md` section 3.2).
+/// Lookup Table pré-calculée. Index 0..=63 correspond au bitmask 6-bit.
+/// Bit 0: HautGauche (pos 1), Bit 1: MilieuGauche (pos 2), Bit 2: BasGauche (pos 3),
+/// Bit 3: HautDroit (pos 4), Bit 4: MilieuDroit (pos 5), Bit 5: BasDroit (pos 6).
+///
+/// Mapping vérifié contre la table Unicode officielle (U+1FB00-U+1FB3B, 60 codepoints).
+/// Bitmasks 21 (Sextant-135) et 42 (Sextant-246) sont absents de Unicode 13.0
+/// (motifs en damier) — fallback vers U+2592 MEDIUM SHADE.
 const SEXTANT_LUT: [char; 64] = [
-    ' ',         // 0: Vide
-    '\u{1FB00}', // 1
-    '\u{1FB01}', // 2
-    '\u{1FB02}', // 3
-    '\u{1FB03}', // 4
-    '\u{1FB04}', // 5
-    '\u{1FB05}', // 6
-    '\u{1FB06}', // 7
-    '\u{1FB07}', // 8
-    '\u{1FB08}', // 9
-    '\u{1FB0A}', // 10 (1, 2, 4) -> U+1FB0A
-    '\u{1FB0B}', // 11
-    '\u{1FB0C}', // 12
-    '\u{1FB0D}', // 13
-    '\u{1FB0E}', // 14
-    '\u{1FB0F}', // 15
-    '\u{1FB10}', // 16
-    '\u{1FB11}', // 17
-    '\u{1FB12}', // 18
-    '\u{1FB13}', // 19
-    '\u{1FB14}', // 20
-    '\u{1FB15}', // 21
-    '\u{1FB16}', // 22
-    '\u{1FB17}', // 23
-    '\u{1FB18}', // 24
-    '\u{1FB19}', // 25
-    '\u{1FB1A}', // 26
-    '\u{1FB1B}', // 27
-    '\u{1FB1C}', // 28
-    '\u{1FB1D}', // 29
-    '\u{1FB1E}', // 30
-    '\u{1FB1F}', // 31
-    '\u{1FB20}', // 32
-    '\u{1FB21}', // 33
-    '\u{1FB22}', // 34
-    '\u{1FB23}', // 35
-    '\u{1FB24}', // 36
-    '\u{1FB25}', // 37
-    '\u{1FB26}', // 38
-    '\u{1FB27}', // 39
-    '\u{1FB28}', // 40
-    '\u{1FB29}', // 41
-    '\u{1FB2A}', // 42
-    '\u{1FB2B}', // 43
-    '\u{1FB2C}', // 44
-    '\u{1FB2D}', // 45
-    '\u{1FB2E}', // 46
-    '\u{1FB2F}', // 47
-    '\u{1FB30}', // 48
-    '\u{1FB31}', // 49
-    '\u{1FB32}', // 50
-    '\u{1FB33}', // 51
-    '\u{1FB34}', // 52
-    '\u{1FB35}', // 53
-    '\u{1FB36}', // 54
-    '\u{1FB37}', // 55
-    '\u{1FB38}', // 56
-    '\u{1FB39}', // 57
-    '\u{1FB3A}', // 58
-    '\u{1FB3B}', // 59
-    '\u{1FB3C}', // 60
-    '\u{1FB3D}', // 61
-    '\u{1FB3E}', // 62
+    ' ',         //  0: Vide
+    '\u{1FB00}', //  1: Sextant-1
+    '\u{1FB01}', //  2: Sextant-2
+    '\u{1FB02}', //  3: Sextant-12
+    '\u{1FB03}', //  4: Sextant-3
+    '\u{1FB04}', //  5: Sextant-13
+    '\u{1FB05}', //  6: Sextant-23
+    '\u{1FB06}', //  7: Sextant-123
+    '\u{1FB07}', //  8: Sextant-4
+    '\u{1FB08}', //  9: Sextant-14
+    '\u{1FB09}', // 10: Sextant-24
+    '\u{1FB0A}', // 11: Sextant-124
+    '\u{1FB0B}', // 12: Sextant-34
+    '\u{1FB0C}', // 13: Sextant-134
+    '\u{1FB0D}', // 14: Sextant-234
+    '\u{1FB0E}', // 15: Sextant-1234
+    '\u{1FB0F}', // 16: Sextant-5
+    '\u{1FB10}', // 17: Sextant-15
+    '\u{1FB11}', // 18: Sextant-25
+    '\u{1FB12}', // 19: Sextant-125
+    '\u{1FB13}', // 20: Sextant-35
+    '\u{2592}',  // 21: ▒ (Sextant-135 absent de Unicode — damier, fallback MEDIUM SHADE)
+    '\u{1FB14}', // 22: Sextant-235
+    '\u{1FB15}', // 23: Sextant-1235
+    '\u{1FB16}', // 24: Sextant-45
+    '\u{1FB17}', // 25: Sextant-145
+    '\u{1FB18}', // 26: Sextant-245
+    '\u{1FB19}', // 27: Sextant-1245
+    '\u{1FB1A}', // 28: Sextant-345
+    '\u{1FB1B}', // 29: Sextant-1345
+    '\u{1FB1C}', // 30: Sextant-2345
+    '\u{1FB1D}', // 31: Sextant-12345
+    '\u{1FB1E}', // 32: Sextant-6
+    '\u{1FB1F}', // 33: Sextant-16
+    '\u{1FB20}', // 34: Sextant-26
+    '\u{1FB21}', // 35: Sextant-126
+    '\u{1FB22}', // 36: Sextant-36
+    '\u{1FB23}', // 37: Sextant-136
+    '\u{1FB24}', // 38: Sextant-236
+    '\u{1FB25}', // 39: Sextant-1236
+    '\u{1FB26}', // 40: Sextant-46
+    '\u{1FB27}', // 41: Sextant-146
+    '\u{2592}',  // 42: ▒ (Sextant-246 absent de Unicode — damier, fallback MEDIUM SHADE)
+    '\u{1FB28}', // 43: Sextant-1246
+    '\u{1FB29}', // 44: Sextant-346
+    '\u{1FB2A}', // 45: Sextant-1346
+    '\u{1FB2B}', // 46: Sextant-2346
+    '\u{1FB2C}', // 47: Sextant-12346
+    '\u{1FB2D}', // 48: Sextant-56
+    '\u{1FB2E}', // 49: Sextant-156
+    '\u{1FB2F}', // 50: Sextant-256
+    '\u{1FB30}', // 51: Sextant-1256
+    '\u{1FB31}', // 52: Sextant-356
+    '\u{1FB32}', // 53: Sextant-1356
+    '\u{1FB33}', // 54: Sextant-2356
+    '\u{1FB34}', // 55: Sextant-12356
+    '\u{1FB35}', // 56: Sextant-456
+    '\u{1FB36}', // 57: Sextant-1456
+    '\u{1FB37}', // 58: Sextant-2456
+    '\u{1FB38}', // 59: Sextant-12456
+    '\u{1FB39}', // 60: Sextant-3456
+    '\u{1FB3A}', // 61: Sextant-13456
+    '\u{1FB3B}', // 62: Sextant-23456
     '\u{2588}',  // 63: Full Block
 ];
 

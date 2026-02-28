@@ -36,6 +36,7 @@ fn main() -> Result<()> {
             cli.batch_out.as_deref(),
             config,
             cli.fps.unwrap_or(30),
+            cli.export_scale,
         );
     }
 
@@ -81,9 +82,10 @@ fn main() -> Result<()> {
         None
     };
     #[cfg(feature = "video")]
-    let (initial_frame, frame_rx, video_cmd_tx) = pipeline::start_source(&cli, video_clock)?;
+    let (initial_frame, frame_rx, video_cmd_tx) =
+        pipeline::start_source(&cli, video_clock, Arc::clone(&config))?;
     #[cfg(not(feature = "video"))]
-    let (initial_frame, frame_rx) = pipeline::start_source(&cli, video_clock)?;
+    let (initial_frame, frame_rx) = pipeline::start_source(&cli, video_clock, Arc::clone(&config))?;
 
     // 8. Initialiser le terminal ratatui
     let terminal = ratatui::init();

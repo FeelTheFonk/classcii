@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v0.5.4 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v0.5.5 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Quick Start
 
@@ -45,7 +45,7 @@ classcii --video clip.mp4 --audio track.mp3
 |------|-------------|---------|
 | `--image <PATH>` | Source: static image (PNG, JPEG, BMP, GIF) | — |
 | `--video <PATH>` | Source: video file (requires `--features video`) | — |
-| `--procedural <TYPE>` | Source: generator (`noise`, `plasma`, `particles`, `starfield`) | — |
+| `--procedural <TYPE>` | Source: generator (`mandelbrot`) | — |
 | `--audio <PATH\|mic>` | Audio source: file path or `mic` for microphone | — |
 | `--batch-folder <DIR>` | Batch export: media folder (images + videos) | — |
 | `--batch-out <PATH>` | Batch export: output MP4 file path | auto-named |
@@ -63,7 +63,7 @@ classcii --video clip.mp4 --audio track.mp3
 classcii --image sunset.png --audio mic --mode braille --fps 60 --preset 07_neon_abyss
 
 # Procedural animation with live audio
-classcii --procedural plasma --audio mic
+classcii --procedural mandelbrot --audio mic
 
 # Batch export with preset
 classcii --batch-folder ./media/ --audio track.mp3 --fps 60 --preset 02_matrix
@@ -129,6 +129,14 @@ All controls are available in real-time TUI mode. Press `?` to show the in-app h
 | `j` / `J` | Strobe decay −/+ 0.05 | 0.5 – 0.99 |
 | `u` / `U` | Wave speed −/+ 0.5 | 0.0 – 10.0 |
 
+### Camera
+
+| Key | Action | Range |
+|-----|--------|-------|
+| `<` / `>` | Camera zoom −/+ 0.1 | 0.1 – 10.0 |
+| `,` / `.` | Camera rotation −/+ 0.05 | periodic |
+| `;` / `'` | Camera pan X −/+ 0.05 | −2.0 – 2.0 |
+
 ### Audio
 
 | Key | Action |
@@ -178,7 +186,7 @@ classcii maps audio features to visual parameters in real-time. Mappings are def
 | `onset_envelope` | 0.0–1.0 | Exponential decay envelope from last onset |
 | `zero_crossing_rate` | 0.0–1.0 | Normalized sign-change count (percussive/noise detection) |
 
-### 14 Mapping Targets
+### 18 Mapping Targets
 
 | Target | Range | Description |
 |--------|-------|-------------|
@@ -196,6 +204,10 @@ classcii maps audio features to visual parameters in real-time. Mappings are def
 | `fade_decay` | 0.0–1.0 | Temporal persistence |
 | `glow_intensity` | 0.0–2.0 | Brightness bloom |
 | `zalgo_intensity` | 0.0–1.0 | Zalgo diacritics distortion |
+| `camera_zoom_amplitude` | 0.1–10.0 | Virtual camera zoom multiplier |
+| `camera_rotation` | any | Virtual camera rotation (radians) |
+| `camera_pan_x` | −2.0–2.0 | Virtual camera horizontal pan |
+| `camera_pan_y` | −2.0–2.0 | Virtual camera vertical pan |
 
 ### 4 Mapping Curves
 
@@ -212,7 +224,7 @@ classcii maps audio features to visual parameters in real-time. Mappings are def
 [[audio.mappings]]
 enabled = true
 source = "bass"                # Audio source (one of 21)
-target = "wave_amplitude"      # Visual target (one of 14)
+target = "wave_amplitude"      # Visual target (one of 18)
 amount = 0.4                   # Multiplier
 offset = 0.0                   # Additive offset after multiplication
 curve = "Smooth"               # Response curve (Linear/Exponential/Threshold/Smooth)
@@ -281,7 +293,7 @@ The sidebar shows `K●` when Creation Mode is active (modulating) and `K○` wh
 
 ## Presets
 
-11 presets in `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`:
+17 presets in `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`:
 
 | Preset | Render Mode | Style |
 |--------|-------------|-------|
@@ -296,6 +308,12 @@ The sidebar shows `K●` when Creation Mode is active (modulating) and `K○` wh
 | `09_brutalism_mono` | Ascii | Monochrome, high contrast brutalist style |
 | `10_ethereal_shape` | Ascii | Shape matching, soft ethereal aesthetics |
 | `11_reactive` | Ascii | All effects showcase at moderate levels, 4 audio mappings |
+| `12_deep_zoom` | Braille | Mandelbrot fractal with audio-reactive camera |
+| `13_breath` | Ascii | Ultra-minimalist contemplative, single RMS mapping |
+| `14_interference` | Braille | Wave interference patterns with chromatic separation |
+| `15_noir` | HalfBlock | Cinematic film noir, monochrome, high contrast edges |
+| `16_aurora` | Quadrant | Aurora borealis, saturated glow, camera pan |
+| `17_static` | Ascii | Broken TV / white noise, binary charset, zalgo on transients |
 
 ```bash
 classcii --image photo.jpg --preset 07_neon_abyss
@@ -348,7 +366,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --batch-out output.mp4 --fps 
 4. **Macro Director**: On strong beats, triggers structural variations — mode cycling, invert flashes, charset rotations.
 5. **Compositing**: Source pixels → `AsciiGrid` via advanced bitmasking and dithering.
 6. **Rasterization**: `AsciiGrid` → high-resolution RGBA pixels (parallel, zero-alloc, alpha-blended Zalgo).
-7. **Encoding**: Lossless x264 CRF 0 / YUV444p.
+7. **Encoding**: Lossless libx264rgb CRF 0 / rgb24.
 8. **Muxing**: Final audio+video mux via FFmpeg.
 
 All 8 post-processing effects and all 21 audio source mappings are applied in the batch pipeline, achieving full parity with interactive mode. Macro-mutations on strong beats include mode cycling, invert flashes, charset rotations, density pulses, effect bursts, and color mode cycling. Clip duration is proportionally distributed across all media files in the folder.

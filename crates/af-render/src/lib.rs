@@ -1,3 +1,4 @@
+pub mod camera;
 /// TUI rendering module for clasSCII.
 ///
 /// Provides canvas rendering, layout, widgets, FPS tracking, and effects.

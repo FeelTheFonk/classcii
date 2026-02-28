@@ -86,6 +86,8 @@ pub struct App {
     pub grid: AsciiGrid,
     /// Frame resizée, pré-allouée.
     pub resized_frame: FrameBuffer,
+    /// Frame d'origine transformée par la caméra virtuelle (Zéro-alloc pre-allouée).
+    pub transformed_frame: FrameBuffer,
     /// Flag dirty pour la sidebar (éviter redessin inutile).
     pub sidebar_dirty: bool,
     /// Compteur FPS.
@@ -194,6 +196,7 @@ impl App {
             current_frame: None,
             grid: AsciiGrid::new(canvas_width, canvas_height),
             resized_frame: FrameBuffer::new(u32::from(canvas_width), u32::from(canvas_height)),
+            transformed_frame: FrameBuffer::new(1, 1), // Will be resized on first real frame
             sidebar_dirty: true,
             fps_counter: FpsCounter::new(60),
             frame_rx,
@@ -328,10 +331,25 @@ impl App {
                         self.shape_warn_logged = true;
                     }
                 }
-                // Resize source to grid dimensions
+                // Apply Virtual Camera transformations (Zoom, Pan, Rot) on pure pixels *before* ASCIIfying
+                if self.transformed_frame.width != source_frame.width
+                    || self.transformed_frame.height != source_frame.height
+                {
+                    // Only allocate if source dimensions change (e.g. video switch)
+                    self.transformed_frame =
+                        FrameBuffer::new(source_frame.width, source_frame.height);
+                }
+
+                af_render::camera::VirtualCamera::apply_transform(
+                    &render_config,
+                    source_frame,
+                    &mut self.transformed_frame,
+                );
+
+                // Resize transformed source to grid dimensions
                 let _ = self
                     .resizer
-                    .resize_into(source_frame, &mut self.resized_frame);
+                    .resize_into(&self.transformed_frame, &mut self.resized_frame);
                 // Convert pixels → ASCII
                 self.compositor.process(
                     &self.resized_frame,
@@ -622,7 +640,8 @@ impl App {
                 ) => self.handle_render_key(code),
                 KeyCode::Char(
                     'f' | 'F' | 'g' | 'G' | 'r' | 'R' | 'w' | 'W' | 'h' | 'H' | 'l' | 'L' | 't'
-                    | 'T' | 'z' | 'Z' | 'y' | 'Y' | 'j' | 'J' | 'u' | 'U',
+                    | 'T' | 'z' | 'Z' | 'y' | 'Y' | 'j' | 'J' | 'u' | 'U' | '<' | '>' | ',' | '.'
+                    | ';' | '\'',
                 ) => self.handle_effect_key(code),
                 KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
                     self.handle_playback_key(code);
@@ -1095,7 +1114,8 @@ impl App {
         }
     }
 
-    /// Effect keys: fade, glow, chromatic, wave, color pulse, scan lines, strobe.
+    /// Effect keys: fade, glow, chromatic, wave, color pulse, scan lines, strobe, camera.
+    #[allow(clippy::too_many_lines)]
     fn handle_effect_key(&mut self, code: KeyCode) {
         match code {
             KeyCode::Char('f') => {
@@ -1193,6 +1213,32 @@ impl App {
             }
             KeyCode::Char('U') => {
                 self.toggle_config(|c| c.wave_speed = (c.wave_speed + 0.5).min(10.0));
+            }
+            KeyCode::Char('<') => {
+                self.toggle_config(|c| {
+                    c.camera_zoom_amplitude = (c.camera_zoom_amplitude - 0.1).max(0.1);
+                });
+            }
+            KeyCode::Char('>') => {
+                self.toggle_config(|c| {
+                    c.camera_zoom_amplitude = (c.camera_zoom_amplitude + 0.1).min(10.0);
+                });
+            }
+            KeyCode::Char(',') => {
+                self.toggle_config(|c| c.camera_rotation -= 0.05);
+            }
+            KeyCode::Char('.') => {
+                self.toggle_config(|c| c.camera_rotation += 0.05);
+            }
+            KeyCode::Char(';') => {
+                self.toggle_config(|c| {
+                    c.camera_pan_x = (c.camera_pan_x - 0.05).max(-2.0);
+                });
+            }
+            KeyCode::Char('\'') => {
+                self.toggle_config(|c| {
+                    c.camera_pan_x = (c.camera_pan_x + 0.05).min(2.0);
+                });
             }
             _ => {}
         }
@@ -1444,7 +1490,7 @@ impl App {
             let config = (**self.config.load()).clone();
 
             #[cfg(feature = "video")]
-            if let Err(e) = crate::batch::run_batch_export(&folder, None, None, config, 30) {
+            if let Err(e) = crate::batch::run_batch_export(&folder, None, None, config, 30, None) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {
                 println!("\n[SUCCESS] Batch export completed.");

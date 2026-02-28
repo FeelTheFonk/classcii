@@ -66,8 +66,12 @@ pub fn start_audio(
 ///
 /// # Errors
 /// Returns an error if source initialization fails.
-#[allow(clippy::needless_pass_by_value)] // Arc consumed by spawn_video_thread under #[cfg(feature = "video")]
-pub fn start_source(cli: &Cli, clock: Option<Arc<MediaClock>>) -> anyhow::Result<SourceResult> {
+#[allow(clippy::needless_pass_by_value, unused_variables)] // Arc consumed by spawn_video_thread under #[cfg(feature = "video")]
+pub fn start_source(
+    cli: &Cli,
+    clock: Option<Arc<MediaClock>>,
+    config: Arc<ArcSwap<RenderConfig>>,
+) -> anyhow::Result<SourceResult> {
     let _ = &clock; // Utilisé uniquement avec feature="video"
     if let Some(ref path) = cli.image {
         let mut source = af_source::image::ImageSource::new(path)?;
@@ -76,6 +80,52 @@ pub fn start_source(cli: &Cli, clock: Option<Arc<MediaClock>>) -> anyhow::Result
         return Ok((frame, None, None));
         #[cfg(not(feature = "video"))]
         return Ok((frame, None));
+    }
+
+    #[cfg(feature = "procedural")]
+    if let Some(ref proc_type) = cli.procedural {
+        log::info!("Starting procedural source: {proc_type}");
+
+        // Procedural sources generate frames on demand similar to images but animated.
+        // For simplicity in this architecture, since it's live/animated, we spawn a thread.
+        let (frame_tx, frame_rx) = flume::bounded(3);
+        let pt = proc_type.clone();
+
+        let cfg_clone = config.clone();
+        std::thread::Builder::new()
+            .name("procedural_generator".into())
+            .spawn(move || {
+                let mut source =
+                    match af_source::procedural::create_procedural_source(&pt, 640, 360, cfg_clone)
+                    {
+                        Ok(s) => s,
+                        Err(e) => {
+                            log::error!("Erreur création source procédurale: {e}");
+                            return;
+                        }
+                    };
+
+                // Target ~60fps generation rate
+                let target_frame_duration = std::time::Duration::from_nanos(16_666_667);
+                loop {
+                    let start = std::time::Instant::now();
+                    if let Some(frame) = af_core::traits::Source::next_frame(&mut *source)
+                        && frame_tx.send(frame).is_err()
+                    {
+                        break; // receiver dropped
+                    }
+                    let elapsed = start.elapsed();
+                    let sleep_dur = target_frame_duration.saturating_sub(elapsed);
+                    if !sleep_dur.is_zero() {
+                        std::thread::sleep(sleep_dur);
+                    }
+                }
+            })?;
+
+        #[cfg(feature = "video")]
+        return Ok((None, Some(frame_rx), None));
+        #[cfg(not(feature = "video"))]
+        return Ok((None, Some(frame_rx)));
     }
 
     #[cfg(feature = "video")]
@@ -227,6 +277,24 @@ pub fn apply_audio_mappings(
             }
             "zalgo_intensity" => {
                 config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 1.0);
+            }
+            "camera_zoom_amplitude" => {
+                // Zoom varies around 1.0. Delta from audio typically modulates positively.
+                // An arbitrary practical range like 0.1 (strong unzoom) to 10.0 (high zoom).
+                config.camera_zoom_amplitude =
+                    (config.camera_zoom_amplitude + delta * 2.0).clamp(0.1, 10.0);
+            }
+            "camera_rotation" => {
+                // Audio delta -> Rotate left/right smoothly. We let it unbounded or wrap at 2PI later if needed.
+                config.camera_rotation += delta * 0.1;
+            }
+            "camera_pan_x" => {
+                // Audio delta for panning (wiggling) on X axis
+                config.camera_pan_x = (config.camera_pan_x + delta * 0.5).clamp(-2.0, 2.0);
+            }
+            "camera_pan_y" => {
+                // Audio delta for panning (wiggling) on Y axis
+                config.camera_pan_y = (config.camera_pan_y + delta * 0.5).clamp(-2.0, 2.0);
             }
             _ => {}
         }

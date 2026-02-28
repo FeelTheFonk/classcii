@@ -1,0 +1,61 @@
+# Noir — Cinematic film noir aesthetic.
+# Monochrome, high contrast, strong edges, subtle glow.
+# Audio adds light and shadow drama.
+[render]
+render_mode = "HalfBlock"
+charset_index = 0
+color_enabled = false
+color_mode = "Quantized"
+dither_mode = "None"
+density_scale = 1.0
+invert = false
+contrast = 2.0
+brightness = -0.1
+saturation = 0.0
+edge_threshold = 0.5
+edge_mix = 0.8
+shape_matching = true
+aspect_ratio = 1.5
+bg_style = "Black"
+fade_decay = 0.85
+glow_intensity = 0.3
+beat_flash_intensity = 0.0
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 1.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+strobe_decay = 0.75
+temporal_stability = 0.4
+zalgo_intensity = 0.0
+target_fps = 30
+fullscreen = false
+show_spectrum = false
+
+[audio]
+sensitivity = 1.0
+smoothing = 0.7
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "glow_intensity"
+amount = 0.5
+offset = 0.0
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "edge_mix"
+amount = 0.3
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "brightness"
+amount = 0.3
+offset = 0.0
+curve = "Smooth"

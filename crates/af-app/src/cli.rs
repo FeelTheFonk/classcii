@@ -14,7 +14,7 @@ pub struct Cli {
     #[arg(long)]
     pub video: Option<PathBuf>,
 
-    /// Générateur procédural : "noise", "plasma", "particles", "starfield".
+    /// Générateur procédural : "mandelbrot".
     #[arg(long)]
     pub procedural: Option<String>,
 
@@ -37,6 +37,10 @@ pub struct Cli {
     /// Charger un preset nommé (ignore --config).
     #[arg(long)]
     pub preset: Option<String>,
+
+    /// Multiplicateur d'échelle pour la rasterisation par lots (Upscaling typographique).
+    #[arg(long)]
+    pub export_scale: Option<f32>,
 
     /// Mode de rendu initial : ascii, halfblock, braille, quadrant, sextant, octant.
     #[arg(long)]

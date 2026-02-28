@@ -1,0 +1,62 @@
+# Static — Broken TV / white noise aesthetic.
+# Binary charset, no fade, high instability, zalgo on transients.
+# Spectral flatness drives density chaos, onsets trigger flash.
+[render]
+render_mode = "Ascii"
+charset_index = 0
+charset = " 01"
+color_enabled = true
+color_mode = "Quantized"
+dither_mode = "None"
+density_scale = 1.5
+invert = false
+contrast = 1.8
+brightness = 0.0
+saturation = 0.5
+edge_threshold = 0.3
+edge_mix = 0.0
+shape_matching = false
+aspect_ratio = 1.5
+bg_style = "Black"
+fade_decay = 0.0
+glow_intensity = 0.0
+beat_flash_intensity = 0.0
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 1.0
+color_pulse_speed = 0.0
+scanline_gap = 2
+strobe_decay = 0.75
+temporal_stability = 0.0
+zalgo_intensity = 0.0
+target_fps = 60
+fullscreen = false
+show_spectrum = false
+
+[audio]
+sensitivity = 1.5
+smoothing = 0.2
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flatness"
+target = "density_scale"
+amount = 0.8
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "zero_crossing_rate"
+target = "zalgo_intensity"
+amount = 0.6
+offset = 0.0
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.4
+offset = 0.0
+curve = "Smooth"

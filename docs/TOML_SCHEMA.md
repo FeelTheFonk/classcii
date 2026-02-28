@@ -101,6 +101,10 @@ Color modes:
 | `scanline_gap` | Integer | 0–8 | `0` | Scan line spacing (0 = off) |
 | `strobe_decay` | Float | 0.5–0.99 | `0.75` | Strobe envelope decay rate |
 | `temporal_stability` | Float | 0.0–1.0 | `0.0` | Anti-flicker strength (0 = off) |
+| `camera_zoom_amplitude` | Float | 0.1–10.0 | `1.0` | Affine zoom multiplier |
+| `camera_rotation` | Float | any | `0.0` | Affine rotation in radians |
+| `camera_pan_x` | Float | -2.0–2.0 | `0.0` | Affine horizontal panning |
+| `camera_pan_y` | Float | -2.0–2.0 | `0.0` | Affine vertical panning |
 
 ---
 
@@ -129,9 +133,9 @@ Repeatable section. Each entry defines one audio-to-visual parameter mapping.
 
 `rms`, `peak`, `sub_bass`, `bass`, `low_mid`, `mid`, `high_mid`, `presence`, `brilliance`, `spectral_centroid`, `spectral_flux`, `spectral_flatness`, `spectral_rolloff`, `beat_intensity`, `onset`, `beat_phase`, `bpm`, `timbral_brightness`, `timbral_roughness`, `onset_envelope`, `zero_crossing_rate`
 
-#### Valid Targets (14)
+#### Valid Targets (18)
 
-`edge_threshold`, `edge_mix`, `contrast`, `brightness`, `saturation`, `density_scale`, `invert`, `beat_flash_intensity`, `chromatic_offset`, `wave_amplitude`, `color_pulse_speed`, `fade_decay`, `glow_intensity`, `zalgo_intensity`
+`edge_threshold`, `edge_mix`, `contrast`, `brightness`, `saturation`, `density_scale`, `invert`, `beat_flash_intensity`, `chromatic_offset`, `wave_amplitude`, `color_pulse_speed`, `fade_decay`, `glow_intensity`, `zalgo_intensity`, `camera_zoom_amplitude`, `camera_rotation`, `camera_pan_x`, `camera_pan_y`
 
 ---
 
@@ -283,6 +287,10 @@ color_pulse_speed = 0.0
 scanline_gap = 0
 strobe_decay = 0.75
 temporal_stability = 0.0
+camera_zoom_amplitude = 1.0
+camera_rotation = 0.0
+camera_pan_x = 0.0
+camera_pan_y = 0.0
 target_fps = 30
 fullscreen = false
 show_spectrum = true

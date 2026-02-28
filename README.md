@@ -2,13 +2,13 @@ https://github.com/user-attachments/assets/942d140b-20d6-4c8b-acbb-9b1e2a568df1
 
 # _classcii
 
- Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to lossless MP4.
-This engine pushes the limits of typography by integrating advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, 8 real-time post-processing effects, a Creation Mode with auto-modulation presets, and audio-reactive Zalgo glitches — all while guaranteeing zero-allocation in the hot loops and 100% lock-free Safe Rust memory management.
+ Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to mathematically lossless RGB MP4.
+This engine pushes the limits of typography by integrating advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, a SOTA Native Zero-Alloc Virtual Camera (Zoom, Pan, Rotation), 8 real-time post-processing effects, procedural infinite math generators (Mandelbrot), and audio-reactive Zalgo glitches — all while guaranteeing zero-allocation in the hot loops and 100% lock-free Safe Rust memory management.
 
 ## Requirements
 
 - **Terminal**: GPU-accelerated (Alacritty, Kitty, WezTerm) for real-time mode.
-- **FFmpeg + FFprobe**: Required in `PATH` for video source decoding and batch export.
+- **FFmpeg + FFprobe**: Required in `PATH` for video source decoding and mathematically lossless RGB batch exports (`libx264rgb`).
 - **Rust 1.88+**: Edition 2024.
 
 ## Architecture
@@ -62,6 +62,9 @@ classcii --video path/to/video.mp4
 # Video with audio file override
 classcii --video path/to/video.mp4 --audio path/to/track.mp3
 
+# Audio-Reactive Continuous Procedural Generator
+classcii --procedural mandelbrot --audio track.mp3
+
 # Configuration overrides
 classcii --image photo.jpg --mode braille --fps 60
 classcii --image photo.jpg --preset 07_neon_abyss
@@ -91,8 +94,8 @@ classcii --batch-folder ./media/ --preset 02_matrix
 3. `FolderBatchSource` sequences media files.
 4. **Macro-generative** director logic creates structural variations (mode cycle, invert flashes, charset rotations) on strong beats.
 5. `Compositor` converts source pixels to `AsciiGrid` utilizing advanced bitmasking (Sextant, Octant) and O(1) Bayer Dithering.
-5. `Rasterizer` converts `AsciiGrid` to high-resolution RGBA pixels (parallel execution with zero-alloc Zalgo diacritics alpha-blending).
-6. `Mp4Muxer` encodes to lossless x264 CRF 0 / YUV444p.
+5. `Rasterizer` converts `AsciiGrid` to high-resolution RGBA pixels (parallel execution with zero-alloc Zalgo diacritics alpha-blending and dynamic upscaling via `--export-scale`).
+6. `Mp4Muxer` encodes to mathematically pure lossless RGB x264 CRF 0 / RGB24 (`libx264rgb`), fully preventing chroma subsampling bleed on typographical texts.
 7. Final audio+video muxing via FFmpeg.
 
 ## CLI Reference
@@ -101,7 +104,7 @@ classcii --batch-folder ./media/ --preset 02_matrix
 |------|-------------|---------|
 | `--image <PATH>` | Source: static image (PNG, JPEG, BMP, GIF) | — |
 | `--video <PATH>` | Source: video file (requires `--features video`) | — |
-| `--procedural <TYPE>` | Source: generator (`noise`, `plasma`, `particles`, `starfield`) | — |
+| `--procedural <TYPE>` | Source: generator (`mandelbrot`) | — |
 | `--audio <PATH\|mic>` | Audio source: file path or `mic` for microphone | — |
 | `--batch-folder <DIR>` | Batch export: media folder (images + videos) | — |
 | `--batch-out <PATH>` | Batch export: output MP4 file path (opt) | — |
@@ -140,6 +143,9 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `y` / `Y` | Adjust temporal stability |
 | `j` / `J` | Adjust strobe decay |
 | `u` / `U` | Adjust wave speed |
+| `<` / `>` | Adjust camera zoom |
+| `,` / `.` | Adjust camera rotation |
+| `;` / `'` | Adjust camera pan X |
 | `v` | Toggle spectrum display |
 | `n` | Cycle dither mode (Bayer8x8 / BlueNoise16 / Off) |
 | `↑` / `↓` | Adjust general audio sensitivity |
@@ -170,7 +176,8 @@ target = "zalgo_intensity" # Visual target: edge_threshold, edge_mix, contrast,
                            # brightness, saturation, density_scale, invert,
                            # beat_flash_intensity, chromatic_offset, wave_amplitude,
                            # color_pulse_speed, fade_decay, glow_intensity,
-                           # zalgo_intensity
+                           # zalgo_intensity, camera_zoom_amplitude,
+                           # camera_rotation, camera_pan_x, camera_pan_y
 amount = 1.0               # Multiplier
 offset = 0.0               # Additive offset after multiplication
 curve = "Linear"           # Response curve: Linear, Exponential, Threshold, Smooth
@@ -237,6 +244,12 @@ Available in `config/presets/`, selectable via `--preset <name>` or cycled live 
 | `09_brutalism_mono` | Monochrome, high contrast brutalist style |
 | `10_ethereal_shape` | Shape matching, soft ethereal aesthetics |
 | `11_reactive` | All effects showcase, moderate levels, audio-reactive |
+| `12_deep_zoom` | Mandelbrot fractal with audio-reactive camera |
+| `13_breath` | Ultra-minimalist contemplative, single RMS mapping |
+| `14_interference` | Wave interference patterns with chromatic separation |
+| `15_noir` | Cinematic film noir, monochrome, high contrast edges |
+| `16_aurora` | Aurora borealis, saturated glow, camera pan |
+| `17_static` | Broken TV / white noise, binary charset, zalgo on transients |
 
 Usage: `classcii --image photo.jpg --preset 02_matrix`
 

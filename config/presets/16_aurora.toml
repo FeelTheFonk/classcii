@@ -1,0 +1,73 @@
+# Aurora — Spectral aurora borealis effect.
+# Saturated colors with glow, chromatic drift, and audio-driven camera pan.
+# Exploits spectral_rolloff and zero_crossing_rate sources.
+[render]
+render_mode = "Quadrant"
+charset_index = 0
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+invert = false
+contrast = 1.0
+brightness = 0.0
+saturation = 1.8
+edge_threshold = 0.3
+edge_mix = 0.0
+shape_matching = false
+aspect_ratio = 1.5
+bg_style = "Black"
+fade_decay = 0.6
+glow_intensity = 0.8
+beat_flash_intensity = 0.0
+chromatic_offset = 0.5
+wave_amplitude = 0.15
+wave_speed = 1.5
+color_pulse_speed = 0.8
+scanline_gap = 0
+strobe_decay = 0.75
+temporal_stability = 0.3
+zalgo_intensity = 0.0
+camera_zoom_amplitude = 1.0
+camera_rotation = 0.0
+camera_pan_x = 0.0
+camera_pan_y = 0.0
+target_fps = 60
+fullscreen = false
+show_spectrum = true
+
+[audio]
+sensitivity = 1.0
+smoothing = 0.6
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_rolloff"
+target = "color_pulse_speed"
+amount = 0.6
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "zero_crossing_rate"
+target = "wave_amplitude"
+amount = 0.4
+offset = 0.0
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "camera_pan_x"
+amount = 0.3
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "glow_intensity"
+amount = 0.5
+offset = 0.0
+curve = "Linear"

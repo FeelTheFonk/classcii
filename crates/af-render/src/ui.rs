@@ -367,6 +367,19 @@ fn draw_sidebar(
         kv_line("[y/Y]", "TStab", &fmt!("{:.1}", config.temporal_stability)),
         kv_line("[j/J]", "SDcy", &fmt!("{:.2}", config.strobe_decay)),
         kv_line("[u/U]", "WSpd", &fmt!("{:.1}", config.wave_speed)),
+        // ─── Camera ─────────────
+        Line::from(Span::styled(
+            "─── Camera ─────────",
+            Style::default().fg(section),
+        )),
+        kv_line(
+            "[</>]",
+            "Zoom",
+            &fmt!("{:.2}", config.camera_zoom_amplitude),
+        ),
+        kv_line("[,/.]", "Rot", &fmt!("{:.2}", config.camera_rotation)),
+        kv_line("[;/']", "PanX", &fmt!("{:.2}", config.camera_pan_x)),
+        kv_line("", "PanY", &fmt!("{:.2}", config.camera_pan_y)),
         // ─── Audio ──────────────
         Line::from(Span::styled(
             "─── Audio ──────────",
@@ -495,6 +508,13 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" y/Y      Stability ±"),
         Line::from(" j/J      Strobe dcy ±"),
         Line::from(" u/U      Wave speed ±"),
+        Line::from(Span::styled(
+            " ── Camera ──────",
+            Style::default().fg(Color::Yellow),
+        )),
+        Line::from(" </>      Zoom ±"),
+        Line::from(" ,/.      Rotation ±"),
+        Line::from(" ;/'      Pan X ±"),
         Line::from(Span::styled(
             " Color FX best in ASCII/Quadrant",
             Style::default().fg(Color::DarkGray),

@@ -45,6 +45,12 @@ impl Rasterizer {
         // Cache combinatory diacritics for Zalgo zero-alloc rasterization
         rasterizer.cache_charset(&font, scale, 0x0300..=0x036F);
 
+        // Latin-1 Supplement (Ñ from CHARSET_DENSE, ° from CHARSET_GLITCH_1)
+        rasterizer.cache_charset(&font, scale, 0x00A0..=0x00FF);
+
+        // Sextant characters (Unicode 13.0 Symbols for Legacy Computing)
+        rasterizer.cache_charset(&font, scale, 0x1FB00..=0x1FB3B);
+
         Ok(rasterizer)
     }
 

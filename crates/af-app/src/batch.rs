@@ -32,10 +32,18 @@ pub fn run_batch_export(
     final_output: Option<&Path>,
     config: RenderConfig,
     target_fps: u32,
+    export_scale: Option<f32>,
 ) -> Result<()> {
     #[cfg(not(feature = "video"))]
     {
-        let _ = (folder, audio_path_str, final_output, config, target_fps);
+        let _ = (
+            folder,
+            audio_path_str,
+            final_output,
+            config,
+            target_fps,
+            export_scale,
+        );
         anyhow::bail!("L'export par lots requiert la feature 'video' (ffmpeg support).");
     }
 
@@ -161,7 +169,8 @@ pub fn run_batch_export(
         log::info!("Étape 3/4 : Préparation de l'encodeur FFmpeg");
 
         let font_data = include_bytes!("../../af-export/assets/FiraCode-Regular.ttf");
-        let rasterizer = Rasterizer::new(font_data, 16.0)?;
+        let scale_val = export_scale.unwrap_or(16.0);
+        let rasterizer = Rasterizer::new(font_data, scale_val)?;
 
         let (raster_w, raster_h) = rasterizer.target_dimensions(grid_w, grid_h);
 
@@ -178,6 +187,7 @@ pub fn run_batch_export(
 
         let mut resizer = af_source::resize::Resizer::new();
         let mut resized_source = FrameBuffer::new(target_w, target_h);
+        let mut transformed_source = FrameBuffer::new(1, 1);
 
         // === Pre-allocated effect buffers (R1 compliance) ===
         let mut prev_grid = AsciiGrid::new(grid_w, grid_h);
@@ -332,7 +342,19 @@ pub fn run_batch_export(
             }
 
             if let Some(src_frame) = source.next_frame() {
-                let _ = resizer.resize_into(&src_frame, &mut resized_source);
+                if transformed_source.width != src_frame.width
+                    || transformed_source.height != src_frame.height
+                {
+                    transformed_source = FrameBuffer::new(src_frame.width, src_frame.height);
+                }
+
+                af_render::camera::VirtualCamera::apply_transform(
+                    &frame_config,
+                    &src_frame,
+                    &mut transformed_source,
+                );
+
+                let _ = resizer.resize_into(&transformed_source, &mut resized_source);
 
                 compositor.update_if_needed(&frame_config.charset);
                 compositor.process(

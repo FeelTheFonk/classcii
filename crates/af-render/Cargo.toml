@@ -12,6 +12,7 @@ af-core = { path = "../af-core" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 log = { workspace = true }
+rayon.workspace = true
 
 [lints]
 workspace = true

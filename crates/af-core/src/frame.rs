@@ -23,6 +23,7 @@ const SRGB_TO_LINEAR: [f32; 256] = {
 /// let fb = FrameBuffer::new(10, 10);
 /// assert_eq!(fb.data.len(), 400);
 /// ```
+#[derive(Clone)]
 pub struct FrameBuffer {
     /// Pixels RGBA, row-major, 4 bytes par pixel.
     pub data: Vec<u8>,
@@ -30,6 +31,8 @@ pub struct FrameBuffer {
     pub width: u32,
     /// Height in pixels.
     pub height: u32,
+    /// Flag indicating the source has already natively baked the virtual camera transformations (Zoom/Pan/Rot).
+    pub is_camera_baked: bool,
 }
 
 impl FrameBuffer {
@@ -49,6 +52,7 @@ impl FrameBuffer {
             data: vec![0u8; (width * height * 4) as usize],
             width,
             height,
+            is_camera_baked: false,
         }
     }
 

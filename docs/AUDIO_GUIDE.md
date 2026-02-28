@@ -86,7 +86,7 @@ Derived from 26 Mel-spaced triangular filters (300–8000 Hz), compressed via DC
 
 ---
 
-## 14 Mapping Targets
+## 18 Mapping Targets
 
 Each target is a visual parameter in `RenderConfig`. Mappings add to the current value (additive modulation).
 
@@ -113,6 +113,15 @@ Each target is a visual parameter in `RenderConfig`. Mappings add to the current
 | `fade_decay` | 0.0–1.0 | 0.3 | Temporal persistence — higher = longer trails |
 | `glow_intensity` | 0.0–2.0 | 0.5 | Brightness bloom around bright cells |
 | `zalgo_intensity` | 0.0–1.0 | 0.0 | Zalgo combining diacritics density |
+
+### Camera Parameters
+
+| Target | Range | Default | Effect |
+|--------|-------|---------|--------|
+| `camera_zoom_amplitude` | 0.1–10.0 | 1.0 | Virtual camera zoom multiplier |
+| `camera_rotation` | any | 0.0 | Virtual camera rotation in radians |
+| `camera_pan_x` | −2.0–2.0 | 0.0 | Virtual camera horizontal panning |
+| `camera_pan_y` | −2.0–2.0 | 0.0 | Virtual camera vertical panning |
 
 ---
 
@@ -332,7 +341,7 @@ Press `A` to open the Audio Mixer panel — a TUI editor for audio mappings.
 |--------|---------|------------|
 | Enabled | `[x]` / `[ ]` | Toggle on/off |
 | Source | Audio source name | Cycle through 21 sources |
-| Target | Visual target name | Cycle through 14 targets |
+| Target | Visual target name | Cycle through 18 targets |
 | Amount | Multiplier value | Increment/decrement |
 | Offset | Additive offset | Increment/decrement |
 | Curve | Response curve | Cycle through 4 curves |

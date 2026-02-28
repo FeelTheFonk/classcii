@@ -197,10 +197,8 @@ impl CreationEngine {
                 // Smooth, breath-like modulation driven by RMS and spectral centroid
                 config.fade_decay = (audio.rms * 0.8 * mi).clamp(0.0, 1.0);
                 config.glow_intensity = (audio.spectral_centroid * 0.6 * mi).clamp(0.0, 2.0);
-                config.color_pulse_speed =
-                    (self.color_pulse_phase.sin().abs() * 0.8 * mi).clamp(0.0, 5.0);
-                config.wave_amplitude =
-                    ((self.color_pulse_phase * 0.3).sin().abs() * 0.15 * mi).clamp(0.0, 1.0);
+                config.color_pulse_speed = (audio.spectral_centroid * 0.8 * mi).clamp(0.0, 5.0);
+                config.wave_amplitude = (audio.rms * 0.15 * mi).clamp(0.0, 1.0);
                 config.chromatic_offset = 0.0;
                 config.beat_flash_intensity = (onset_envelope * 0.3 * mi).clamp(0.0, 2.0);
             }
@@ -216,7 +214,7 @@ impl CreationEngine {
             }
             CreationPreset::Psychedelic => {
                 // Everything cranked — fast color rotation, heavy visual artifacts
-                config.color_pulse_speed = (3.0 * mi).clamp(0.0, 5.0);
+                config.color_pulse_speed = (audio.rms * 3.0 * mi).clamp(0.0, 5.0);
                 config.wave_amplitude = (audio.mid * 0.6 * mi).clamp(0.0, 1.0);
                 config.chromatic_offset =
                     (audio.spectral_flux * 3.0 * mi + audio.bass * 1.0).clamp(0.0, 5.0);

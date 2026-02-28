@@ -73,7 +73,7 @@ Best settings:
 ### Abstract / Generative Art
 
 ```bash
-classcii --procedural plasma --audio mic --mode octant
+classcii --procedural mandelbrot --audio mic --mode octant
 ```
 
 Best settings:

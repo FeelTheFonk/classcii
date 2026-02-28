@@ -1,25 +1,24 @@
-/// Rampe Standard Complète  - 92 caractères.
+/// Rampe Standard Complète — 70 caractères, lightest→densest.
 pub const CHARSET_FULL: &str =
-    "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}?-_+~<>i!lI;:,\"^`'. ";
+    " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
 
-/// Rampe Alternative Dense - 69 caractères.
-pub const CHARSET_DENSE: &str = "Ñ@#W$9876543210?!abc;:+=-,._ ";
+/// Rampe Alternative Dense — 29 caractères, lightest→densest.
+pub const CHARSET_DENSE: &str = " _.,=-+:;cba!?0123456789$W#@Ñ";
 
 /// Séquence Courte 1 - 10 caractères.
 pub const CHARSET_SHORT_1: &str = ".:-=+*#%@";
 
-/// Séquence Courte 2 - Inversée.
-pub const CHARSET_SHORT_2: &str = "@%#*+=-:. ";
+/// Séquence Courte 2 — lightest→densest.
+pub const CHARSET_SHORT_2: &str = " .:-=+*#%@";
 
 /// Séquence Binaire.
 pub const CHARSET_BINARY: &str = " #";
 
-/// Séquence Étendue (Asciimatic) - 70 caractères.
-pub const CHARSET_EXTENDED: &str =
-    "=======--------:::::::::........=========--------:::::::::........++==";
+/// Séquence Étendue — 11 caractères, ASCII + Unicode léger.
+pub const CHARSET_EXTENDED: &str = " .·:;+xX#%@";
 
-/// Jeu Discret (Matrice) - 5 caractères.
-pub const CHARSET_DISCRETE: &str = "1234 ";
+/// Jeu Discret (Matrice) — 5 caractères, lightest→densest.
+pub const CHARSET_DISCRETE: &str = " 1234";
 
 /// Jeu Edge Detection - 6 caractères.
 pub const CHARSET_EDGE: &str = ".,*+#@";

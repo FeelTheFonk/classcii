@@ -21,7 +21,7 @@ impl VirtualCamera {
     )]
     pub fn apply_transform(config: &RenderConfig, input: &FrameBuffer, output: &mut FrameBuffer) {
         let zoom = config.camera_zoom_amplitude.max(0.01);
-        let rot = config.camera_rotation;
+        let rot = config.camera_rotation % std::f32::consts::TAU;
         let pan_x = config.camera_pan_x;
         let pan_y = config.camera_pan_y;
 

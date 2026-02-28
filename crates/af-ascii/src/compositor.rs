@@ -77,6 +77,21 @@ impl Compositor {
             }
         }
 
+        // 1b. Color mode parity: apply color_mode to non-ASCII modes
+        // Non-ASCII sub-modules write raw RGB to cell.fg — apply ColorMode transform here.
+        if !is_ascii && config.color_enabled {
+            for cell in &mut grid.cells {
+                let (mr, mg, mb) = color_map::map_color(
+                    cell.fg.0,
+                    cell.fg.1,
+                    cell.fg.2,
+                    &config.color_mode,
+                    config.saturation,
+                );
+                cell.fg = (mr, mg, mb);
+            }
+        }
+
         // Lazy-init shape matcher if needed
         let use_shape = is_ascii && config.shape_matching;
         if use_shape && self.shape_matcher.is_none() {

@@ -301,7 +301,7 @@ pub fn apply_audio_mappings(
                 config.glow_intensity = (config.glow_intensity + delta).clamp(0.0, 2.0);
             }
             "zalgo_intensity" => {
-                config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 1.0);
+                config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 5.0);
             }
             "camera_zoom_amplitude" => {
                 // Zoom varies around 1.0. Delta from audio typically modulates positively.

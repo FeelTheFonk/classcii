@@ -73,7 +73,8 @@ impl Source for MandelbrotSource {
 
         let w = f64::from(self.width);
         let h = f64::from(self.height);
-        let max_iter = 100;
+        // Adaptive max_iter: deeper zoom needs more iterations for detail
+        let max_iter = (100.0 + zoom.ln().max(0.0) * 50.0).clamp(100.0, 1000.0) as u32;
 
         let band_size = (self.width * 4) as usize; // Stride en bytes
 
@@ -108,21 +109,25 @@ impl Source for MandelbrotSource {
                         iter += 1;
                     }
 
-                    // Mapping itération -> luminance RGB lissée (nuances de gris)
-                    let luma = if iter == max_iter {
-                        0
+                    // Smooth HSV cyclic color palette
+                    let idx = (px * 4) as usize;
+                    if iter == max_iter {
+                        row[idx] = 0;
+                        row[idx + 1] = 0;
+                        row[idx + 2] = 0;
                     } else {
-                        // Smooth coloring
                         let log_zn = f64::ln(x * x + y * y) / 2.0;
                         let nu = f64::ln(log_zn / f64::ln(2.0)) / f64::ln(2.0);
-                        let i = f64::from(iter) + 1.0 - nu;
-                        ((i / f64::from(max_iter)) * 255.0) as u8
-                    };
-
-                    let idx = (px * 4) as usize;
-                    row[idx] = luma;
-                    row[idx + 1] = luma;
-                    row[idx + 2] = luma;
+                        let t = (f64::from(iter) + 1.0 - nu) / f64::from(max_iter);
+                        let (r, g, b) = hsv_to_rgb_f64(
+                            (t * 360.0 * 3.0) % 360.0,
+                            0.85,
+                            if t < 0.02 { t / 0.02 } else { 1.0 },
+                        );
+                        row[idx] = r;
+                        row[idx + 1] = g;
+                        row[idx + 2] = b;
+                    }
                     row[idx + 3] = 255;
                 }
             });
@@ -138,4 +143,31 @@ impl Source for MandelbrotSource {
     fn is_live(&self) -> bool {
         true // Continuous mathematical field is infinite
     }
+}
+
+/// HSV to RGB conversion for f64 fractal coloring. Zero-alloc, O(1).
+/// h: [0, 360), s: [0, 1], v: [0, 1] → (r, g, b) as u8.
+#[inline]
+fn hsv_to_rgb_f64(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
+    let c = v * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = v - c;
+    let (r1, g1, b1) = if h < 60.0 {
+        (c, x, 0.0)
+    } else if h < 120.0 {
+        (x, c, 0.0)
+    } else if h < 180.0 {
+        (0.0, c, x)
+    } else if h < 240.0 {
+        (0.0, x, c)
+    } else if h < 300.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    (
+        ((r1 + m) * 255.0) as u8,
+        ((g1 + m) * 255.0) as u8,
+        ((b1 + m) * 255.0) as u8,
+    )
 }

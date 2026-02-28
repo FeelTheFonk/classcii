@@ -1,8 +1,7 @@
 # Glitch-heavy, noise-driven visuals — inverted braille, quantized colors, chaotic.
 [render]
 render_mode = "Braille"
-charset_index = 6
-charset = "@#%&?*+;:,."
+charset_index = 0
 color_enabled = true
 color_mode = "Quantized"
 dither_mode = "BlueNoise16"
@@ -31,7 +30,7 @@ fullscreen = false
 show_spectrum = true
 
 [audio]
-sensitivity = 3.0
+sensitivity = 2.0
 smoothing = 0.1
 
 [[audio.mappings]]
@@ -46,7 +45,7 @@ curve = "Exponential"
 enabled = true
 source = "onset"
 target = "invert"
-amount = 1.0
+amount = 0.5
 offset = 0.0
 curve = "Threshold"
 

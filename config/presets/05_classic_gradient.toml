@@ -1,7 +1,8 @@
 # Standard luminance gradient — balanced effects, classic look with subtle audio.
 [render]
 render_mode = "Ascii"
-charset_index = 8
+charset_index = 0
+charset = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "BlueNoise16"

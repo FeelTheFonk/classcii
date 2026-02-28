@@ -24,8 +24,6 @@ pub struct BeatDetector {
     frame_count: u64,
     /// Onset interval accumulator for BPM estimation (VecDeque for O(1) pop_front).
     intervals: VecDeque<u64>,
-    /// Minimum frames between onsets (cooldown).
-    onset_cooldown: u64,
 }
 
 impl BeatDetector {
@@ -40,7 +38,6 @@ impl BeatDetector {
             last_onset_frame: 0,
             frame_count: 0,
             intervals: VecDeque::with_capacity(16),
-            onset_cooldown: 4, // ~133ms @ 30fps, prevents machine-gun
         }
     }
 
@@ -77,9 +74,12 @@ impl BeatDetector {
             0.0
         };
 
-        // Onset with cooldown
+        // Onset with FPS-adaptive cooldown (~130ms regardless of framerate)
+        let cooldown_frames = (fps * 0.13).max(2.0) as u64;
         let frames_since = self.frame_count - self.last_onset_frame;
-        let onset = flux > threshold && frames_since > self.onset_cooldown;
+        // Skip onset detection during warmup (first ~10 frames) to avoid false positives
+        let warmup_complete = self.frame_count > 10;
+        let onset = warmup_complete && flux > threshold && frames_since > cooldown_frames;
 
         // BPM estimation from onset intervals
         if onset {

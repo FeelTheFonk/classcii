@@ -120,7 +120,7 @@ Blends the current frame with the previous frame, creating a temporal persistenc
 - `0.0` = disabled — no temporal blending
 - `0.2–0.4` = subtle trails — smooths motion
 - `0.6–0.8` = heavy trails — ghosting effect
-- `0.95+` = extreme persistence — near-static overlay
+- `0.95–0.99` = extreme persistence — near-static overlay (max effective: 0.99)
 
 Higher values mean previous frames persist longer. Good for creating an ethereal, dreamlike quality.
 

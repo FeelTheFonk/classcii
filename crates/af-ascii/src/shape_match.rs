@@ -1,5 +1,26 @@
 /// Shape matching engine: bitmap correlation per spec §49.
 
+/// Static shape table — 17 hardcoded 5×5 bitmaps (row-major, LSB first).
+const SHAPE_TABLE: &[(char, u32)] = &[
+    (' ', 0b00000_00000_00000_00000_00000),
+    ('.', 0b00000_00000_00000_00100_00000),
+    ('-', 0b00000_00000_11111_00000_00000),
+    ('|', 0b00100_00100_00100_00100_00100),
+    ('+', 0b00100_00100_11111_00100_00100),
+    ('/', 0b00001_00010_00100_01000_10000),
+    ('\\', 0b10000_01000_00100_00010_00001),
+    ('O', 0b01110_10001_10001_10001_01110),
+    ('#', 0b01010_11111_01010_11111_01010),
+    ('@', 0b01110_10001_10111_10001_01110),
+    ('A', 0b01110_10001_11111_10001_10001),
+    ('M', 0b10001_11011_10101_10001_10001),
+    ('W', 0b10001_10001_10101_11011_10001),
+    ('█', 0b11111_11111_11111_11111_11111),
+    ('░', 0b10100_01010_10100_01010_10100),
+    ('▒', 0b10101_01010_10101_01010_10101),
+    ('▓', 0b01011_10101_01011_10101_01011),
+];
+
 /// Shape matcher using 5×5 hardcoded bitmaps for ASCII characters.
 ///
 /// # Example
@@ -7,42 +28,13 @@
 /// use af_ascii::shape_match::ShapeMatcher;
 /// let matcher = ShapeMatcher::new();
 /// ```
-pub struct ShapeMatcher {
-    /// Pre-computed bitmaps for common characters (char, bitmap_25bit).
-    entries: Vec<(char, u32)>,
-}
+pub struct ShapeMatcher;
 
 impl ShapeMatcher {
-    /// Create a new shape matcher with the hardcoded character set.
+    /// Create a new shape matcher.
     #[must_use]
     pub fn new() -> Self {
-        let mut entries = Vec::with_capacity(64);
-
-        // Hardcoded 5×5 bitmaps (row-major, LSB first)
-        let table: &[(char, u32)] = &[
-            (' ', 0b00000_00000_00000_00000_00000),
-            ('.', 0b00000_00000_00000_00100_00000),
-            ('-', 0b00000_00000_11111_00000_00000),
-            ('|', 0b00100_00100_00100_00100_00100),
-            ('+', 0b00100_00100_11111_00100_00100),
-            ('/', 0b00001_00010_00100_01000_10000),
-            ('\\', 0b10000_01000_00100_00010_00001),
-            ('O', 0b01110_10001_10001_10001_01110),
-            ('#', 0b01010_11111_01010_11111_01010),
-            ('@', 0b01110_10001_10111_10001_01110),
-            ('A', 0b01110_10001_11111_10001_10001),
-            ('M', 0b10001_11011_10101_10001_10001),
-            ('W', 0b10001_10001_10101_11011_10001),
-            ('█', 0b11111_11111_11111_11111_11111),
-            ('░', 0b10100_01010_10100_01010_10100),
-            ('▒', 0b10101_01010_10101_01010_10101),
-            ('▓', 0b01011_10101_01011_10101_01011),
-        ];
-
-        for &(ch, bm) in table {
-            entries.push((ch, bm));
-        }
-        Self { entries }
+        Self
     }
 
     /// Match a 5×5 luminance block to the best character.
@@ -72,7 +64,7 @@ impl ShapeMatcher {
         let mut best_char = ' ';
         let mut best_score = 0u32;
 
-        for &(ch, pattern) in &self.entries {
+        for &(ch, pattern) in SHAPE_TABLE {
             let xnor = !(input_bitmap ^ pattern) & 0x01FF_FFFF; // 25 bits
             let score = xnor.count_ones();
             if score > best_score {

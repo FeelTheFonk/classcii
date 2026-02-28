@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-02-28
+
+### Added
+- **Color mode parity**: `ColorMode` (HsvBright, Oklab, Quantized) now applied to ALL 6 render modes. Previously only worked in ASCII mode — Braille, HalfBlock, Quadrant, Sextant, Octant now receive full color processing.
+- **Mandelbrot color palette**: Smooth HSV cyclic coloring replaces grayscale output. 3 hue cycles across iteration range with fade-in near set boundary.
+- **Mandelbrot adaptive max_iter**: Iteration limit scales with zoom depth (100→1000), preserving fractal detail at deep zoom levels.
+- **Config validation**: All TOML numeric values clamped to valid ranges on load via `RenderConfig::clamp_all()`. Prevents undefined behavior from out-of-range config values.
+- **Temporal stability Sextant coverage**: Sextant characters (U+1FB00–U+1FB3B) now have proper density heuristics based on bit count instead of fallback 0.5.
+- **default.toml**: Added missing `beat_intensity→beat_flash_intensity` and `spectral_centroid→glow_intensity` audio mappings.
+
+### Fixed
+- **Charset ordering**: 4 charsets (FULL, DENSE, SHORT_2, DISCRETE) were reversed (densest→lightest), causing inverted luminance mapping. Corrected to lightest→densest.
+- **CHARSET_EXTENDED broken**: Non-monotonic repeating pattern replaced with clean ASCII+Unicode gradient `" .·:;+xX#%@"`.
+- **Sidebar charset names**: Names array was mismatched with actual key→charset mapping. Corrected to match indices 0–9.
+- **UI startup canvas offset**: `canvas_height` always subtracted 3 for spectrum bar even when `show_spectrum=false`. Now spectrum-aware.
+- **Sidebar shows base config**: Sidebar was displaying audio-modulated `render_config`, making keybind changes appear ineffective when presets with audio mappings were active. Now displays stored base config.
+- **Resize trigger for render params**: Tab (render_mode), d/D (density_scale), a (aspect_ratio) now force pixel dimension recalculation. Previously only terminal size changes triggered resize, causing degraded sub-pixel resolution when switching modes.
+- **Rasterizer .notdef glyphs**: Characters absent from the export font (FiraCode) were cached as .notdef placeholder boxes ("?" in rectangles). Now skipped — missing glyphs render as transparent instead of artifacts.
+- **Batch mode rotation**: Sextant and Octant removed from macro mode cycle (glyphs absent from FiraCode). Batch charset pool limited to font-safe charsets only.
+- **Rasterizer R1 violation**: `empty_glyph` Vec moved from per-frame allocation to struct field. Zero-alloc in render hot path restored.
+- **Rasterizer release safety**: `debug_assert` dimension check replaced with runtime early-return + `log::error` for release builds.
+- **Audio decimation quality**: Nearest-neighbor sample skipping replaced with 2-tap averaging filter for anti-aliased 48kHz→24kHz downsampling.
+- **classify_media false acceptance**: Removed TIFF/WEBP from accepted image extensions (image crate lacks those features, would fail silently).
+- **Onset detection FPS-adaptive**: Cooldown now computed from actual FPS (~130ms) instead of fixed 4 frames. Consistent behavior at 30 and 60 FPS.
+- **Onset false positives**: Added 10-frame warmup period to prevent spurious onset detection during `flux_avg` initialization.
+- **fade_decay cap**: Raised effective maximum from 0.95 to 0.99 for extreme temporal persistence.
+- **zalgo_intensity audio mapping clamp**: Harmonized from 0.0–1.0 to 0.0–5.0, matching TOML schema and preset values.
+- **camera_rotation precision**: Normalized to [0, TAU) at usage point to prevent floating-point accumulation drift from continuous audio modulation.
+- **Preset audit**: 13 of 17 presets corrected — wrong charset_index references, shape_matching on non-ASCII modes, color_mode set with color_enabled=false, overly aggressive audio mapping amounts.
+- **README.md**: Removed TIFF/WebP from supported image formats list (matches implementation).
+- **TIPS_AND_TRICKS.md**: Corrected `--procedural plasma` → `--procedural mandelbrot`.
+
+### Changed
+- **Effects performance**: Strobe, color pulse, scan lines, glow, fade trails, and temporal stability rewritten to use direct `cells` iteration (`iter_mut`/`zip`) instead of `get()`+`set()` double-lookup. ~50% fewer index calculations per effect per frame.
+- **ShapeMatcher**: Heap-allocated `Vec<(char, u32)>` replaced with `const &'static [(char, u32)]` slice. Eliminates runtime allocation.
+- **Chromatic aberration**: Read/write passes use direct indexed access on `grid.cells`.
+- **Wave distortion**: Uses `copy_from_slice` + direct indexed write instead of per-cell `get`/`set`.
+- **Key→charset mapping**: Key 8 remapped from CHARSET_DIGITAL to CHARSET_EDGE. Charset order rationalized for intuitive keyboard access.
+
 ## [0.5.6] — 2026-02-28
 
 ### Added

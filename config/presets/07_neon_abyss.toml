@@ -1,8 +1,8 @@
 # Neon colors, deep glow, high saturation — cyberpunk abyss with audio reactive glow.
 [render]
 render_mode = "Ascii"
-charset_index = 8
-charset = " .':;il!i><+?!-ItfjxnoC00@"
+charset_index = 0
+charset = " .':;il!><+?-ItfjxnoC0@"
 color_enabled = true
 color_mode = "Direct"
 dither_mode = "BlueNoise16"

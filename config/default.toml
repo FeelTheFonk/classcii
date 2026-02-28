@@ -2,7 +2,7 @@
 
 [render]
 render_mode = "Ascii"
-charset_index = 0
+charset_index = 2                    # Short (`.:-=+*#%@`)
 charset = " .:-=+*#%@"
 density_scale = 1.0
 invert = false
@@ -89,4 +89,20 @@ source = "beat_intensity"
 target = "density_scale"
 amount = 0.5
 offset = -0.2
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_intensity"
+target = "beat_flash_intensity"
+amount = 0.3
+offset = 0.0
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "glow_intensity"
+amount = 0.4
+offset = 0.0
 curve = "Linear"

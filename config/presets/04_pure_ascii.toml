@@ -2,6 +2,7 @@
 [render]
 render_mode = "Ascii"
 charset_index = 1
+charset = " _.,=-+:;cba!?0123456789$W#@\u00d1"
 color_enabled = false
 color_mode = "Direct"
 dither_mode = "Bayer8x8"

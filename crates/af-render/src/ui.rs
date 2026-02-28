@@ -57,6 +57,7 @@ pub fn draw(
     frame: &mut Frame,
     grid: &AsciiGrid,
     config: &RenderConfig,
+    base_config: &RenderConfig,
     audio: Option<&AudioFeatures>,
     fps_counter: &FpsCounter,
     preset_name: Option<&str>,
@@ -117,7 +118,7 @@ pub fn draw(
         draw_sidebar(
             frame,
             sidebar_area,
-            config,
+            base_config,
             audio,
             fps_counter,
             preset_name,
@@ -267,8 +268,8 @@ fn draw_sidebar(
     };
 
     let charset_names = [
-        "Compact", "Standard", "Full", "Blocks", "Minimal", "Glitch 1", "Glitch 2", "Digital",
-        "Classic", "Extended",
+        "Standard", "Compact", "Short", "Blocks", "Minimal", "Organic", "Bars", "Edge", "Digital",
+        "Binary",
     ];
     let charset_name = charset_names.get(config.charset_index).unwrap_or(&"Custom");
 

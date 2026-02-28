@@ -54,15 +54,6 @@ curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
-source = "bpm"
-target = "wave_amplitude"
-amount = 1.0
-offset = 0.0
-curve = "Linear"
-smoothing = 0.3
-
-[[audio.mappings]]
-enabled = true
 source = "spectral_flux"
 target = "chromatic_offset"
 amount = 0.4

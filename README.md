@@ -102,7 +102,7 @@ classcii --batch-folder ./media/ --preset 02_matrix
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--image <PATH>` | Source: static image or animated GIF (PNG, JPEG, BMP, GIF, TIFF, WebP) | — |
+| `--image <PATH>` | Source: static image or animated GIF (PNG, JPEG, BMP, GIF) | — |
 | `--video <PATH>` | Source: video file (requires `--features video`) | — |
 | `--procedural <TYPE>` | Source: generator (`mandelbrot`) | — |
 | `--audio <PATH\|mic>` | Audio source: file path or `mic` for microphone | — |
@@ -224,9 +224,10 @@ Navigation: `Up/Down` select effect (Master at top, then 9 effects), `Left/Right
 
 ## R&D: Perceptual Color and Dithering
 
-- **Oklab color space**: Perceptually uniform brightness adjustments via `rgb_to_oklab` / `oklab_to_rgb`. Selectable via `m` key (Direct / HSV / Oklab / Quantized).
+- **Oklab color space**: Perceptually uniform brightness adjustments via `rgb_to_oklab` / `oklab_to_rgb`. Selectable via `m` key (Direct / HSV / Oklab / Quantized). Color modes apply to all 6 render modes (ASCII, Braille, HalfBlock, Quadrant, Sextant, Octant).
 - **Blue Noise 16x16 dithering**: Perceptually superior to Bayer ordered dithering. Cycle with `n` (Bayer8x8 / BlueNoise16 / Off).
-- **Temporal Stability**: Anti-flicker heuristic based on character density distance, preventing rapid ASCII character oscillation.
+- **Temporal Stability**: Anti-flicker heuristic based on character density distance (with Sextant/Braille-aware coverage), preventing rapid character oscillation.
+- **Mandelbrot Color Palette**: Smooth HSV cyclic coloring with adaptive iteration depth (100→1000) scaling with zoom level.
 
 ## Presets
 

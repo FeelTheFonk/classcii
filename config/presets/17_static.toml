@@ -3,7 +3,7 @@
 # Spectral flatness drives density chaos, onsets trigger flash.
 [render]
 render_mode = "Ascii"
-charset_index = 0
+charset_index = 8
 charset = " 01"
 color_enabled = true
 color_mode = "Quantized"

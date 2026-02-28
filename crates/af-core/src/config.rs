@@ -368,6 +368,36 @@ impl Default for RenderConfig {
     }
 }
 
+impl RenderConfig {
+    /// Clamp all numeric fields to their valid ranges.
+    /// Called after TOML deserialization to prevent out-of-range values.
+    pub fn clamp_all(&mut self) {
+        self.contrast = self.contrast.clamp(0.1, 3.0);
+        self.brightness = self.brightness.clamp(-1.0, 1.0);
+        self.saturation = self.saturation.clamp(0.0, 3.0);
+        self.edge_threshold = self.edge_threshold.clamp(0.0, 1.0);
+        self.edge_mix = self.edge_mix.clamp(0.0, 1.0);
+        self.density_scale = self.density_scale.clamp(0.25, 4.0);
+        self.fade_decay = self.fade_decay.clamp(0.0, 1.0);
+        self.glow_intensity = self.glow_intensity.clamp(0.0, 2.0);
+        self.zalgo_intensity = self.zalgo_intensity.clamp(0.0, 5.0);
+        self.beat_flash_intensity = self.beat_flash_intensity.clamp(0.0, 2.0);
+        self.strobe_decay = self.strobe_decay.clamp(0.5, 0.99);
+        self.chromatic_offset = self.chromatic_offset.clamp(0.0, 5.0);
+        self.wave_amplitude = self.wave_amplitude.clamp(0.0, 1.0);
+        self.wave_speed = self.wave_speed.clamp(0.0, 10.0);
+        self.color_pulse_speed = self.color_pulse_speed.clamp(0.0, 5.0);
+        self.temporal_stability = self.temporal_stability.clamp(0.0, 1.0);
+        self.camera_zoom_amplitude = self.camera_zoom_amplitude.clamp(0.1, 10.0);
+        self.camera_pan_x = self.camera_pan_x.clamp(-2.0, 2.0);
+        self.camera_pan_y = self.camera_pan_y.clamp(-2.0, 2.0);
+        self.scanline_gap = self.scanline_gap.min(8);
+        self.target_fps = self.target_fps.clamp(15, 120);
+        self.audio_smoothing = self.audio_smoothing.clamp(0.0, 1.0);
+        self.audio_sensitivity = self.audio_sensitivity.clamp(0.0, 5.0);
+    }
+}
+
 /// Structure TOML intermédiaire pour désérialisation avec valeurs optionnelles.
 #[derive(Deserialize)]
 struct ConfigFile {
@@ -566,5 +596,6 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
         }
     }
 
+    config.clamp_all();
     Ok(config)
 }

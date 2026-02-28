@@ -200,17 +200,18 @@ pub fn run_batch_export(
         let mut wave_phase: f32 = 0.0;
 
         // === Pre-allocated charset pool (avoid per-beat .to_string()) ===
+        // Only charsets whose characters are guaranteed in the export font (FiraCode).
         let charset_pool: [&str; 10] = [
             af_core::charset::CHARSET_FULL,
             af_core::charset::CHARSET_DENSE,
             af_core::charset::CHARSET_SHORT_1,
-            af_core::charset::CHARSET_BLOCKS,
-            af_core::charset::CHARSET_MINIMAL,
+            af_core::charset::CHARSET_SHORT_2,
+            af_core::charset::CHARSET_EDGE,
             af_core::charset::CHARSET_GLITCH_1,
-            af_core::charset::CHARSET_GLITCH_2,
+            af_core::charset::CHARSET_DISCRETE,
             af_core::charset::CHARSET_DIGITAL,
-            af_core::charset::CHARSET_EXTENDED,
             af_core::charset::CHARSET_BINARY,
+            af_core::charset::CHARSET_FULL, // fallback duplicate
         ];
 
         log::info!("Boucle de Rendu : {total_frames} frames à {target_fps}fps");
@@ -236,15 +237,13 @@ pub fn run_batch_export(
             if current_features.onset && current_features.beat_intensity > 0.85 {
                 source.next_media();
 
-                // Mode cycle (12%)
+                // Mode cycle (12%) — Sextant/Octant excluded: glyphs absent from export font
                 if fastrand::f64() < 0.12 {
                     let modes = [
                         af_core::config::RenderMode::Ascii,
                         af_core::config::RenderMode::HalfBlock,
                         af_core::config::RenderMode::Braille,
                         af_core::config::RenderMode::Quadrant,
-                        af_core::config::RenderMode::Sextant,
-                        af_core::config::RenderMode::Octant,
                     ];
                     let current = macro_mode_override
                         .as_ref()

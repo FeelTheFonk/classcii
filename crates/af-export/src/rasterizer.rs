@@ -10,6 +10,8 @@ pub struct Rasterizer {
     char_height: u32,
     /// Maps a char to its 1D alpha buffer (size = char_width * char_height)
     glyph_cache: HashMap<char, Vec<u8>>,
+    /// Pre-allocated fallback glyph (all zeros). Avoids per-frame allocation (R1).
+    empty_glyph: Vec<u8>,
 }
 
 impl Rasterizer {
@@ -36,6 +38,7 @@ impl Rasterizer {
             char_width,
             char_height,
             glyph_cache: HashMap::new(),
+            empty_glyph: vec![0u8; (char_width * char_height) as usize],
         };
 
         rasterizer.cache_charset(&font, scale, 32..=126);
@@ -62,12 +65,17 @@ impl Rasterizer {
     ) {
         for codepoint in range {
             if let Some(ch) = std::char::from_u32(codepoint) {
+                // Skip characters not actually in the font (glyph_id 0 = .notdef)
+                // to avoid rendering placeholder "?" boxes in exported video.
+                let gid = font.glyph_id(ch);
+                if gid.0 == 0 && ch != '\0' {
+                    continue;
+                }
+
                 let mut buffer = vec![0u8; (self.char_width * self.char_height) as usize];
 
                 let ascent_px = font.ascent_unscaled() * scale.y / font.height_unscaled();
-                let glyph = font
-                    .glyph_id(ch)
-                    .with_scale_and_position(scale, point(0.0, ascent_px));
+                let glyph = gid.with_scale_and_position(scale, point(0.0, ascent_px));
 
                 if let Some(outline) = font.outline_glyph(glyph) {
                     let bounds = outline.px_bounds();
@@ -94,9 +102,18 @@ impl Rasterizer {
         let expected_w = u32::from(grid.width) * self.char_width;
         let expected_h = u32::from(grid.height) * self.char_height;
 
-        debug_assert!(fb.width == expected_w && fb.height == expected_h);
+        if fb.width != expected_w || fb.height != expected_h {
+            log::error!(
+                "Rasterizer dimension mismatch: fb={}x{} expected={}x{}",
+                fb.width,
+                fb.height,
+                expected_w,
+                expected_h
+            );
+            return;
+        }
 
-        let empty_glyph = vec![0u8; (self.char_width * self.char_height) as usize];
+        let empty_glyph = &self.empty_glyph;
 
         let stride = (expected_w * 4) as usize;
         let band_size = stride * self.char_height as usize;
@@ -114,10 +131,10 @@ impl Rasterizer {
 
                 for gx in 0..(grid.width as usize) {
                     let cell = grid.get(gx as u16, gy as u16);
-                    let char_alpha = self.glyph_cache.get(&cell.ch).unwrap_or(&empty_glyph);
+                    let char_alpha = self.glyph_cache.get(&cell.ch).unwrap_or(empty_glyph);
 
                     // --- Zalgo Combinatory Stack (Zero-alloc references array) ---
-                    let mut diacritics: [&Vec<u8>; 8] = [&empty_glyph; 8];
+                    let mut diacritics: [&Vec<u8>; 8] = [empty_glyph; 8];
                     let mut diacritics_count = 0;
 
                     if zalgo_intensity > 0.0 && (rand() % 100) < (zalgo_intensity * 10.0) as u32 {

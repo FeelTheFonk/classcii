@@ -34,7 +34,7 @@ pub enum MediaType {
 fn classify_media(path: &Path) -> Option<MediaType> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
     match ext.as_str() {
-        "png" | "jpg" | "jpeg" | "bmp" | "gif" | "tiff" | "tif" | "webp" => Some(MediaType::Image),
+        "png" | "jpg" | "jpeg" | "bmp" | "gif" => Some(MediaType::Image),
         "mp4" | "mkv" | "avi" | "mov" | "wmv" | "flv" | "webm" | "m4v" | "ts" | "mpg" | "mpeg" => {
             Some(MediaType::Video)
         }
@@ -171,7 +171,12 @@ impl App {
     ) -> Result<Self> {
         let terminal_size = crossterm::terminal::size()?;
         let canvas_width = terminal_size.0.saturating_sub(24);
-        let canvas_height = terminal_size.1.saturating_sub(3);
+        let spectrum_h = if config.load().show_spectrum {
+            3u16
+        } else {
+            0u16
+        };
+        let canvas_height = terminal_size.1.saturating_sub(spectrum_h);
         let initial_charset = config.load().charset.clone();
 
         let mut presets = Vec::new();
@@ -529,11 +534,13 @@ impl App {
 
             let creation_mode_active = self.creation_mode_active;
             let perf_warning = self.perf_warning;
+            let base_config = self.config.load();
             terminal.draw(|frame| {
                 af_render::ui::draw(
                     frame,
                     grid,
                     &render_config,
+                    &base_config,
                     audio_features.as_ref(),
                     fps_counter,
                     preset_name,
@@ -1000,6 +1007,7 @@ impl App {
                 };
                 self.config.store(Arc::new(new));
                 self.sidebar_dirty = true;
+                self.terminal_size = (0, 0); // recalcul pixel dimensions
             }
             KeyCode::Char('1') => self.set_charset(0, charset::CHARSET_FULL),
             KeyCode::Char('2') => self.set_charset(1, charset::CHARSET_DENSE),
@@ -1008,14 +1016,16 @@ impl App {
             KeyCode::Char('5') => self.set_charset(4, charset::CHARSET_MINIMAL),
             KeyCode::Char('6') => self.set_charset(5, charset::CHARSET_GLITCH_1),
             KeyCode::Char('7') => self.set_charset(6, charset::CHARSET_GLITCH_2),
-            KeyCode::Char('8') => self.set_charset(7, charset::CHARSET_DIGITAL),
-            KeyCode::Char('9') => self.set_charset(8, charset::CHARSET_EXTENDED),
+            KeyCode::Char('8') => self.set_charset(7, charset::CHARSET_EDGE),
+            KeyCode::Char('9') => self.set_charset(8, charset::CHARSET_DIGITAL),
             KeyCode::Char('0') => self.set_charset(9, charset::CHARSET_BINARY),
             KeyCode::Char('d') => {
                 self.toggle_config(|c| c.density_scale = (c.density_scale - 0.25).max(0.25));
+                self.terminal_size = (0, 0); // recalcul pixel dimensions
             }
             KeyCode::Char('D') => {
                 self.toggle_config(|c| c.density_scale = (c.density_scale + 0.25).min(4.0));
+                self.terminal_size = (0, 0); // recalcul pixel dimensions
             }
             KeyCode::Char('c') => self.toggle_config(|c| c.color_enabled = !c.color_enabled),
             KeyCode::Char('i') => self.toggle_config(|c| c.invert = !c.invert),
@@ -1044,13 +1054,16 @@ impl App {
                 };
             }),
             KeyCode::Char('s') => self.toggle_config(|c| c.shape_matching = !c.shape_matching),
-            KeyCode::Char('a') => self.toggle_config(|c| {
-                c.aspect_ratio = match c.aspect_ratio {
-                    x if (x - 1.5).abs() < 0.01 => 2.0,
-                    x if (x - 2.0).abs() < 0.01 => 2.5,
-                    _ => 1.5,
-                };
-            }),
+            KeyCode::Char('a') => {
+                self.toggle_config(|c| {
+                    c.aspect_ratio = match c.aspect_ratio {
+                        x if (x - 1.5).abs() < 0.01 => 2.0,
+                        x if (x - 2.0).abs() < 0.01 => 2.5,
+                        _ => 1.5,
+                    };
+                });
+                self.terminal_size = (0, 0); // recalcul pixel dimensions
+            }
             KeyCode::Char('m') => self.toggle_config(|c| {
                 c.color_mode = match c.color_mode {
                     ColorMode::Direct => ColorMode::HsvBright,

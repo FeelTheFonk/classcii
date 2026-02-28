@@ -91,7 +91,6 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
 
     let track_id = track.id;
     let mut all_samples: Vec<f32> = Vec::new();
-    let mut sample_idx = 0u32;
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
     let mut max_sample_frames: usize = 0;
 
@@ -133,12 +132,22 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
         buf.copy_interleaved_ref(decoded);
         let interleaved = buf.samples();
 
-        for chunk in interleaved.chunks(channels) {
-            if sample_idx.is_multiple_of(downsample_factor) {
+        if downsample_factor > 1 {
+            // 2-tap averaging decimation (anti-aliased downsampling)
+            let mut accum = 0.0f32;
+            for (i, chunk) in interleaved.chunks(channels).enumerate() {
+                let mono: f32 = chunk.iter().sum::<f32>() / channels as f32;
+                accum += mono;
+                if (i + 1) % downsample_factor as usize == 0 {
+                    all_samples.push(accum / downsample_factor as f32);
+                    accum = 0.0;
+                }
+            }
+        } else {
+            for chunk in interleaved.chunks(channels) {
                 let mono: f32 = chunk.iter().sum::<f32>() / channels as f32;
                 all_samples.push(mono);
             }
-            sample_idx += 1;
         }
     }
 

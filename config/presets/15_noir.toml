@@ -5,7 +5,7 @@
 render_mode = "HalfBlock"
 charset_index = 0
 color_enabled = false
-color_mode = "Quantized"
+color_mode = "Direct"
 dither_mode = "None"
 density_scale = 1.0
 invert = false
@@ -14,7 +14,7 @@ brightness = -0.1
 saturation = 0.0
 edge_threshold = 0.5
 edge_mix = 0.8
-shape_matching = true
+shape_matching = false
 aspect_ratio = 1.5
 bg_style = "Black"
 fade_decay = 0.85

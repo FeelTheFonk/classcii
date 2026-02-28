@@ -1,8 +1,8 @@
 # Shape matching, soft ethereal — transparent bg, warm glow, gentle wave.
 [render]
 render_mode = "Ascii"
-charset_index = 9
-charset = "…^‚:;Il!i><v+_—?1[ł{1)(|/tfjrxnuvczXYUJCLQØ0Zmwqpdbkhао*#МW&8⅝В@$"
+charset_index = 0
+charset = " .',:;!ilI|/7(fjtYVbkR#W&8@$"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"

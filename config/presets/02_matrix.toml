@@ -1,7 +1,8 @@
 # Classic Matrix digital rain — green on black, heavy fade trails, digital charset.
 [render]
 render_mode = "Ascii"
-charset_index = 7
+charset_index = 8
+charset = " 01"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "Bayer8x8"

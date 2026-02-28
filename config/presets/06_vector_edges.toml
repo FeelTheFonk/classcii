@@ -1,7 +1,8 @@
 # Edge-dominant vector style — monochrome, long fade trails, strong edges.
 [render]
 render_mode = "Ascii"
-charset_index = 8
+charset_index = 7
+charset = ".,*+#@"
 color_enabled = false
 color_mode = "Direct"
 dither_mode = "Bayer8x8"
@@ -30,7 +31,7 @@ fullscreen = false
 show_spectrum = true
 
 [audio]
-sensitivity = 4.0
+sensitivity = 2.5
 smoothing = 0.9
 
 [[audio.mappings]]

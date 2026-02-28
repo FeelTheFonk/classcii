@@ -122,6 +122,7 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `i` | Invert luminance |
 | `e` / `E` | Toggle edge detection / Adjust edge mix |
 | `s` | Toggle shape matching |
+| `a` | Toggle aspect ratio correction |
 | `m` | Cycle color mode |
 | `b` | Cycle background style |
 | `d` / `D` | Adjust density scale |
@@ -135,6 +136,10 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `w` / `W` | Adjust wave distortion |
 | `h` / `H` | Adjust color pulse speed |
 | `l` / `L` | Adjust scan line gap |
+| `z` / `Z` | Adjust zalgo intensity |
+| `y` / `Y` | Adjust temporal stability |
+| `j` / `J` | Adjust strobe decay |
+| `u` / `U` | Adjust wave speed |
 | `v` | Toggle spectrum display |
 | `n` | Cycle dither mode (Bayer8x8 / BlueNoise16 / Off) |
 | `↑` / `↓` | Adjust general audio sensitivity |
@@ -163,6 +168,8 @@ source = "bass"            # Audio feature: rms, peak, sub_bass, bass, low_mid, 
                            # onset_envelope
 target = "zalgo_intensity" # Visual target: edge_threshold, edge_mix, contrast,
                            # brightness, saturation, density_scale, invert,
+                           # beat_flash_intensity, chromatic_offset, wave_amplitude,
+                           # color_pulse_speed, fade_decay, glow_intensity,
                            # zalgo_intensity
 amount = 1.0               # Multiplier
 offset = 0.0               # Additive offset after multiplication
@@ -222,6 +229,7 @@ Available in `config/presets/`, selectable via `--preset <name>` or cycled live 
 | `08_cyber_noise` | Glitch-heavy, noise-driven visuals |
 | `09_brutalism_mono` | Monochrome, high contrast brutalist style |
 | `10_ethereal_shape` | Shape matching, soft ethereal aesthetics |
+| `11_reactive` | All effects showcase, moderate levels, audio-reactive |
 
 Usage: `classcii --image photo.jpg --preset 02_matrix`
 
@@ -237,7 +245,7 @@ Configurations and presets are managed via TOML files. Audio mappings and charse
 - Zero panicking unwraps — `?` operator and graceful fallback implemented across all layers (R3).
 - Zero unnecessary copies — driven by `Arc<FrameBuffer>`, `arc-swap`, and lock-free `triple_buffer` mechanics (R4).
 - Compile strictness: `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings with pedantic lints enabled.
-- 65 tests (unit + doctests) pass. `cargo fmt --check --all` clean.
+- 69 tests (unit + doctests) pass. `cargo fmt --check --all` clean.
 - All division operations guarded against zero. All user inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

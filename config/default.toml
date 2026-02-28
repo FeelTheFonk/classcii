@@ -46,7 +46,9 @@ sensitivity = 0.5
 #          onset, beat_intensity, beat_phase, bpm, timbral_brightness,
 #          timbral_roughness, onset_envelope
 # Targets: edge_threshold, edge_mix, contrast, brightness, saturation,
-#          density_scale, invert, zalgo_intensity
+#          density_scale, invert, zalgo_intensity, beat_flash_intensity,
+#          chromatic_offset, wave_amplitude, color_pulse_speed, fade_decay,
+#          glow_intensity
 # Curves:  Linear, Exponential, Threshold, Smooth
 
 [[audio.mappings]]

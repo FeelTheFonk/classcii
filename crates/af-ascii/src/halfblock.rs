@@ -27,16 +27,15 @@ pub fn process_halfblock(frame: &FrameBuffer, _config: &RenderConfig, grid: &mut
         .enumerate()
         .for_each(|(cy, row)| {
             for (cx, cell) in row.iter_mut().enumerate() {
-                let px = (cx as u32) * frame.width / pixel_w.max(1);
-                let py_top = (cy as u32) * 2 * frame.height / pixel_h.max(1);
-                let py_bot = ((cy as u32) * 2 + 1) * frame.height / pixel_h.max(1);
+                let x0 = (cx as u32) * frame.width / pixel_w.max(1);
+                let x1 = ((cx as u32 + 1) * frame.width / pixel_w.max(1)).min(frame.width);
+                let y_top = (cy as u32) * 2 * frame.height / pixel_h.max(1);
+                let y_mid = ((cy as u32) * 2 + 1) * frame.height / pixel_h.max(1);
+                let y_bot =
+                    (((cy as u32) * 2 + 2) * frame.height / pixel_h.max(1)).min(frame.height);
 
-                let px = px.min(frame.width.saturating_sub(1));
-                let py_top = py_top.min(frame.height.saturating_sub(1));
-                let py_bot = py_bot.min(frame.height.saturating_sub(1));
-
-                let (tr, tg, tb, _) = frame.pixel(px, py_top);
-                let (br, bg, bb, _) = frame.pixel(px, py_bot);
+                let (tr, tg, tb, _) = frame.area_sample(x0, y_top, x1, y_mid);
+                let (br, bg, bb, _) = frame.area_sample(x0, y_mid, x1, y_bot);
 
                 *cell = AsciiCell {
                     ch: '▄',

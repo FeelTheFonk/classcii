@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
 
+use af_core::clock::MediaClock;
 use af_core::frame::AudioFeatures;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use triple_buffer::TripleBuffer;
@@ -67,6 +68,7 @@ pub fn spawn_audio_file_thread(
     target_fps: u32,
     audio_smoothing: f32,
     cmd_rx: flume::Receiver<AudioCommand>,
+    clock: Arc<MediaClock>,
 ) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
     // Clone du chemin pour le thread (le décodage se fait en arrière-plan).
     let path = path.to_path_buf();
@@ -87,6 +89,9 @@ pub fn spawn_audio_file_thread(
                 log::error!("Audio: fichier vide: {}", path.display());
                 return;
             }
+
+            // Écrire le sample rate réel dans le clock partagé
+            clock.set_sample_rate(sample_rate);
 
             let samples = Arc::new(all_samples);
             let playback_pos = Arc::new(AtomicUsize::new(0));
@@ -121,6 +126,7 @@ pub fn spawn_audio_file_thread(
                     Arc::clone(&is_paused),
                     sample_rate_ratio,
                     out_channels,
+                    Arc::clone(&clock),
                 ),
                 cpal::SampleFormat::I16 => build_playback_stream::<i16>(
                     &output_device,
@@ -130,6 +136,7 @@ pub fn spawn_audio_file_thread(
                     Arc::clone(&is_paused),
                     sample_rate_ratio,
                     out_channels,
+                    Arc::clone(&clock),
                 ),
                 cpal::SampleFormat::U16 => build_playback_stream::<u16>(
                     &output_device,
@@ -139,6 +146,7 @@ pub fn spawn_audio_file_thread(
                     Arc::clone(&is_paused),
                     sample_rate_ratio,
                     out_channels,
+                    Arc::clone(&clock),
                 ),
                 fmt => {
                     log::error!("Audio: format cpal non supporté: {fmt:?}");
@@ -169,6 +177,7 @@ pub fn spawn_audio_file_thread(
                 &playback_pos,
                 &is_paused,
                 &cmd_rx,
+                &clock,
             );
         })?;
 
@@ -186,6 +195,7 @@ fn run_file_analysis_loop(
     playback_pos: &AtomicUsize,
     is_paused: &AtomicBool,
     cmd_rx: &flume::Receiver<AudioCommand>,
+    clock: &MediaClock,
 ) {
     let fft_size = 2048;
     let mut fft = FftPipeline::new(fft_size);
@@ -199,15 +209,23 @@ fn run_file_analysis_loop(
         // Command reception
         while let Ok(cmd) = cmd_rx.try_recv() {
             match cmd {
-                AudioCommand::Play => is_paused.store(false, Ordering::Relaxed),
-                AudioCommand::Pause => is_paused.store(true, Ordering::Relaxed),
+                AudioCommand::Play => {
+                    is_paused.store(false, Ordering::Relaxed);
+                    clock.set_paused(false);
+                }
+                AudioCommand::Pause => {
+                    is_paused.store(true, Ordering::Relaxed);
+                    clock.set_paused(true);
+                }
                 AudioCommand::Seek(delta) => {
                     let total = samples.len() as f64;
                     let current_sec =
                         playback_pos.load(Ordering::Relaxed) as f64 / f64::from(sample_rate);
                     let new_sec = (current_sec + delta).max(0.0);
                     let new_pos = (new_sec * f64::from(sample_rate)) as usize;
-                    playback_pos.store(new_pos % total as usize, Ordering::Relaxed);
+                    let final_pos = new_pos % total as usize;
+                    playback_pos.store(final_pos, Ordering::Relaxed);
+                    clock.set_sample_pos(final_pos);
                 }
                 AudioCommand::Quit => return,
             }
@@ -295,6 +313,7 @@ fn run_analysis_loop(
 }
 
 /// Generic stream builder to support U16, I16, F32 dynamic dispatch for CPAL.
+#[allow(clippy::too_many_arguments)]
 fn build_playback_stream<T>(
     output_device: &cpal::Device,
     output_config: &cpal::StreamConfig,
@@ -303,16 +322,24 @@ fn build_playback_stream<T>(
     is_paused_play: Arc<AtomicBool>,
     sample_rate_ratio: f64,
     out_channels: usize,
+    clock: Arc<MediaClock>,
 ) -> anyhow::Result<cpal::Stream>
 where
     T: cpal::SizedSample + cpal::FromSample<f32>,
 {
     let mut local_pos_f = playback_pos_write.load(Ordering::Relaxed) as f64;
     let mut last_sync_pos = local_pos_f as usize;
+    let mut first_callback = true;
 
     let stream = output_device.build_output_stream(
         output_config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+            // Marquer le clock comme démarré au premier callback
+            if first_callback {
+                clock.mark_started();
+                first_callback = false;
+            }
+
             if is_paused_play.load(Ordering::Relaxed) {
                 for sample in data.iter_mut() {
                     *sample = T::from_sample(0.0f32);
@@ -349,6 +376,8 @@ where
             }
             last_sync_pos = local_pos_f as usize;
             playback_pos_write.store(last_sync_pos, Ordering::Relaxed);
+            // Synchroniser le clock partagé avec la position cpal
+            clock.set_sample_pos(last_sync_pos);
         },
         |err| {
             log::error!("Audio output error: {err}");

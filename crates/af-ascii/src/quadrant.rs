@@ -25,7 +25,6 @@ const QUADRANT_CHARS: [char; 16] = [
 pub fn process_quadrant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut AsciiGrid) {
     let pixel_w = u32::from(grid.width) * 2;
     let pixel_h = u32::from(grid.height) * 2;
-    let threshold: u8 = 128;
 
     grid.cells
         .par_chunks_mut(grid.width as usize)
@@ -35,12 +34,13 @@ pub fn process_quadrant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut A
                 let base_x = (cx as u32) * 2 * frame.width / pixel_w.max(1);
                 let base_y = (cy as u32) * 2 * frame.height / pixel_h.max(1);
 
-                let mut bitmap = 0u8;
+                // Passe 1 : collecter luminances et couleurs
+                let mut lum_values = [0u8; 4];
+                let mut lum_sum = 0u32;
                 let mut avg_r = 0u32;
                 let mut avg_g = 0u32;
                 let mut avg_b = 0u32;
 
-                // TL=bit0, TR=bit1, BL=bit2, BR=bit3
                 for dy in 0..2u32 {
                     for dx in 0..2u32 {
                         let px = (base_x + dx * frame.width / pixel_w.max(1))
@@ -48,22 +48,29 @@ pub fn process_quadrant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut A
                         let py = (base_y + dy * frame.height / pixel_h.max(1))
                             .min(frame.height.saturating_sub(1));
 
-                        let lum = frame.luminance(px, py);
+                        let lum = frame.luminance_linear(px, py);
                         let (r, g, b, _) = frame.pixel(px, py);
-
-                        let bit = dy * 2 + dx; // TL=0, TR=1, BL=2, BR=3
-                        let on = if config.invert {
-                            lum < threshold
-                        } else {
-                            lum > threshold
-                        };
-                        if on {
-                            bitmap |= 1 << bit;
-                        }
+                        let idx = (dy * 2 + dx) as usize;
+                        lum_values[idx] = lum;
+                        lum_sum += u32::from(lum);
 
                         avg_r += u32::from(r);
                         avg_g += u32::from(g);
                         avg_b += u32::from(b);
+                    }
+                }
+
+                // Passe 2 : seuil adaptatif (moyenne locale)
+                let local_threshold = (lum_sum / 4) as u8;
+                let mut bitmap = 0u8;
+                for bit in 0..4u8 {
+                    let on = if config.invert {
+                        lum_values[bit as usize] < local_threshold
+                    } else {
+                        lum_values[bit as usize] > local_threshold
+                    };
+                    if on {
+                        bitmap |= 1 << bit;
                     }
                 }
 

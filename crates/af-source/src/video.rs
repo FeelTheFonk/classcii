@@ -8,6 +8,7 @@
 //   - `spawn_video_thread`: thread dédié, lit les frames, gère les commandes
 //   - `process_commands`  : dispatche les commandes dans la boucle principale
 //   - `find_or_create_slot`: gère le pool Arc<FrameBuffer> zero-alloc
+//   - Sync A/V : timing esclave via MediaClock (audio = maître)
 
 use anyhow::{Context, Result};
 use flume::{Receiver, Sender};
@@ -18,11 +19,15 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use af_core::clock::MediaClock;
 use af_core::frame::FrameBuffer;
 
 /// Taille du pool de frames pré-allouées.
 /// Doit être > capacité du canal (3) pour garantir un slot libre sans allocation.
 const POOL_SIZE: usize = 6;
+
+/// Tolérance de synchronisation A/V en secondes (~1 frame à 24fps).
+const SYNC_TOLERANCE_SECS: f64 = 0.04;
 
 /// Commandes interactives pour le thread vidéo.
 ///
@@ -61,14 +66,16 @@ struct VideoState {
     w: u32,
     /// Hauteur actuelle du pipe ffmpeg.
     h: u32,
-    /// Position de lecture en secondes.
-    pos_secs: f64,
-    /// True si la lecture est en pause.
+    /// True si la lecture est en pause (commande locale).
     is_paused: bool,
     /// FPS cible envoyé à ffmpeg.
     target_fps: u32,
     /// Pool pré-alloué de frames réutilisables (zero-alloc en hot path).
     pool: Vec<Arc<FrameBuffer>>,
+    /// Nombre de frames lues depuis le pipe ffmpeg courant.
+    frames_read: u64,
+    /// Position en secondes à laquelle le pipe ffmpeg courant a été démarré (-ss).
+    pipe_start_secs: f64,
 }
 
 impl VideoState {
@@ -84,11 +91,17 @@ impl VideoState {
         Self {
             w,
             h,
-            pos_secs: 0.0,
             is_paused: false,
             target_fps,
             pool,
+            frames_read: 0,
+            pipe_start_secs: 0.0,
         }
+    }
+
+    /// Position vidéo courante dérivée du pipe ffmpeg.
+    fn current_pos_secs(&self, fps: f64) -> f64 {
+        self.pipe_start_secs + self.frames_read as f64 / fps.max(1.0)
     }
 }
 
@@ -131,13 +144,17 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     let mut width: u32 = 1920;
     let mut height: u32 = 1080;
     let mut fps: f64 = 30.0;
+    let mut found_any = false;
 
     for line in text.lines() {
         if let Some(val) = line.strip_prefix("width=") {
             width = val.trim().parse().unwrap_or(1920);
+            found_any = true;
         } else if let Some(val) = line.strip_prefix("height=") {
             height = val.trim().parse().unwrap_or(1080);
+            found_any = true;
         } else if let Some(val) = line.strip_prefix("r_frame_rate=") {
+            found_any = true;
             // Format: "24/1" ou "30000/1001" ou "24000/1001"
             let val = val.trim();
             let mut parts = val.splitn(2, '/');
@@ -147,6 +164,16 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
                 fps = num / den;
             }
         }
+    }
+
+    if !found_any {
+        log::warn!(
+            "ffprobe n'a retourné aucune métadonnée pour {}, utilisation des défauts ({}x{}@{:.0}fps)",
+            path.display(),
+            width,
+            height,
+            fps
+        );
     }
 
     if width == 0 || height == 0 {
@@ -184,7 +211,7 @@ pub fn spawn_ffmpeg_pipe(
         return None;
     };
 
-    let scale_filter = format!("scale={w}:{h}:flags=bilinear");
+    let scale_filter = format!("scale={w}:{h}:flags=lanczos");
     let fps_str = target_fps.to_string();
     let pos_str = format!("{pos_secs:.3}");
 
@@ -250,6 +277,7 @@ fn process_commands(
     state: &mut VideoState,
     maybe_child: &mut Option<Child>,
     path: &Path,
+    clock: Option<&MediaClock>,
 ) -> bool {
     let mut need_restart = false;
     loop {
@@ -271,9 +299,16 @@ fn process_commands(
                 log::debug!("Thread vidéo: Play");
             }
             Ok(VideoCommand::Seek(delta)) => {
-                state.pos_secs = (state.pos_secs + delta).max(0.0);
+                // Lire la position depuis le clock audio si disponible
+                let current = clock.map_or(
+                    state.current_pos_secs(f64::from(state.target_fps)),
+                    MediaClock::pos_secs,
+                );
+                let new_secs = (current + delta).max(0.0);
+                state.pipe_start_secs = new_secs;
+                state.frames_read = 0;
                 need_restart = true;
-                log::debug!("Thread vidéo: Seek -> {:.1}s", state.pos_secs);
+                log::debug!("Thread vidéo: Seek -> {new_secs:.1}s");
             }
             Ok(VideoCommand::Resize(nw, nh)) => {
                 if nw > 0 && nh > 0 && (nw != state.w || nh != state.h) {
@@ -300,8 +335,13 @@ fn process_commands(
             if let Some(c) = maybe_child.as_mut() {
                 let _ = c.kill();
             }
-            *maybe_child =
-                spawn_ffmpeg_pipe(path, state.w, state.h, state.pos_secs, state.target_fps);
+            *maybe_child = spawn_ffmpeg_pipe(
+                path,
+                state.w,
+                state.h,
+                state.pipe_start_secs,
+                state.target_fps,
+            );
             need_restart = false;
         }
     }
@@ -333,23 +373,18 @@ fn find_or_create_slot(pool: &mut Vec<Arc<FrameBuffer>>, w: u32, h: u32) -> usiz
 /// via `frame_tx`. Les commandes (Play/Pause/Seek/Resize/Quit) sont
 /// reçues depuis `cmd_rx`.
 ///
+/// Si `clock` est `Some`, le thread se synchronise sur l'horloge audio.
+/// Sinon, il utilise un pacing mur indépendant (wall-clock).
+///
 /// Retourne le handle du thread + les dimensions natives du flux vidéo.
 ///
 /// # Errors
 /// Retourne une erreur si `ffprobe` est introuvable ou si le fichier est invalide.
-///
-/// # Example
-/// ```no_run
-/// use af_source::video::{spawn_video_thread, VideoCommand};
-/// use std::path::PathBuf;
-/// // let (tx, rx) = flume::bounded(3);
-/// // let (cmd_tx, cmd_rx) = flume::bounded(10);
-/// // let (handle, (w, h)) = spawn_video_thread(PathBuf::from("video.mkv"), tx, cmd_rx).unwrap();
-/// ```
 pub fn spawn_video_thread(
     path: PathBuf,
     frame_tx: Sender<Arc<FrameBuffer>>,
     cmd_rx: Receiver<VideoCommand>,
+    clock: Option<Arc<MediaClock>>,
 ) -> Result<(thread::JoinHandle<()>, (u32, u32))> {
     let info = probe_video(&path)?;
     let native_w = info.width;
@@ -358,7 +393,7 @@ pub fn spawn_video_thread(
     let handle = thread::Builder::new()
         .name("af-video".to_string())
         .spawn(move || {
-            video_loop(&path, &frame_tx, &cmd_rx, info);
+            video_loop(&path, &frame_tx, &cmd_rx, info, clock.as_deref());
         })
         .context("Impossible de spawner le thread vidéo")?;
 
@@ -366,12 +401,19 @@ pub fn spawn_video_thread(
 }
 
 /// Boucle principale du thread vidéo.
+///
+/// Deux modes de timing :
+/// - Avec `clock` (audio présent) : esclave du clock audio, skip/wait si drift
+/// - Sans `clock` (vidéo seule) : pacing mur indépendant (wall-clock)
 fn video_loop(
     path: &Path,
     frame_tx: &Sender<Arc<FrameBuffer>>,
     cmd_rx: &Receiver<VideoCommand>,
     info: VideoInfo,
+    clock: Option<&MediaClock>,
 ) {
+    const CLOCK_TIMEOUT: Duration = Duration::from_secs(5);
+
     let mut state = VideoState::new(&info);
     let frame_period = Duration::from_secs_f64(1.0 / info.fps.clamp(1.0, 120.0));
     // DECISION: Pas de spawn immédiat — on attend le premier VideoCommand::Resize
@@ -379,26 +421,60 @@ fn video_loop(
     // Évite un double-spawn inutile (min(640,360) puis taille réelle du canvas).
     let mut maybe_child: Option<Child> = None;
     let mut last_frame = Instant::now();
+    let clock_wait_start = Instant::now();
 
     loop {
         // === Commandes (non-bloquant) ===
-        if process_commands(cmd_rx, &mut state, &mut maybe_child, path) {
+        if process_commands(cmd_rx, &mut state, &mut maybe_child, path, clock) {
             return;
         }
 
-        // === Pause ===
-        if state.is_paused {
+        // === Guard : pas de ffmpeg encore → attendre le premier Resize ===
+        if maybe_child.is_none() {
             thread::sleep(Duration::from_millis(10));
             continue;
         }
 
-        // === Timing FPS ===
-        let elapsed = last_frame.elapsed();
-        if let Some(remaining) = frame_period.checked_sub(elapsed) {
-            thread::sleep(remaining);
+        // === Pause (locale ou via clock audio) ===
+        let clock_paused = clock.is_some_and(MediaClock::is_paused);
+        if state.is_paused || clock_paused {
+            thread::sleep(Duration::from_millis(10));
             continue;
         }
-        last_frame = Instant::now();
+
+        // === Timing : mode synchronisé ou indépendant ===
+        let target_secs = if let Some(c) = clock {
+            // Mode synchronisé : attendre que l'audio démarre (avec timeout)
+            if c.is_started() {
+                c.pos_secs()
+            } else if clock_wait_start.elapsed() < CLOCK_TIMEOUT {
+                thread::sleep(Duration::from_millis(10));
+                continue;
+            } else {
+                // Timeout : fallback wall-clock indépendant
+                log::warn!("Audio non démarré après 5s, vidéo en mode indépendant");
+                state.current_pos_secs(info.fps)
+            }
+        } else {
+            // Mode indépendant : pacing mur (wall-clock)
+            let elapsed = last_frame.elapsed();
+            if let Some(remaining) = frame_period.checked_sub(elapsed) {
+                thread::sleep(remaining);
+                continue;
+            }
+            last_frame = Instant::now();
+            state.current_pos_secs(info.fps)
+        };
+
+        let video_pos = state.current_pos_secs(info.fps);
+        let drift = video_pos - target_secs;
+
+        // Vidéo en avance sur l'audio → attendre
+        if clock.is_some() && drift > SYNC_TOLERANCE_SECS {
+            let wait = (drift - SYNC_TOLERANCE_SECS).min(0.05);
+            thread::sleep(Duration::from_secs_f64(wait));
+            continue;
+        }
 
         // === Obtenir un slot libre dans le pool (zero-alloc si possible) ===
         let frame_bytes = (state.w * state.h * 4) as usize;
@@ -419,18 +495,25 @@ fn video_loop(
 
         match read_result {
             Ok(true) => {
-                // Frame lue : envoyer un clone (pool garde sa référence, strong_count → 2)
+                state.frames_read += 1;
+
+                // Vidéo en retard sur l'audio → lire la frame mais ne pas l'envoyer (skip)
+                if clock.is_some() && drift < -SYNC_TOLERANCE_SECS {
+                    continue;
+                }
+
+                // Frame lue et en sync : envoyer un clone (pool garde sa référence)
                 if frame_tx.send(Arc::clone(&state.pool[idx])).is_err() {
                     if let Some(mut c) = maybe_child {
                         let _ = c.kill();
                     }
                     return;
                 }
-                state.pos_secs += 1.0 / info.fps.max(1.0);
             }
             Ok(false) => {
                 // EOF : fin de la vidéo, dernière frame reste affichée
-                log::info!("Thread vidéo: EOF à {:.1}s, arrêt.", state.pos_secs);
+                let pos = state.current_pos_secs(info.fps);
+                log::info!("Thread vidéo: EOF à {pos:.1}s, arrêt.");
                 break;
             }
             Err(e) => {

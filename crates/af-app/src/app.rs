@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use af_ascii::compositor::Compositor;
 use af_audio::state::AudioCommand;
 use af_core::charset;
+use af_core::clock::MediaClock;
 use af_core::config::{BgStyle, ColorMode, RenderConfig, RenderMode};
 use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
 use af_render::AudioPanelState;
@@ -123,6 +124,8 @@ pub struct App {
     pub charset_edit_cursor: usize,
     /// État local du panneau de mixage audio.
     pub audio_panel: AudioPanelState,
+    /// Horloge partagée A/V (None si pas d'audio fichier chargé).
+    pub media_clock: Option<Arc<MediaClock>>,
 }
 
 impl App {
@@ -187,6 +190,7 @@ impl App {
             charset_edit_buf: String::new(),
             charset_edit_cursor: 0,
             audio_panel: AudioPanelState::new(audio_mappings_len),
+            media_clock: None,
         })
     }
 
@@ -1101,6 +1105,7 @@ impl App {
         }
         self.audio_cmd_tx = None;
         self.audio_output = None;
+        self.media_clock = None;
     }
 
     /// Load a visual source (image or video) and update sidebar name.
@@ -1129,7 +1134,8 @@ impl App {
     fn start_video(&mut self, path: &Path) {
         let (frame_tx, frame_rx) = flume::bounded(3);
         let (cmd_tx, cmd_rx) = flume::bounded(10);
-        match af_source::video::spawn_video_thread(path.to_path_buf(), frame_tx, cmd_rx) {
+        let clock = self.media_clock.clone();
+        match af_source::video::spawn_video_thread(path.to_path_buf(), frame_tx, cmd_rx, clock) {
             Ok((_handle, _native_dims)) => {
                 self.frame_rx = Some(frame_rx);
                 self.video_cmd_tx = Some(cmd_tx);
@@ -1148,10 +1154,12 @@ impl App {
 
     /// Start audio analysis from a file path.
     fn start_audio_from_path(&mut self, path_str: &str) {
-        match pipeline::start_audio(path_str, &self.config) {
+        let clock = Arc::new(MediaClock::new(0));
+        match pipeline::start_audio(path_str, &self.config, Arc::clone(&clock)) {
             Ok((output, tx)) => {
                 self.audio_output = Some(output);
                 self.audio_cmd_tx = tx;
+                self.media_clock = Some(clock);
                 log::info!("Audio démarré: {path_str}");
             }
             Err(e) => log::warn!("Audio non disponible: {e}"),

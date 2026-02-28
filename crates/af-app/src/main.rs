@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use af_core::clock::MediaClock;
 use anyhow::Result;
 use arc_swap::ArcSwap;
 use clap::Parser;
@@ -68,35 +69,20 @@ fn main() -> Result<()> {
     let _watcher = hotreload::spawn_config_watcher(&cli.config, &config)?;
 
     // 6. Démarrer le thread audio (si --audio fourni)
-    let (audio_output, audio_cmd_tx) = if let Some(ref audio_arg) = cli.audio {
-        match pipeline::start_audio(audio_arg, &config) {
-            Ok((output, tx)) => (Some(output), tx),
-            Err(e) => {
-                log::warn!("Audio non disponible : {e}");
-                (None, None)
-            }
-        }
-    } else if let Some(ref video_arg) = cli.video {
-        // Fallback: use video file audio track via symphonia
-        match pipeline::start_audio(&video_arg.to_string_lossy(), &config) {
-            Ok((output, tx)) => {
-                log::info!("Piste audio de la vidéo chargée avec succès.");
-                (Some(output), tx)
-            }
-            Err(e) => {
-                log::info!("Pas de piste audio gérée dans la vidéo : {e}");
-                (None, None)
-            }
-        }
-    } else {
-        (None, None)
-    };
+    let media_clock = Arc::new(MediaClock::new(0));
+    let (audio_output, audio_cmd_tx) = init_audio(&cli, &config, &media_clock);
 
     // 7. Démarrer le source thread (si vidéo/webcam/procédural)
+    let has_audio = audio_output.is_some();
+    let video_clock = if has_audio {
+        Some(Arc::clone(&media_clock))
+    } else {
+        None
+    };
     #[cfg(feature = "video")]
-    let (initial_frame, frame_rx, video_cmd_tx) = pipeline::start_source(&cli)?;
+    let (initial_frame, frame_rx, video_cmd_tx) = pipeline::start_source(&cli, video_clock)?;
     #[cfg(not(feature = "video"))]
-    let (initial_frame, frame_rx) = pipeline::start_source(&cli)?;
+    let (initial_frame, frame_rx) = pipeline::start_source(&cli, video_clock)?;
 
     // 8. Initialiser le terminal ratatui
     let terminal = ratatui::init();
@@ -109,6 +95,9 @@ fn main() -> Result<()> {
     let mut app_instance = app::App::new(config, audio_output, frame_rx, audio_cmd_tx)?;
     if let Some(frame) = initial_frame {
         app_instance.current_frame = Some(frame);
+    }
+    if has_audio {
+        app_instance.media_clock = Some(media_clock);
     }
 
     // 9b. Set initial loaded file names from CLI args
@@ -131,6 +120,39 @@ fn main() -> Result<()> {
     ratatui::restore();
 
     result
+}
+
+/// Initialize audio pipeline from CLI args (--audio or video fallback).
+fn init_audio(
+    cli: &cli::Cli,
+    config: &Arc<ArcSwap<af_core::config::RenderConfig>>,
+    clock: &Arc<MediaClock>,
+) -> (
+    Option<triple_buffer::Output<af_core::frame::AudioFeatures>>,
+    Option<flume::Sender<af_audio::state::AudioCommand>>,
+) {
+    if let Some(ref audio_arg) = cli.audio {
+        match pipeline::start_audio(audio_arg, config, Arc::clone(clock)) {
+            Ok((output, tx)) => (Some(output), tx),
+            Err(e) => {
+                log::warn!("Audio non disponible : {e}");
+                (None, None)
+            }
+        }
+    } else if let Some(ref video_arg) = cli.video {
+        match pipeline::start_audio(&video_arg.to_string_lossy(), config, Arc::clone(clock)) {
+            Ok((output, tx)) => {
+                log::info!("Piste audio de la vidéo chargée avec succès.");
+                (Some(output), tx)
+            }
+            Err(e) => {
+                log::info!("Pas de piste audio gérée dans la vidéo : {e}");
+                (None, None)
+            }
+        }
+    } else {
+        (None, None)
+    }
 }
 
 /// Resolve config: preset takes priority over --config.

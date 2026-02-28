@@ -3,6 +3,7 @@
 /// This crate contains all shared types, traits, and configuration logic
 /// used across the clasSCII workspace.
 pub mod charset;
+pub mod clock;
 pub mod color;
 pub mod config;
 pub mod feature_timeline;

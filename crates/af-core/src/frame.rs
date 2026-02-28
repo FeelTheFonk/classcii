@@ -1,3 +1,18 @@
+/// LUT de décompression gamma sRGB → linéaire (approximation gamma 2.0).
+///
+/// `SRGB_TO_LINEAR[v]` ≈ `(v/255)^2`. Précision suffisante pour le rendu ASCII.
+/// Compile-time const, zero-alloc.
+const SRGB_TO_LINEAR: [f32; 256] = {
+    let mut lut = [0.0f32; 256];
+    let mut i = 0;
+    while i < 256 {
+        let s = i as f32 / 255.0;
+        lut[i] = s * s; // gamma ~2.0
+        i += 1;
+    }
+    lut
+};
+
 /// Buffer de pixels réutilisable. Pré-alloué, jamais redimensionné en hot path.
 ///
 /// Stocke les pixels en RGBA row-major, 4 bytes par pixel.
@@ -76,6 +91,71 @@ impl FrameBuffer {
     pub fn luminance(&self, x: u32, y: u32) -> u8 {
         let (r, g, b, _) = self.pixel(x, y);
         ((u32::from(r) * 2126 + u32::from(g) * 7152 + u32::from(b) * 722) / 10000) as u8
+    }
+
+    /// Luminance perceptuelle avec linéarisation sRGB (gamma ~2.0).
+    ///
+    /// Plus précise que `luminance()` pour les tons sombres et les gradients.
+    /// BT.709 appliqué en espace linéaire, reconversion gamma via sqrt.
+    #[inline(always)]
+    #[must_use]
+    pub fn luminance_linear(&self, x: u32, y: u32) -> u8 {
+        let (r, g, b, _) = self.pixel(x, y);
+        let lr = SRGB_TO_LINEAR[r as usize];
+        let lg = SRGB_TO_LINEAR[g as usize];
+        let lb = SRGB_TO_LINEAR[b as usize];
+        // BT.709 en espace linéaire
+        let linear_lum = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+        // Reconversion gamma ~2.0 via sqrt
+        let gamma_lum = linear_lum.sqrt();
+        (gamma_lum * 255.0) as u8
+    }
+
+    /// Échantillonnage moyenné sur une région rectangulaire.
+    ///
+    /// Retourne `(avg_r, avg_g, avg_b, avg_luminance_linear)`.
+    /// Zero-alloc : arithmétique pure. Fast-path si la région est 1×1.
+    #[inline]
+    #[must_use]
+    pub fn area_sample(&self, x0: u32, y0: u32, x1: u32, y1: u32) -> (u8, u8, u8, u8) {
+        let x0 = x0.min(self.width.saturating_sub(1));
+        let y0 = y0.min(self.height.saturating_sub(1));
+        let x1 = x1.min(self.width);
+        let y1 = y1.min(self.height);
+
+        // Fast-path: 1×1 ou dégénéré
+        if x1 <= x0 + 1 && y1 <= y0 + 1 {
+            let (r, g, b, _) = self.pixel(x0, y0);
+            return (r, g, b, self.luminance_linear(x0, y0));
+        }
+
+        let mut sr = 0u32;
+        let mut sg = 0u32;
+        let mut sb = 0u32;
+        let mut count = 0u32;
+        for py in y0..y1 {
+            for px in x0..x1 {
+                let idx = ((py * self.width + px) * 4) as usize;
+                if idx + 2 < self.data.len() {
+                    sr += u32::from(self.data[idx]);
+                    sg += u32::from(self.data[idx + 1]);
+                    sb += u32::from(self.data[idx + 2]);
+                    count += 1;
+                }
+            }
+        }
+        if count == 0 {
+            return (0, 0, 0, 0);
+        }
+        let ar = (sr / count) as u8;
+        let ag = (sg / count) as u8;
+        let ab = (sb / count) as u8;
+        // Luminance linéaire depuis la couleur moyennée
+        let lr = SRGB_TO_LINEAR[ar as usize];
+        let lg = SRGB_TO_LINEAR[ag as usize];
+        let lb = SRGB_TO_LINEAR[ab as usize];
+        let lum = (0.2126 * lr + 0.7152 * lg + 0.0722 * lb).sqrt();
+        (ar, ag, ab, (lum * 255.0) as u8)
     }
 }
 

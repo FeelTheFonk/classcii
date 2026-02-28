@@ -89,21 +89,27 @@ impl Compositor {
         let edge_enabled = config.edge_threshold > 0.0 && config.edge_mix > 0.0;
         let apply_bg = matches!(config.bg_style, BgStyle::SourceDim);
 
+        let grid_w = u32::from(grid.width).max(1);
+        let grid_h = u32::from(grid.height).max(1);
+
         grid.cells
             .par_chunks_mut(grid.width as usize)
             .enumerate()
             .for_each(|(cy, row)| {
                 for (cx, cell) in row.iter_mut().enumerate() {
-                    let px = (cx as u32) * frame.width / u32::from(grid.width).max(1);
-                    let py = (cy as u32) * frame.height / u32::from(grid.height).max(1);
-                    let px = px.min(frame.width.saturating_sub(1));
-                    let py = py.min(frame.height.saturating_sub(1));
-
-                    let (r, g, b, _) = frame.pixel(px, py);
+                    // Area-averaged sampling : moyenne sur la région source couverte par cette cellule
+                    let cell_x0 = (cx as u32) * frame.width / grid_w;
+                    let cell_x1 = ((cx as u32 + 1) * frame.width / grid_w).min(frame.width);
+                    let cell_y0 = (cy as u32) * frame.height / grid_h;
+                    let cell_y1 = ((cy as u32 + 1) * frame.height / grid_h).min(frame.height);
+                    let (r, g, b, area_lum) = frame.area_sample(cell_x0, cell_y0, cell_x1, cell_y1);
+                    // Point de référence pour l'edge detection (centre de la zone)
+                    let px = cell_x0.min(frame.width.saturating_sub(1));
+                    let py = cell_y0.min(frame.height.saturating_sub(1));
 
                     // A. Base Ascii (Luminance + Couleur Directe)
                     if is_ascii {
-                        let mut lum = frame.luminance(px, py);
+                        let mut lum = area_lum;
                         if config.invert {
                             lum = 255 - lum;
                         }
@@ -129,7 +135,8 @@ impl Compositor {
                                     for dx in 0..5u32 {
                                         let sx = (px + dx).min(frame.width.saturating_sub(1));
                                         let sy = (py + dy).min(frame.height.saturating_sub(1));
-                                        block[(dy * 5 + dx) as usize] = frame.luminance(sx, sy);
+                                        block[(dy * 5 + dx) as usize] =
+                                            frame.luminance_linear(sx, sy);
                                     }
                                 }
                                 matcher.match_cell(&block)

@@ -120,7 +120,11 @@ pub fn apply_glow(grid: &mut AsciiGrid, intensity: f32, brightness_buf: &mut Vec
             let max_neighbor = brightness_buf[idx(cx - 1, cy)]
                 .max(brightness_buf[idx(cx + 1, cy)])
                 .max(brightness_buf[idx(cx, cy - 1)])
-                .max(brightness_buf[idx(cx, cy + 1)]);
+                .max(brightness_buf[idx(cx, cy + 1)])
+                .max(brightness_buf[idx(cx - 1, cy - 1)])
+                .max(brightness_buf[idx(cx + 1, cy - 1)])
+                .max(brightness_buf[idx(cx - 1, cy + 1)])
+                .max(brightness_buf[idx(cx + 1, cy + 1)]);
 
             if max_neighbor > 200 {
                 let cell = grid.get(cx, cy);

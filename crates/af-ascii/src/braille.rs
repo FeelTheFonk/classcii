@@ -55,7 +55,6 @@ pub fn encode_braille(dots: [bool; 8]) -> char {
 pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut AsciiGrid) {
     let pixel_w = u32::from(grid.width) * 2;
     let pixel_h = u32::from(grid.height) * 4;
-    let threshold: u8 = 128;
 
     grid.cells
         .par_chunks_mut(grid.width as usize)
@@ -65,13 +64,15 @@ pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
                 let base_x = (cx as u32) * 2 * frame.width / pixel_w.max(1);
                 let base_y = (cy as u32) * 4 * frame.height / pixel_h.max(1);
 
-                // Sample 2×4 block
-                // Column-major order: dots[0..3] = left column, dots[4..7] = right column
-                let mut dots = [false; 8];
+                // Passe 1 : collecter luminances, couleurs, et indices dot
+                let mut lum_values = [0u8; 8];
+                let mut lum_sum = 0u32;
+                let mut dot_indices = [0usize; 8];
                 let mut avg_r = 0u32;
                 let mut avg_g = 0u32;
                 let mut avg_b = 0u32;
                 let mut count = 0u32;
+                let mut sub_idx = 0usize;
 
                 for dy in 0..4u32 {
                     for dx in 0..2u32 {
@@ -80,12 +81,9 @@ pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
                         let py = (base_y + dy * frame.height / pixel_h.max(1))
                             .min(frame.height.saturating_sub(1));
 
-                        let lum = frame.luminance(px, py);
+                        let lum = frame.luminance_linear(px, py);
                         let (r, g, b, _) = frame.pixel(px, py);
 
-                        // Braille dot ordering: column-major
-                        // Left column (dx=0): dots 1,2,3,7 → indices 0,1,2,6
-                        // Right column (dx=1): dots 4,5,6,8 → indices 3,4,5,7
                         let dot_idx = if dx == 0 {
                             match dy {
                                 0 => 0,
@@ -102,18 +100,32 @@ pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
                             }
                         };
 
-                        let on = if config.invert {
-                            lum < threshold
-                        } else {
-                            lum > threshold
-                        };
-                        dots[dot_idx] = on;
+                        lum_values[sub_idx] = lum;
+                        dot_indices[sub_idx] = dot_idx;
+                        lum_sum += u32::from(lum);
+                        sub_idx += 1;
 
                         avg_r += u32::from(r);
                         avg_g += u32::from(g);
                         avg_b += u32::from(b);
                         count += 1;
                     }
+                }
+
+                // Passe 2 : seuil adaptatif (moyenne locale)
+                let local_threshold = if count > 0 {
+                    (lum_sum / count) as u8
+                } else {
+                    128
+                };
+                let mut dots = [false; 8];
+                for i in 0..sub_idx {
+                    let on = if config.invert {
+                        lum_values[i] < local_threshold
+                    } else {
+                        lum_values[i] > local_threshold
+                    };
+                    dots[dot_indices[i]] = on;
                 }
 
                 let ch = encode_braille(dots);

@@ -35,7 +35,7 @@ pub fn process_luminance(
             let px = px.min(frame.width.saturating_sub(1));
             let py = py.min(frame.height.saturating_sub(1));
 
-            let mut lum = frame.luminance(px, py);
+            let mut lum = frame.luminance_linear(px, py);
             if config.invert {
                 lum = 255 - lum;
             }

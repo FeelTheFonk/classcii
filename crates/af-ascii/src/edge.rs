@@ -20,14 +20,14 @@ pub fn detect_edge(frame: &FrameBuffer, x: u32, y: u32) -> (f32, f32) {
     }
 
     // Sobel kernels
-    let tl = f32::from(frame.luminance(x - 1, y - 1));
-    let tc = f32::from(frame.luminance(x, y - 1));
-    let tr = f32::from(frame.luminance(x + 1, y - 1));
-    let ml = f32::from(frame.luminance(x - 1, y));
-    let mr = f32::from(frame.luminance(x + 1, y));
-    let bl = f32::from(frame.luminance(x - 1, y + 1));
-    let bc = f32::from(frame.luminance(x, y + 1));
-    let br = f32::from(frame.luminance(x + 1, y + 1));
+    let tl = f32::from(frame.luminance_linear(x - 1, y - 1));
+    let tc = f32::from(frame.luminance_linear(x, y - 1));
+    let tr = f32::from(frame.luminance_linear(x + 1, y - 1));
+    let ml = f32::from(frame.luminance_linear(x - 1, y));
+    let mr = f32::from(frame.luminance_linear(x + 1, y));
+    let bl = f32::from(frame.luminance_linear(x - 1, y + 1));
+    let bc = f32::from(frame.luminance_linear(x, y + 1));
+    let br = f32::from(frame.luminance_linear(x + 1, y + 1));
 
     let gx = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
     let gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
@@ -118,14 +118,14 @@ pub fn gradient(frame: &FrameBuffer, x: u32, y: u32) -> (f32, f32) {
         return (0.0, 0.0);
     }
 
-    let tl = f32::from(frame.luminance(x - 1, y - 1));
-    let tc = f32::from(frame.luminance(x, y - 1));
-    let tr = f32::from(frame.luminance(x + 1, y - 1));
-    let ml = f32::from(frame.luminance(x - 1, y));
-    let mr = f32::from(frame.luminance(x + 1, y));
-    let bl = f32::from(frame.luminance(x - 1, y + 1));
-    let bc = f32::from(frame.luminance(x, y + 1));
-    let br = f32::from(frame.luminance(x + 1, y + 1));
+    let tl = f32::from(frame.luminance_linear(x - 1, y - 1));
+    let tc = f32::from(frame.luminance_linear(x, y - 1));
+    let tr = f32::from(frame.luminance_linear(x + 1, y - 1));
+    let ml = f32::from(frame.luminance_linear(x - 1, y));
+    let mr = f32::from(frame.luminance_linear(x + 1, y));
+    let bl = f32::from(frame.luminance_linear(x - 1, y + 1));
+    let bc = f32::from(frame.luminance_linear(x, y + 1));
+    let br = f32::from(frame.luminance_linear(x + 1, y + 1));
 
     let gx = -tl + tr - 2.0 * ml + 2.0 * mr - bl + br;
     let gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;

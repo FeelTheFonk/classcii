@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use af_core::clock::MediaClock;
 use af_core::config::RenderConfig;
 use af_core::frame::{AudioFeatures, FrameBuffer};
 use arc_swap::ArcSwap;
@@ -28,6 +29,7 @@ pub type SourceResult = (
 pub fn start_audio(
     audio_arg: &str,
     config: &Arc<ArcSwap<RenderConfig>>,
+    clock: Arc<MediaClock>,
 ) -> anyhow::Result<(
     triple_buffer::Output<AudioFeatures>,
     Option<flume::Sender<af_audio::state::AudioCommand>>,
@@ -46,8 +48,9 @@ pub fn start_audio(
             if audio_path.exists() {
                 log::info!("Starting audio file analysis: {path}");
                 let (cmd_tx, cmd_rx) = flume::bounded(10);
-                let out =
-                    af_audio::state::spawn_audio_file_thread(audio_path, fps, smoothing, cmd_rx)?;
+                let out = af_audio::state::spawn_audio_file_thread(
+                    audio_path, fps, smoothing, cmd_rx, clock,
+                )?;
                 Ok((out, Some(cmd_tx)))
             } else {
                 anyhow::bail!("Audio source not found: {path}")
@@ -63,7 +66,8 @@ pub fn start_audio(
 ///
 /// # Errors
 /// Returns an error if source initialization fails.
-pub fn start_source(cli: &Cli) -> anyhow::Result<SourceResult> {
+pub fn start_source(cli: &Cli, clock: Option<Arc<MediaClock>>) -> anyhow::Result<SourceResult> {
+    let _ = &clock; // Utilisé uniquement avec feature="video"
     if let Some(ref path) = cli.image {
         let mut source = af_source::image::ImageSource::new(path)?;
         let frame = af_core::traits::Source::next_frame(&mut source);
@@ -78,7 +82,7 @@ pub fn start_source(cli: &Cli) -> anyhow::Result<SourceResult> {
         log::info!("Starting video source: {}", path.display());
         let (frame_tx, frame_rx) = flume::bounded(3);
         let (cmd_tx, cmd_rx) = flume::bounded(10);
-        af_source::video::spawn_video_thread(path.clone(), frame_tx, cmd_rx)?;
+        af_source::video::spawn_video_thread(path.clone(), frame_tx, cmd_rx, clock)?;
         return Ok((None, Some(frame_rx), Some(cmd_tx)));
     }
 

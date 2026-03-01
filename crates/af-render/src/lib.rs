@@ -6,5 +6,3 @@ pub mod canvas;
 pub mod effects;
 pub mod fps;
 pub mod ui;
-
-pub use ui::AudioPanelState;

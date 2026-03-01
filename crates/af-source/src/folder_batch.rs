@@ -18,7 +18,6 @@ const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "gif"];
 const VIDEO_EXTS: &[&str] = &["mp4", "mkv", "avi", "mov", "webm"];
 
 /// Source qui parcourt itérativement un dossier pour le traitement par lots.
-#[allow(dead_code)]
 pub struct FolderBatchSource {
     files: Vec<PathBuf>,
     current_idx: usize,
@@ -33,6 +32,7 @@ pub struct FolderBatchSource {
     #[cfg(feature = "video")]
     video_frame: Option<Arc<FrameBuffer>>,
 
+    #[cfg(feature = "video")]
     target_fps: u32,
     /// Frames read from the current clip (reset on media switch).
     clip_frame_count: u32,
@@ -80,6 +80,7 @@ impl FolderBatchSource {
             video_info: None,
             #[cfg(feature = "video")]
             video_frame: None,
+            #[cfg(feature = "video")]
             target_fps,
             clip_frame_count: 0,
             max_clip_frames,
@@ -142,6 +143,11 @@ impl FolderBatchSource {
     #[must_use]
     pub fn max_clip_frames(&self) -> u32 {
         self.max_clip_frames
+    }
+
+    /// Set crossfade duration in frames (adaptive: shorter in high-energy, longer in low-energy).
+    pub fn set_crossfade_duration(&mut self, frames: u32) {
+        self.crossfade_duration = frames.max(1);
     }
 
     /// Charge le média courant.

@@ -57,6 +57,22 @@ pub struct Cli {
     /// Lister tous les presets disponibles et quitter.
     #[arg(long, default_value_t = false)]
     pub preset_list: bool,
+
+    /// Graine pour reproductibilité du batch (même seed = même export).
+    #[arg(long)]
+    pub seed: Option<u64>,
+
+    /// Durée maximale par preset en mode --preset all (secondes, défaut 15).
+    #[arg(long)]
+    pub preset_duration: Option<f32>,
+
+    /// Durée de crossfade entre clips (millisecondes). Défaut : adaptatif selon l'énergie.
+    #[arg(long)]
+    pub crossfade_ms: Option<u32>,
+
+    /// Multiplicateur d'intensité des mutations batch (0=aucune, 1=défaut, 2=aggressif).
+    #[arg(long)]
+    pub mutation_intensity: Option<f32>,
 }
 
 impl Cli {

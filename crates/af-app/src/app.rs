@@ -9,7 +9,7 @@ use af_core::charset;
 use af_core::clock::MediaClock;
 use af_core::config::{BgStyle, ColorMode, DitherMode, RenderConfig, RenderMode};
 use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
-use af_render::AudioPanelState;
+
 use af_render::fps::FpsCounter;
 use af_render::ui::{DrawContext, RenderState, SIDEBAR_WIDTH, SPECTRUM_HEIGHT};
 use af_source::resize::Resizer;
@@ -61,8 +61,6 @@ pub enum AppState {
     Help,
     /// Éditeur de charset personnalisé affiché (touche C).
     CharsetEdit,
-    /// Panneau de mixage audio affiché (touche A).
-    AudioPanel,
     /// Choix Fichier ou Dossier (Export Batch).
     FileOrFolderPrompt,
     /// Mode création interactif (effets audio-réactifs avec presets).
@@ -127,8 +125,6 @@ pub struct App {
     pub charset_edit_buf: String,
     /// Position du curseur dans l'éditeur de charset.
     pub charset_edit_cursor: usize,
-    /// État local du panneau de mixage audio.
-    pub audio_panel: AudioPanelState,
     /// Horloge partagée A/V (None si pas d'audio fichier chargé).
     pub media_clock: Option<Arc<MediaClock>>,
     /// Pre-allocated fg buffer for chromatic aberration effect.
@@ -192,8 +188,6 @@ impl App {
         }
         presets.sort(); // Predictable iteration order
 
-        let audio_mappings_len = config.load().audio_mappings.len();
-
         Ok(Self {
             state: AppState::Running,
             config,
@@ -224,7 +218,7 @@ impl App {
             open_batch_folder_requested: false,
             charset_edit_buf: String::new(),
             charset_edit_cursor: 0,
-            audio_panel: AudioPanelState::new(audio_mappings_len),
+
             media_clock: None,
             effect_fg_buf: Vec::new(),
             effect_row_buf: Vec::new(),
@@ -498,11 +492,7 @@ impl App {
 
             let loaded_visual = self.loaded_visual_name.as_deref();
             let loaded_audio = self.loaded_audio_name.as_deref();
-            let layout_audio_panel = if state == RenderState::AudioPanel {
-                Some((&self.audio_panel, &render_config))
-            } else {
-                None
-            };
+
             let layout_charset_edit = if state == RenderState::CharsetEdit {
                 Some((self.charset_edit_buf.as_str(), self.charset_edit_cursor))
             } else {
@@ -548,7 +538,7 @@ impl App {
                     loaded_audio,
                     state: &state,
                     charset_edit: layout_charset_edit,
-                    audio_panel: layout_audio_panel,
+
                     creation: layout_creation.as_ref(),
                     creation_mode_active,
                     perf_warning,
@@ -571,7 +561,7 @@ impl App {
             AppState::Paused => RenderState::Paused,
             AppState::Help => RenderState::Help,
             AppState::CharsetEdit => RenderState::CharsetEdit,
-            AppState::AudioPanel => RenderState::AudioPanel,
+
             AppState::FileOrFolderPrompt => RenderState::FileOrFolderPrompt,
             AppState::CreationMode => RenderState::CreationMode,
             AppState::Quitting => RenderState::Quitting,
@@ -606,11 +596,6 @@ impl App {
                 self.handle_charset_edit_key(code);
                 return;
             }
-            if self.state == AppState::AudioPanel {
-                self.handle_audio_panel_key(code);
-                return;
-            }
-
             if self.state == AppState::CreationMode {
                 self.handle_creation_key(code);
                 return;
@@ -652,7 +637,6 @@ impl App {
                     | 'p'
                     | 'P'
                     | 'C'
-                    | 'A'
                     | 'K'
                     | 'n',
                 ) => self.handle_render_key(code),
@@ -740,128 +724,6 @@ impl App {
             self.toggle_config(|c| {
                 c.charset = buf;
                 c.charset_index = 10;
-            });
-        }
-    }
-
-    /// Audio Panel logic
-    fn handle_audio_panel_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Esc => {
-                self.state = AppState::Running;
-                self.sidebar_dirty = true;
-            }
-            KeyCode::Up => {
-                if self.audio_panel.selected_row > 0 {
-                    self.audio_panel.selected_row -= 1;
-                    self.audio_panel.selected_col = 0;
-                }
-            }
-            KeyCode::Down => {
-                if self.audio_panel.selected_row + 1 < self.audio_panel.total_rows {
-                    self.audio_panel.selected_row += 1;
-                    self.audio_panel.selected_col = 0;
-                }
-            }
-            KeyCode::Left => {
-                if self.audio_panel.selected_row >= 2 && self.audio_panel.selected_col > 0 {
-                    self.audio_panel.selected_col -= 1;
-                }
-            }
-            KeyCode::Right => {
-                if self.audio_panel.selected_row >= 2 && self.audio_panel.selected_col < 5 {
-                    self.audio_panel.selected_col += 1;
-                }
-            }
-            KeyCode::Char('-') => self.adjust_panel_value(-1.0),
-            KeyCode::Char('+' | '=') => self.adjust_panel_value(1.0),
-            KeyCode::Enter | KeyCode::Char(' ') => self.toggle_panel_cell(),
-            KeyCode::Char('n') => {
-                self.toggle_config(|c| {
-                    c.audio_mappings.push(af_core::config::AudioMapping {
-                        enabled: true,
-                        source: "rms".into(),
-                        target: "brightness".into(),
-                        amount: 0.5,
-                        offset: 0.0,
-                        curve: af_core::config::MappingCurve::default(),
-                        smoothing: None,
-                    });
-                });
-                self.audio_panel.total_rows = 2 + self.config.load().audio_mappings.len();
-                self.audio_panel.selected_row = self.audio_panel.total_rows - 1;
-                self.audio_panel.selected_col = 0;
-            }
-            KeyCode::Char('x') | KeyCode::Delete => {
-                if self.audio_panel.selected_row >= 2 {
-                    let idx = self.audio_panel.selected_row - 2;
-                    self.toggle_config(|c| {
-                        if idx < c.audio_mappings.len() {
-                            c.audio_mappings.remove(idx);
-                        }
-                    });
-                    self.audio_panel.total_rows = 2 + self.config.load().audio_mappings.len();
-                    if self.audio_panel.selected_row >= self.audio_panel.total_rows {
-                        self.audio_panel.selected_row =
-                            self.audio_panel.total_rows.saturating_sub(1);
-                    }
-                    self.audio_panel.selected_col = 0;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn adjust_panel_value(&mut self, sign: f32) {
-        let row = self.audio_panel.selected_row;
-        let col = self.audio_panel.selected_col;
-        self.toggle_config(|c| {
-            if row == 0 {
-                c.audio_sensitivity = (c.audio_sensitivity + sign * 0.1).clamp(0.0, 5.0);
-            } else if row == 1 {
-                c.audio_smoothing = (c.audio_smoothing + sign * 0.05).clamp(0.0, 1.0);
-            } else if row >= 2 {
-                let idx = row - 2;
-                if idx < c.audio_mappings.len() {
-                    let m = &mut c.audio_mappings[idx];
-                    if col == 3 {
-                        m.amount = (m.amount + sign * 0.1).clamp(0.0, 5.0);
-                    } else if col == 4 {
-                        m.offset = (m.offset + sign * 0.05).clamp(-1.0, 1.0);
-                    }
-                }
-            }
-        });
-    }
-
-    fn toggle_panel_cell(&mut self) {
-        let row = self.audio_panel.selected_row;
-        let col = self.audio_panel.selected_col;
-        if row >= 2 {
-            let idx = row - 2;
-            self.toggle_config(|c| {
-                if idx < c.audio_mappings.len() {
-                    let m = &mut c.audio_mappings[idx];
-                    if col == 0 {
-                        m.enabled = !m.enabled;
-                    } else if col == 1 {
-                        let sources = af_core::config::AUDIO_SOURCES;
-                        let pos = sources.iter().position(|&s| s == m.source).unwrap_or(0);
-                        m.source = sources[(pos + 1) % sources.len()].to_string();
-                    } else if col == 2 {
-                        let targets = af_core::config::AUDIO_TARGETS;
-                        let pos = targets.iter().position(|&s| s == m.target).unwrap_or(0);
-                        m.target = targets[(pos + 1) % targets.len()].to_string();
-                    } else if col == 5 {
-                        use af_core::config::MappingCurve;
-                        m.curve = match m.curve {
-                            MappingCurve::Linear => MappingCurve::Exponential,
-                            MappingCurve::Exponential => MappingCurve::Threshold,
-                            MappingCurve::Threshold => MappingCurve::Smooth,
-                            MappingCurve::Smooth => MappingCurve::Linear,
-                        };
-                    }
-                }
             });
         }
     }
@@ -1118,11 +980,6 @@ impl App {
                 self.charset_edit_buf.clone_from(&config.charset);
                 self.charset_edit_cursor = self.charset_edit_buf.chars().count();
                 self.state = AppState::CharsetEdit;
-                self.sidebar_dirty = true;
-            }
-            KeyCode::Char('A') => {
-                self.audio_panel = AudioPanelState::new(self.config.load().audio_mappings.len());
-                self.state = AppState::AudioPanel;
                 self.sidebar_dirty = true;
             }
             KeyCode::Char('K') => {
@@ -1544,7 +1401,9 @@ impl App {
             let config = (**self.config.load()).clone();
 
             #[cfg(feature = "video")]
-            if let Err(e) = crate::batch::run_batch_export(&folder, None, None, config, 30, None) {
+            if let Err(e) = crate::batch::run_batch_export(
+                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0,
+            ) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {
                 println!("\n[SUCCESS] Batch export completed.");
@@ -1714,13 +1573,6 @@ impl App {
                     || (old_cfg.aspect_ratio - new_cfg.aspect_ratio).abs() > f32::EPSILON;
 
                 self.config.store(Arc::new(new_cfg));
-                // Recalculate rows if audio panel is open (even barely)
-                let new_len = self.config.load().audio_mappings.len();
-                self.audio_panel.total_rows = 2 + new_len;
-                self.audio_panel.selected_row = self
-                    .audio_panel
-                    .selected_row
-                    .min(self.audio_panel.total_rows.saturating_sub(1));
 
                 self.sidebar_dirty = true;
                 if needs_resize {

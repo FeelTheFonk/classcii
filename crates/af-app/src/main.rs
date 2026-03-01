@@ -34,7 +34,13 @@ fn main() -> Result<()> {
     // Export Par lots
     if let Some(folder) = cli.batch_folder.as_deref() {
         log::info!("Lancement du traitement par lots offline...");
-        let config = resolve_config(&cli)?;
+        let preset_all = cli.preset.as_deref() == Some("all");
+        let config = if preset_all {
+            // --preset all : start from default config, presets are loaded internally
+            af_core::config::RenderConfig::default()
+        } else {
+            resolve_config(&cli)?
+        };
         return batch::run_batch_export(
             folder,
             cli.audio.as_ref(),
@@ -42,6 +48,11 @@ fn main() -> Result<()> {
             config,
             cli.fps.unwrap_or(30),
             cli.export_scale,
+            preset_all,
+            cli.seed,
+            cli.preset_duration.unwrap_or(15.0),
+            cli.crossfade_ms,
+            cli.mutation_intensity.unwrap_or(1.0),
         );
     }
 

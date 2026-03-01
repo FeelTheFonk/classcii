@@ -78,19 +78,28 @@ classcii --batch-folder ./media/
 # Manual specifications
 classcii --batch-folder ./media/ --audio track.mp3 --batch-out output.mp4 --fps 60
 classcii --batch-folder ./media/ --preset 02_matrix
+
+# Multi-preset mode: cycle through all presets with audio-reactive transitions
+classcii --batch-folder ./media/ --audio track.mp3 --preset all
+
+# Reproducible export with custom mutation intensity
+classcii --batch-folder ./media/ --preset all --seed 42 --mutation-intensity 0.5
 ```
 
 **Arguments** for batch mode:
 - `--batch-folder`: Directory containing images (PNG, JPG) and/or videos (MP4, MKV, etc.).
 - `--audio` (Optional): Path to audio file. If omitted, will search the batch folder.
 - `--batch-out` (Optional): Output path for the MP4. If omitted, uses `<folder_name>_<timestamp>.mp4`.
+- `--preset all` (Optional): Cycle through all presets with smooth interpolated transitions.
+- `--seed <N>` (Optional): Seed for reproducible exports.
+- `--mutation-intensity <F>` (Optional): Scale mutation aggressiveness (0=pure preset, 1=default, 2=aggressive).
 
 **Pipeline**:
 1. Full offline audio analysis → `FeatureTimeline` with bass-weighted spectral flux, BPM estimation, and feature normalization.
 2. Energy level classification (low/medium/high) from sliding-window RMS for adaptive clip pacing.
 3. `AutoGenerativeMapper` modulates `RenderConfig` per frame from the timeline.
 4. `FolderBatchSource` sequences media files with crossfade transitions between clips.
-5. **Macro-generative** director with mutation coordination (cooldown, max 2 per event, energy-scaled probabilities) creates structural variations (mode cycle, charset rotations, effect bursts, density pulses, color mode cycle, invert flashes) on strong beats.
+5. **Macro-generative** director with mutation coordination (cooldown, max 2 per event, energy-scaled probabilities) creates structural variations (mode cycle, charset rotations, 6-type effect bursts with smoothstep easing, continuous density pulses, color mode cycle, invert flashes with auto-revert, camera bursts) on strong beats. Optional `--preset all` mode cycles through all presets with smooth interpolated transitions.
 6. `Compositor` converts source pixels to `AsciiGrid` utilizing advanced bitmasking (Sextant, Octant) and O(1) Bayer Dithering.
 7. `Rasterizer` converts `AsciiGrid` to high-resolution RGBA pixels (parallel execution with zero-alloc Zalgo diacritics alpha-blending and dynamic upscaling via `--export-scale`).
 8. `Mp4Muxer` encodes to mathematically pure lossless RGB x264 CRF 0 / RGB24 (`libx264rgb`), fully preventing chroma subsampling bleed on typographical texts.
@@ -112,6 +121,10 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `--no-color` | Disable color output | `false` |
 | `--log-level <LEVEL>` | Log level: `error`, `warn`, `info`, `debug`, `trace` | `warn` |
 | `--preset-list` | List all available presets and exit | `false` |
+| `--seed <N>` | Reproducible batch export (same seed = same output) | — |
+| `--preset-duration <SECS>` | Max duration per preset in `--preset all` mode | `15.0` |
+| `--crossfade-ms <MS>` | Crossfade duration between media clips | adaptive |
+| `--mutation-intensity <F>` | Mutation probability multiplier (0=none, 2=aggressive) | `1.0` |
 
 ## Runtime Controls
 
@@ -151,7 +164,6 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `←` / `→` | Seek temporal stream |
 | `Space` | Pause / Resume engine |
 | `C` | Open Custom Charset Editor |
-| `A` | Open Audio Reactivity Mixer Panel |
 | `K` | Enter Creation Mode (auto-modulation) |
 | `o` | Open visual file picker (image / video) |
 | `O` | Open audio file picker |
@@ -269,7 +281,7 @@ Configurations and presets are managed via TOML files. Audio mappings and charse
 - Zero panicking unwraps — `?` operator and graceful fallback implemented across all layers (R3).
 - Zero unnecessary copies — driven by `Arc<FrameBuffer>`, `arc-swap`, and lock-free `triple_buffer` mechanics (R4).
 - Compile strictness: `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings with pedantic lints enabled.
-- 72+ tests (unit + doctests) pass. `cargo fmt --check --all` clean.
+- 78+ tests (unit + doctests) pass. `cargo fmt --check --all` clean.
 - All division operations guarded against zero. All user inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

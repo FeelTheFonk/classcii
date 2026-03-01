@@ -26,7 +26,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "af-app"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "af-ascii",
  "af-audio",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "af-ascii"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "af-core",
  "log",
@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "af-audio"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "af-core",
  "anyhow",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "af-core"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "log",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "af-export"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "ab_glyph",
  "af-core",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "af-render"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "af-core",
  "crossterm",
@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "af-source"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "af-core",
  "anyhow",

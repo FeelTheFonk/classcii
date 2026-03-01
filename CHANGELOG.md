@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-03-01
+
+### Added
+- **`--preset all`**: Multi-preset batch generation — cycles through all available presets with smooth interpolated transitions. Preset changes are triggered by energy transitions or time expiry.
+- **`--seed <N>`**: Reproducible batch exports — same seed produces identical mutation sequences.
+- **`--preset-duration <SECS>`**: Control maximum duration per preset in `--preset all` mode (default 15s).
+- **`--crossfade-ms <MS>`**: Override adaptive crossfade duration between media clips (default: energy-adaptive).
+- **`--mutation-intensity <F>`**: Scale mutation probabilities (0=none, 1=default, 2=aggressive).
+- **Camera burst mutations**: 4 variants (zoom pulse, rotation pulse, pan X/Y drift) triggered on strong beats with smoothstep easing.
+- **Zalgo and Fade effect bursts**: 2 new burst types (was 4, now 6): `zalgo_intensity` and `fade_decay` bursts.
+- **Smooth mutation transitions (SmoothOverride)**: All continuous mutations use smoothstep easing (3t²−2t³) with configurable ramp-up/hold/ramp-down phases. No more abrupt visual jumps.
+- **Low-energy drift**: Subtle parameter variations (glow, saturation, brightness) during quiet sections prevent visual stasis.
+- **Invert/mode/color_mode auto-revert**: Discrete mutations automatically revert after countdown (90/180/180 frames) instead of persisting indefinitely.
+- **Adaptive crossfade**: Energy-based crossfade duration between clips — fast (250ms) in high-energy, slow (1000ms) in low-energy sections.
+- **MacroState struct**: All mutation state grouped into a single struct with `tick()`/`apply()` pattern.
+- **PresetSequencer**: Energy-driven preset rotation with interpolated transitions (`interpolate_configs` lerps numeric fields, snaps discrete fields at t=0.5).
+- **17 named constants**: All mutation probabilities, cooldowns, durations, and thresholds extracted from inline magic numbers.
+- **4 new tests**: `smooth_override_ramp`, `interpolate_configs_endpoints`, `preset_sequencer_cycles`, `load_all_presets` (78 total).
+
+### Changed
+- **Density pulse**: Continuous range [0.4, 2.5] (was binary 0.5/2.0).
+- **Effect burst**: 6 types (was 4: +zalgo, +fade).
+- **Batch export signature**: `run_batch_export()` now accepts 5 additional parameters for full customization.
+
+### Removed
+- **Audio Mixer panel (A key)**: `AudioPanelState` struct, `AppState::AudioPanel` variant, `draw_audio_panel_overlay()` (162 lines), `handle_audio_panel_key()`/`adjust_panel_value()`/`toggle_panel_cell()` (120 lines), all imports and references — complete removal with zero residual code.
+- **Orphan preset `01.toml`**: Unnumbered duplicate removed from `config/presets/`.
+- **`#[allow(dead_code)]`**: Vestigial attribute removed from `FolderBatchSource`.
+
 ## [0.8.0] — 2026-03-01
 
 ### Added

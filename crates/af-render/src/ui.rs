@@ -20,31 +20,6 @@ pub const MIN_TERM_WIDTH: u16 = 80;
 /// Minimum terminal height.
 pub const MIN_TERM_HEIGHT: u16 = 20;
 
-// ─── Audio Panel State (merged from widgets.rs) ────────────────────
-
-/// State for the audio reactivity mixer panel navigation.
-#[derive(Clone, Debug, Default)]
-pub struct AudioPanelState {
-    /// Currently selected row (0=sensitivity, 1=smoothing, 2+=mappings).
-    pub selected_row: usize,
-    /// Currently selected column within a mapping row.
-    pub selected_col: usize,
-    /// Total number of rows (2 + number of mappings).
-    pub total_rows: usize,
-}
-
-impl AudioPanelState {
-    /// Create a new panel state with the given number of audio mappings.
-    #[must_use]
-    pub fn new(mapping_count: usize) -> Self {
-        Self {
-            selected_row: 0,
-            selected_col: 0,
-            total_rows: 2 + mapping_count,
-        }
-    }
-}
-
 // ─── Data structures ───────────────────────────────────────────────
 
 /// Data bundle for the creation mode overlay.
@@ -72,8 +47,6 @@ pub enum RenderState {
     Help,
     /// Custom charset editor overlay (key C).
     CharsetEdit,
-    /// Audio reactivity mixer overlay (key A).
-    AudioPanel,
     /// File/Folder selection prompt.
     FileOrFolderPrompt,
     /// Creation mode interactive overlay.
@@ -94,7 +67,7 @@ pub struct DrawContext<'a> {
     pub loaded_audio: Option<&'a str>,
     pub state: &'a RenderState,
     pub charset_edit: Option<(&'a str, usize)>,
-    pub audio_panel: Option<(&'a AudioPanelState, &'a RenderConfig)>,
+
     pub creation: Option<&'a CreationOverlayData<'a>>,
     pub creation_mode_active: bool,
     pub perf_warning: bool,
@@ -170,8 +143,6 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
         draw_prompt_overlay(frame, area);
     } else if let Some((buf, cursor)) = ctx.charset_edit {
         draw_charset_edit_overlay(frame, area, buf, cursor);
-    } else if let Some((panel_state, rcfg)) = ctx.audio_panel {
-        draw_audio_panel_overlay(frame, area, rcfg, panel_state, ctx.audio);
     } else if let Some(creation) = ctx.creation {
         draw_creation_overlay(frame, area, creation, ctx.audio);
     }
@@ -292,7 +263,7 @@ fn draw_sidebar(
         RenderState::Paused => "\u{23f8} PAUSE",
         RenderState::Help => "? HELP",
         RenderState::CharsetEdit => "C EDIT",
-        RenderState::AudioPanel => "A MIX",
+
         RenderState::FileOrFolderPrompt => "? SELECT",
         RenderState::CreationMode => "K CREATE",
         RenderState::Quitting => "\u{23f9} QUIT",
@@ -581,7 +552,6 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" o/Ctrl+O Open visual"),
         Line::from(" O        Open audio"),
         Line::from(" C        Charset editor"),
-        Line::from(" A        Audio mixer"),
         Line::from(" K        Creation (Esc=hide q=off)"),
         Line::from(" x        Fullscreen"),
         Line::from(""),
@@ -671,169 +641,6 @@ fn draw_charset_edit_overlay(frame: &mut Frame, area: Rect, buf: &str, cursor: u
         Block::default()
             .borders(Borders::ALL)
             .title(" Charset Editor ")
-            .style(Style::default().bg(Color::Black).fg(Color::White)),
-    );
-
-    frame.render_widget(widget, overlay_area);
-}
-
-/// Draw the Audio Reactivity Mixer overlay.
-#[allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
-fn draw_audio_panel_overlay(
-    frame: &mut Frame,
-    area: Rect,
-    config: &RenderConfig,
-    panel: &AudioPanelState,
-    audio: Option<&AudioFeatures>,
-) {
-    let mut lines = Vec::new();
-
-    let build_bar = |val: f32, max: f32, width: usize| -> String {
-        let filled_chars = (val / max * width as f32).clamp(0.0, width as f32) as usize;
-        let p1 = "=".repeat(filled_chars);
-        let p2 = " ".repeat(width.saturating_sub(filled_chars));
-        format!("[{p1}{p2}]")
-    };
-
-    let cell_style = |r: usize, c: usize| -> Style {
-        if panel.selected_row == r && panel.selected_col == c {
-            Style::default().fg(Color::Black).bg(Color::White)
-        } else {
-            Style::default().fg(Color::White)
-        }
-    };
-
-    // Row 0: Sensitivity
-    let r0_bg = if panel.selected_row == 0 {
-        Color::Cyan
-    } else {
-        Color::Black
-    };
-    let r0_fg = if panel.selected_row == 0 {
-        Color::Black
-    } else {
-        Color::White
-    };
-    lines.push(Line::from(vec![
-        Span::styled(
-            format!(" Sensitivity  {:<4.1} ", config.audio_sensitivity),
-            Style::default().fg(r0_fg).bg(r0_bg),
-        ),
-        Span::styled(
-            build_bar(config.audio_sensitivity, 5.0, 15),
-            Style::default().fg(Color::Cyan),
-        ),
-    ]));
-
-    // Row 1: Smoothing
-    let r1_bg = if panel.selected_row == 1 {
-        Color::Cyan
-    } else {
-        Color::Black
-    };
-    let r1_fg = if panel.selected_row == 1 {
-        Color::Black
-    } else {
-        Color::White
-    };
-    lines.push(Line::from(vec![
-        Span::styled(
-            format!(" Smoothing    {:<4.2} ", config.audio_smoothing),
-            Style::default().fg(r1_fg).bg(r1_bg),
-        ),
-        Span::styled(
-            build_bar(config.audio_smoothing, 1.0, 15),
-            Style::default().fg(Color::Cyan),
-        ),
-    ]));
-
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        "-- Mappings ---",
-        Style::default().fg(Color::DarkGray),
-    )));
-    lines.push(Line::from(Span::styled(
-        " #  ON  Source         Target         Amt   Off   Crv",
-        Style::default().fg(Color::Yellow),
-    )));
-
-    for (i, m) in config.audio_mappings.iter().enumerate() {
-        let r = i + 2;
-        let is_row_sel = panel.selected_row == r;
-        let base_fg = if is_row_sel {
-            Color::Cyan
-        } else if !m.enabled {
-            Color::DarkGray
-        } else {
-            Color::White
-        };
-
-        let mut spans = Vec::new();
-        spans.push(Span::styled(
-            format!(" {:<2} ", i + 1),
-            Style::default().fg(base_fg),
-        ));
-        spans.push(Span::styled(
-            if m.enabled { "[*] " } else { "[ ] " },
-            cell_style(r, 0),
-        ));
-        spans.push(Span::styled(format!("{:<14} ", m.source), cell_style(r, 1)));
-        spans.push(Span::styled(format!("{:<14} ", m.target), cell_style(r, 2)));
-        spans.push(Span::styled(
-            format!("{:<5.2} ", m.amount),
-            cell_style(r, 3),
-        ));
-        spans.push(Span::styled(
-            format!("{:<5.2} ", m.offset),
-            cell_style(r, 4),
-        ));
-        let curve_str = match &m.curve {
-            af_core::config::MappingCurve::Linear => "Lin",
-            af_core::config::MappingCurve::Exponential => "Exp",
-            af_core::config::MappingCurve::Threshold => "Thr",
-            af_core::config::MappingCurve::Smooth => "Smo",
-        };
-        spans.push(Span::styled(format!("{curve_str:<3}"), cell_style(r, 5)));
-
-        lines.push(Line::from(spans));
-    }
-
-    lines.push(Line::from(""));
-    if let Some(features) = audio {
-        lines.push(Line::from(Span::styled(
-            format!(
-                " Live: RMS={:.2} Bass={:.2} Flux={:.2} Onset={}",
-                features.rms, features.bass, features.spectral_flux, features.onset
-            ),
-            Style::default().fg(Color::Green),
-        )));
-    } else {
-        lines.push(Line::from(Span::styled(
-            " Live: [Audio inactive]",
-            Style::default().fg(Color::DarkGray),
-        )));
-    }
-
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        " Up/Dn=row  Lt/Rt=col  Enter=cycle  +/-=adj",
-        Style::default().fg(Color::DarkGray),
-    )));
-    lines.push(Line::from(Span::styled(
-        " n=new  x=delete  Esc=close",
-        Style::default().fg(Color::DarkGray),
-    )));
-
-    let overlay_width = 60u16.min(area.width.saturating_sub(4));
-    let overlay_height = lines.len() as u16 + 2;
-    let x = area.x + area.width.saturating_sub(overlay_width) / 2;
-    let y = area.y + area.height.saturating_sub(overlay_height) / 2;
-    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
-
-    let widget = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Audio Reactivity Mixer ")
             .style(Style::default().bg(Color::Black).fg(Color::White)),
     );
 

@@ -66,6 +66,11 @@ impl AutoGenerativeMapper {
     pub fn get_timeline(&self) -> &FeatureTimeline {
         &self.timeline
     }
+
+    /// Remplace la config de base (utilisé par le preset sequencer en mode --preset all).
+    pub fn set_base_config(&mut self, config: RenderConfig) {
+        self.base_config = config;
+    }
 }
 
 fn resolve_source(features: &AudioFeatures, source: &str, onset_envelope: f32) -> f32 {

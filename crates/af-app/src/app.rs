@@ -61,8 +61,6 @@ pub enum AppState {
     Help,
     /// Éditeur de charset personnalisé affiché (touche C).
     CharsetEdit,
-    /// Choix Fichier ou Dossier (Export Batch).
-    FileOrFolderPrompt,
     /// Mode création interactif (effets audio-réactifs avec presets).
     CreationMode,
     /// Fermeture de l'application. doit se terminer au prochain tour de boucle.
@@ -562,7 +560,6 @@ impl App {
             AppState::Help => RenderState::Help,
             AppState::CharsetEdit => RenderState::CharsetEdit,
 
-            AppState::FileOrFolderPrompt => RenderState::FileOrFolderPrompt,
             AppState::CreationMode => RenderState::CreationMode,
             AppState::Quitting => RenderState::Quitting,
         }
@@ -598,11 +595,6 @@ impl App {
             }
             if self.state == AppState::CreationMode {
                 self.handle_creation_key(code);
-                return;
-            }
-
-            if self.state == AppState::FileOrFolderPrompt {
-                self.handle_prompt_key(code);
                 return;
             }
 
@@ -838,26 +830,6 @@ impl App {
             9 => c.strobe_decay = (c.strobe_decay + delta).clamp(0.0, max),
             _ => {}
         });
-    }
-
-    fn handle_prompt_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Esc => {
-                self.state = AppState::Running;
-                self.sidebar_dirty = true;
-            }
-            KeyCode::Char('f' | 'F') => {
-                self.state = AppState::Running;
-                self.open_visual_requested = true;
-                self.sidebar_dirty = true;
-            }
-            KeyCode::Char('d' | 'D') => {
-                self.state = AppState::Running; // Will suspend anyway
-                self.open_batch_folder_requested = true;
-                self.sidebar_dirty = true;
-            }
-            _ => {}
-        }
     }
 
     /// Render parameter keys: mode, charset, density, color, etc.

@@ -61,11 +61,11 @@ impl FolderBatchSource {
         Self::scan_dir(folder_path, &mut files)?;
         files.sort();
 
-        let max_clip_frames = if files.is_empty() {
-            u32::MAX
-        } else {
-            (total_frames / files.len() as u32).max(1)
-        };
+        if files.is_empty() {
+            anyhow::bail!("Aucun fichier média trouvé dans {}", folder_path.display());
+        }
+
+        let max_clip_frames = (total_frames / files.len() as u32).max(1);
 
         let crossfade_duration = (target_fps / 2).max(1);
 
@@ -351,4 +351,73 @@ fn blend_frames(a: &FrameBuffer, b: &FrameBuffer, t: f32) -> FrameBuffer {
         out.data[i] = (f32::from(a.data[i]) * inv_t + f32::from(b.data[i]) * t) as u8;
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blend_frames_endpoints() {
+        let mut a = FrameBuffer::new(2, 2);
+        let mut b = FrameBuffer::new(2, 2);
+        a.data.fill(0);
+        b.data.fill(255);
+
+        let r0 = blend_frames(&a, &b, 0.0);
+        assert!(r0.data.iter().all(|&v| v == 0), "t=0 should be all A");
+
+        let r1 = blend_frames(&a, &b, 1.0);
+        assert!(r1.data.iter().all(|&v| v == 255), "t=1 should be all B");
+
+        let rmid = blend_frames(&a, &b, 0.5);
+        assert!(
+            rmid.data
+                .iter()
+                .all(|&v| (i16::from(v) - 127).unsigned_abs() <= 1),
+            "t=0.5 should be ~127"
+        );
+    }
+
+    #[test]
+    fn blend_frames_different_sizes() {
+        let a = FrameBuffer::new(2, 2);
+        let b = FrameBuffer::new(4, 4);
+        let _ = blend_frames(&a, &b, 0.5);
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn scan_dir_recognizes_image_extensions() {
+        let dir = std::env::temp_dir().join("classcii_test_scan_dir");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        std::fs::write(dir.join("img.png"), b"").expect("write png");
+        std::fs::write(dir.join("img.jpg"), b"").expect("write jpg");
+        std::fs::write(dir.join("doc.txt"), b"").expect("write txt");
+        std::fs::write(dir.join("audio.mp3"), b"").expect("write mp3");
+
+        let mut files = Vec::new();
+        FolderBatchSource::scan_dir(&dir, &mut files).expect("scan should succeed");
+
+        assert_eq!(
+            files.len(),
+            2,
+            "Should find 2 image files, found {}",
+            files.len()
+        );
+        assert!(
+            files
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "png"))
+        );
+        assert!(
+            files
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "jpg"))
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

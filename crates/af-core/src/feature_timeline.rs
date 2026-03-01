@@ -82,6 +82,7 @@ impl FeatureTimeline {
         collect_minmax!(zero_crossing_rate, zcr_min, zcr_max);
         collect_minmax!(timbral_brightness, tb_min, tb_max);
         collect_minmax!(timbral_roughness, tr_min, tr_max);
+        collect_minmax!(onset_envelope, oe_min, oe_max);
 
         for f in &mut self.frames {
             f.rms = norm(f.rms, rms_min, rms_max);
@@ -100,6 +101,7 @@ impl FeatureTimeline {
             f.zero_crossing_rate = norm(f.zero_crossing_rate, zcr_min, zcr_max);
             f.timbral_brightness = norm(f.timbral_brightness, tb_min, tb_max);
             f.timbral_roughness = norm(f.timbral_roughness, tr_min, tr_max);
+            f.onset_envelope = norm(f.onset_envelope, oe_min, oe_max);
         }
     }
 
@@ -154,5 +156,81 @@ fn norm(val: f32, min: f32, max: f32) -> f32 {
         0.5
     } else {
         ((val - min) / range).clamp(0.0, 1.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frame::AudioFeatures;
+
+    #[test]
+    fn normalize_includes_onset_envelope() {
+        let mut timeline = FeatureTimeline {
+            frames: vec![
+                AudioFeatures {
+                    onset_envelope: 0.0,
+                    rms: 0.1,
+                    ..AudioFeatures::default()
+                },
+                AudioFeatures {
+                    onset_envelope: 0.5,
+                    rms: 0.5,
+                    ..AudioFeatures::default()
+                },
+                AudioFeatures {
+                    onset_envelope: 1.0,
+                    rms: 1.0,
+                    ..AudioFeatures::default()
+                },
+            ],
+            frame_duration: 1.0 / 60.0,
+            sample_rate: 44100,
+            energy_levels: vec![],
+        };
+        timeline.normalize();
+        assert!(
+            (timeline.frames[0].onset_envelope - 0.0).abs() < f32::EPSILON,
+            "min onset_envelope should normalize to 0"
+        );
+        assert!(
+            (timeline.frames[2].onset_envelope - 1.0).abs() < f32::EPSILON,
+            "max onset_envelope should normalize to 1"
+        );
+        assert!(
+            (timeline.frames[1].onset_envelope - 0.5).abs() < f32::EPSILON,
+            "mid onset_envelope should normalize to 0.5"
+        );
+    }
+
+    #[test]
+    fn energy_levels_classification() {
+        // 600 frames at 60fps = 10 seconds (larger than 5s sliding window)
+        let mut timeline = FeatureTimeline {
+            frames: (0..600)
+                .map(|i| AudioFeatures {
+                    rms: i as f32 / 600.0,
+                    ..AudioFeatures::default()
+                })
+                .collect(),
+            frame_duration: 1.0 / 60.0,
+            sample_rate: 44100,
+            energy_levels: vec![],
+        };
+        timeline.compute_energy_levels();
+        assert_eq!(timeline.energy_levels.len(), 600);
+        // All three energy levels should be present
+        assert!(
+            timeline.energy_levels.contains(&0),
+            "should have low energy"
+        );
+        assert!(
+            timeline.energy_levels.contains(&1),
+            "should have medium energy"
+        );
+        assert!(
+            timeline.energy_levels.contains(&2),
+            "should have high energy"
+        );
     }
 }

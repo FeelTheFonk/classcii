@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-03-01
+
+### Fixed
+- **zalgo_intensity bounds mismatch**: generative.rs clamped [0,1] instead of [0,5] — batch export zalgo now at full range parity with interactive mode.
+- **Spectral flux normalization**: beat detection now volume-independent (normalized by bin count in both real-time and offline analyzers).
+- **Beat detection silence guard**: explicit spectral energy / RMS threshold prevents false onset detection during silent passages.
+- **onset_envelope offline computation**: FeatureTimeline now computes onset_envelope with exponential decay in BatchAnalyzer, enabling strobe/flash parity in batch exports.
+- **Color quantization**: nearest-neighbor rounding replaces floor division, reducing maximum quantization error from ~20% to ~10%.
+- **Empty batch folder**: explicit error message instead of silent u32::MAX fallback.
+
+### Removed
+- **FileOrFolderPrompt dead code**: unreachable AppState/RenderState variant, handler, overlay, and state mapping removed from app.rs and ui.rs.
+
+### Added
+- **af-export test coverage**: 6 unit tests (rasterizer cell dimensions, target dimensions, glyph cache, render grid, dimension mismatch safety, muxer).
+- **af-source test coverage**: 3 unit tests (blend_frames endpoints, blend_frames different sizes, scan_dir extension filtering).
+- **af-core test coverage**: 2 unit tests (onset_envelope normalization, energy levels classification).
+
+### Quality
+- 90 tests total (28 unit + 62 doctests), all 7 crates with test coverage.
+- 0 clippy warnings (pedantic + deny).
+- All audit findings from 6-agent comprehensive review verified and resolved.
+
 ## [0.9.0] — 2026-03-01
 
 ### Added

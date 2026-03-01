@@ -78,6 +78,7 @@ impl BatchAnalyzer {
             let mut features = extract_features(frame_samples, magnitudes, self.sample_rate);
 
             // Bass-weighted spectral flux (parity with BeatDetector in beat.rs)
+            // Normalized by bin count for volume-independent beat detection.
             let mut flux = 0.0f32;
             if prev_magnitudes.len() == magnitudes.len() {
                 let bass_cutoff = magnitudes.len() / 4;
@@ -85,6 +86,7 @@ impl BatchAnalyzer {
                     let diff = (curr - prev).max(0.0);
                     flux += if j < bass_cutoff { diff * 2.0 } else { diff };
                 }
+                flux /= magnitudes.len().max(1) as f32;
             } else {
                 prev_magnitudes.resize(magnitudes.len(), 0.0);
             }
@@ -123,6 +125,8 @@ impl BatchAnalyzer {
         let mut intervals: VecDeque<usize> = VecDeque::with_capacity(16);
         let mut bpm: f32 = 0.0;
         let mut phase: f32 = 0.0;
+        let mut onset_env: f32 = 0.0;
+        let strobe_decay: f32 = 0.85;
 
         for (i, frame) in frames.iter_mut().enumerate() {
             let flux = frame.spectral_flux;
@@ -132,9 +136,10 @@ impl BatchAnalyzer {
             let threshold = ema_flux * 1.5 + 0.01;
 
             // Warmup: skip first ~10 frames to avoid false positives
+            // Silence guard: reject onsets when RMS is negligible
             let warmup_complete = i > 10;
             let since = i.saturating_sub(last_onset);
-            let onset = warmup_complete && flux > threshold && since > cooldown;
+            let onset = warmup_complete && frame.rms > 1e-4 && flux > threshold && since > cooldown;
 
             if onset {
                 frame.onset = true;
@@ -159,9 +164,11 @@ impl BatchAnalyzer {
                 }
 
                 phase = 0.0;
+                onset_env = 1.0;
             } else {
                 frame.onset = false;
                 frame.beat_intensity = 0.0;
+                onset_env *= strobe_decay;
 
                 // Phase accumulation between beats
                 if bpm > 0.0 {
@@ -169,6 +176,7 @@ impl BatchAnalyzer {
                 }
             }
 
+            frame.onset_envelope = onset_env;
             frame.bpm = bpm;
             frame.beat_phase = phase;
         }

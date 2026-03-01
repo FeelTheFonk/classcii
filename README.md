@@ -281,7 +281,7 @@ Configurations and presets are managed via TOML files. Audio mappings and charse
 - Zero panicking unwraps — `?` operator and graceful fallback implemented across all layers (R3).
 - Zero unnecessary copies — driven by `Arc<FrameBuffer>`, `arc-swap`, and lock-free `triple_buffer` mechanics (R4).
 - Compile strictness: `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings with pedantic lints enabled.
-- 78+ tests (unit + doctests) pass. `cargo fmt --check --all` clean.
+- 90 tests (unit + doctests) pass. `cargo fmt --check --all` clean.
 - All division operations guarded against zero. All user inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

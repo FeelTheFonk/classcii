@@ -48,8 +48,10 @@ impl BeatDetector {
         self.frame_count += 1;
 
         // Spectral flux — weight bass bands (first 1/4 of spectrum) more heavily
+        // Normalized by bin count for volume-independent beat detection.
         let flux: f32 = if self.prev_spectrum.len() == spectrum.len() {
             let bass_cutoff = spectrum.len() / 4;
+            let bin_count = spectrum.len().max(1) as f32;
             spectrum
                 .iter()
                 .zip(self.prev_spectrum.iter())
@@ -58,10 +60,15 @@ impl BeatDetector {
                     let diff = (cur - prev).max(0.0);
                     if i < bass_cutoff { diff * 2.0 } else { diff }
                 })
-                .sum()
+                .sum::<f32>()
+                / bin_count
         } else {
             0.0
         };
+
+        // Spectral energy for silence guard
+        let spectral_energy: f32 =
+            spectrum.iter().map(|&x| x * x).sum::<f32>() / spectrum.len().max(1) as f32;
 
         // Adaptive threshold
         self.flux_avg = self.flux_avg * 0.93 + flux * 0.07;
@@ -75,11 +82,15 @@ impl BeatDetector {
         };
 
         // Onset with FPS-adaptive cooldown (~130ms regardless of framerate)
+        // Silence guard: reject onsets when spectral energy is negligible
         let cooldown_frames = (fps * 0.13).max(2.0) as u64;
         let frames_since = self.frame_count - self.last_onset_frame;
         // Skip onset detection during warmup (first ~10 frames) to avoid false positives
         let warmup_complete = self.frame_count > 10;
-        let onset = warmup_complete && flux > threshold && frames_since > cooldown_frames;
+        let onset = warmup_complete
+            && spectral_energy > 1e-6
+            && flux > threshold
+            && frames_since > cooldown_frames;
 
         // BPM estimation from onset intervals
         if onset {

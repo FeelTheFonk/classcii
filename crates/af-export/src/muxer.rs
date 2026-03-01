@@ -128,3 +128,20 @@ pub fn mux_audio_video(video_path: &Path, audio_path: &Path, final_path: &Path) 
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn muxer_new_does_not_panic() {
+        // Mp4Muxer::new may succeed or fail depending on ffmpeg availability.
+        // Either outcome is valid — the important thing is no panic.
+        let result = Mp4Muxer::new(std::path::Path::new("test_output.mp4"), 64, 64, 30);
+        if let Ok(muxer) = result {
+            // Clean up: finish immediately (empty video)
+            let _ = muxer.finish();
+            let _ = std::fs::remove_file("test_output.mp4");
+        }
+    }
+}

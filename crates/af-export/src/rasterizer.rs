@@ -202,3 +202,82 @@ impl Rasterizer {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(clippy::expect_used)]
+    fn make_rasterizer() -> Rasterizer {
+        let font_data = include_bytes!("../assets/FiraCode-Regular.ttf");
+        Rasterizer::new(font_data, 16.0).expect("font should load")
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn cell_dimensions_reasonable() {
+        let rast = make_rasterizer();
+        assert!(rast.char_width > 0, "char_width must be positive");
+        assert!(rast.char_height > 0, "char_height must be positive");
+        assert!(rast.char_width <= 20, "char_width should be reasonable");
+        assert!(rast.char_height <= 30, "char_height should be reasonable");
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn target_dimensions_multiplication() {
+        let rast = make_rasterizer();
+        let (w, h) = rast.target_dimensions(80, 24);
+        assert_eq!(w, 80 * rast.char_width);
+        assert_eq!(h, 24 * rast.char_height);
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn glyph_cache_populated() {
+        let rast = make_rasterizer();
+        // ASCII printable range (always present in FiraCode)
+        assert!(rast.glyph_cache.contains_key(&'A'));
+        assert!(rast.glyph_cache.contains_key(&' '));
+        assert!(rast.glyph_cache.contains_key(&'~'));
+        assert!(rast.glyph_cache.contains_key(&'0'));
+        // Cache should have at least ASCII printable (95 chars)
+        assert!(
+            rast.glyph_cache.len() >= 95,
+            "cache should have at least ASCII printable"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn render_basic_grid() {
+        let rast = make_rasterizer();
+        let mut grid = AsciiGrid::new(2, 2);
+        for y in 0..2u16 {
+            for x in 0..2u16 {
+                let idx = y as usize * 2 + x as usize;
+                grid.cells[idx].ch = 'A';
+                grid.cells[idx].fg = (255, 255, 255);
+                grid.cells[idx].bg = (0, 0, 0);
+            }
+        }
+        let (w, h) = rast.target_dimensions(2, 2);
+        let mut fb = FrameBuffer::new(w, h);
+        rast.render(&grid, &mut fb, 0.0);
+        let has_nonzero = fb.data.iter().any(|&b| b > 0);
+        assert!(
+            has_nonzero,
+            "rendered framebuffer should have non-zero pixels"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn dimension_mismatch_safe() {
+        let rast = make_rasterizer();
+        let grid = AsciiGrid::new(2, 2);
+        let mut fb = FrameBuffer::new(1, 1);
+        // Should not panic — just log and return
+        rast.render(&grid, &mut fb, 0.0);
+    }
+}

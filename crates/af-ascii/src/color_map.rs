@@ -21,10 +21,12 @@ pub fn map_color(r: u8, g: u8, b: u8, mode: &ColorMode, saturation: f32) -> (u8,
 }
 
 /// Quantize a color to a reduced palette (6×6×6 color cube).
+/// Uses nearest-neighbor rounding to minimize quantization error.
 fn quantize(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
     let quantize_channel = |c: u8| -> u8 {
-        let level = c / 43; // 256 / 6 ≈ 43
-        level * 51 // 255 / 5 = 51
+        // Round to nearest level in [0..5], then scale back to [0..255]
+        let level = ((u16::from(c) * 5 + 127) / 255) as u8;
+        level * 51
     };
     (
         quantize_channel(r),

@@ -165,7 +165,7 @@ fn apply_target(config: &mut RenderConfig, target: &str, delta: f32) {
             config.glow_intensity = (config.glow_intensity + delta).clamp(0.0, 2.0);
         }
         "zalgo_intensity" => {
-            config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 1.0);
+            config.zalgo_intensity = (config.zalgo_intensity + delta).clamp(0.0, 5.0);
         }
         "camera_zoom_amplitude" => {
             config.camera_zoom_amplitude =

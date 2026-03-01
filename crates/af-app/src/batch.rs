@@ -216,6 +216,10 @@ pub fn run_batch_export(
 
         log::info!("Boucle de Rendu : {total_frames} frames à {target_fps}fps");
 
+        // Mutation coordination
+        let mutation_cooldown: u32 = 90;
+        let max_mutations_per_event: u32 = 2;
+
         let mut macro_mode_override: Option<af_core::config::RenderMode> = None;
         let mut macro_invert_override: Option<bool> = None;
         let mut macro_charset_override: Option<(usize, String)> = None;
@@ -224,11 +228,7 @@ pub fn run_batch_export(
         let mut macro_effect_burst: Option<(u8, f32)> = None;
         let mut macro_effect_countdown: u32 = 0;
         let mut macro_color_mode_override: Option<af_core::config::ColorMode> = None;
-
-        // Mutation coordination
         let mut frames_since_last_mutation: u32 = u32::MAX; // allow first mutation immediately
-        const MUTATION_COOLDOWN: u32 = 90;
-        const MAX_MUTATIONS_PER_EVENT: u32 = 2;
 
         let render_start = std::time::Instant::now();
 
@@ -259,7 +259,7 @@ pub fn run_batch_export(
 
             if current_features.onset
                 && current_features.beat_intensity > 0.85
-                && frames_since_last_mutation >= MUTATION_COOLDOWN
+                && frames_since_last_mutation >= mutation_cooldown
             {
                 let mutation_scale = match energy {
                     2 => 1.5,
@@ -272,7 +272,7 @@ pub fn run_batch_export(
                 // Priority-ordered mutations (most visually impactful first)
 
                 // Mode cycle (12%)
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.12 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.12 * mutation_scale {
                     let modes = [
                         af_core::config::RenderMode::Ascii,
                         af_core::config::RenderMode::HalfBlock,
@@ -288,7 +288,7 @@ pub fn run_batch_export(
                 }
 
                 // Charset rotation (15%)
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.15 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.15 * mutation_scale {
                     let current_idx = macro_charset_override
                         .as_ref()
                         .map_or(frame_config.charset_index, |(i, _)| *i);
@@ -300,7 +300,7 @@ pub fn run_batch_export(
                 }
 
                 // Effect burst (6%) — intensity-scaled values
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.06 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.06 * mutation_scale {
                     let bursts: [(u8, f32); 4] = [
                         (0, 1.5 * intensity_scale),
                         (1, 2.5 * intensity_scale),
@@ -314,14 +314,14 @@ pub fn run_batch_export(
                 }
 
                 // Density pulse (8%)
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.08 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.08 * mutation_scale {
                     macro_density_override = Some(if fastrand::bool() { 0.5 } else { 2.0 });
                     macro_density_countdown = 30;
                     mutations += 1;
                 }
 
                 // Color mode cycle (5%)
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.05 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.05 * mutation_scale {
                     let modes = [
                         af_core::config::ColorMode::Direct,
                         af_core::config::ColorMode::HsvBright,
@@ -337,7 +337,7 @@ pub fn run_batch_export(
                 }
 
                 // Invert flash (10%)
-                if mutations < MAX_MUTATIONS_PER_EVENT && fastrand::f64() < 0.10 * mutation_scale {
+                if mutations < max_mutations_per_event && fastrand::f64() < 0.10 * mutation_scale {
                     let current = macro_invert_override.unwrap_or(frame_config.invert);
                     macro_invert_override = Some(!current);
                     mutations += 1;

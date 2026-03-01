@@ -417,7 +417,7 @@ fn draw_sidebar(
             Span::styled(" K\u{25cb}", Style::default().fg(label))
         };
         lines.push(Line::from(vec![
-            Span::styled(" o/O C A ?", Style::default().fg(label)),
+            Span::styled(" o/O C", Style::default().fg(label)),
             creation_indicator,
         ]));
     }

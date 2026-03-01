@@ -1,0 +1,75 @@
+# Octant Dense — Maximum sub-pixel resolution with spectral bar charset.
+# Octant mode (2×4 sub-pixels per cell) pushes spatial density to the limit.
+# CHARSET_GLITCH_2 (spectral bars) complements the dense block aesthetic.
+# Best with: high-contrast images, fullscreen terminal.
+[render]
+render_mode = "Octant"
+charset_index = 0
+charset = " ▂▃▄▅▆▇█"
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 2.0
+invert = false
+contrast = 1.5
+brightness = 0.1
+saturation = 1.3
+edge_threshold = 0.0
+edge_mix = 0.0
+shape_matching = false
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.3
+glow_intensity = 0.3
+beat_flash_intensity = 0.3
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 2.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+strobe_decay = 0.85
+temporal_stability = 0.5
+zalgo_intensity = 0.0
+camera_zoom_amplitude = 1.0
+camera_rotation = 0.0
+camera_pan_x = 0.0
+camera_pan_y = 0.0
+target_fps = 60
+fullscreen = true
+show_spectrum = true
+
+[audio]
+sensitivity = 1.0
+smoothing = 0.6
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.3
+offset = 0.0
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "contrast"
+amount = 0.4
+offset = 0.0
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_intensity"
+target = "beat_flash_intensity"
+amount = 0.3
+offset = 0.0
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_phase"
+target = "wave_amplitude"
+amount = 0.15
+offset = 0.0
+curve = "Linear"

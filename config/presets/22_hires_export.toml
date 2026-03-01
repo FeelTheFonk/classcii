@@ -1,0 +1,75 @@
+# HiRes Export — Ultra high-resolution preset optimized for batch export.
+# Designed for batch export with --export-scale 24-48.
+# CHARSET_FULL (70 chars) provides the finest tonal gradient.
+# Oklab color for maximum perceptual fidelity. Subtle effects only.
+[render]
+render_mode = "Ascii"
+charset_index = 0
+charset = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+color_enabled = true
+color_mode = "Oklab"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+invert = false
+contrast = 1.2
+brightness = 0.0
+saturation = 1.3
+edge_threshold = 0.2
+edge_mix = 0.3
+shape_matching = false
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.3
+glow_intensity = 0.3
+beat_flash_intensity = 0.0
+chromatic_offset = 0.0
+wave_amplitude = 0.0
+wave_speed = 0.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+strobe_decay = 0.85
+temporal_stability = 0.4
+zalgo_intensity = 0.0
+camera_zoom_amplitude = 1.0
+camera_rotation = 0.0
+camera_pan_x = 0.0
+camera_pan_y = 0.0
+target_fps = 30
+fullscreen = false
+show_spectrum = true
+
+[audio]
+sensitivity = 1.0
+smoothing = 0.7
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.2
+offset = 0.0
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "saturation"
+amount = 0.3
+offset = 0.0
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "contrast"
+amount = 0.2
+offset = 0.8
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "glow_intensity"
+amount = 0.3
+offset = 0.0
+curve = "Smooth"

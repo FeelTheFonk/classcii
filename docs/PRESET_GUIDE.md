@@ -1,6 +1,6 @@
 # Preset Guide
 
-Complete reference for classcii's 19 built-in presets, with creation tutorials and TOML structure.
+Complete reference for classcii's 22 built-in presets, with creation tutorials and TOML structure.
 
 ## Using Presets
 
@@ -170,6 +170,30 @@ Mode: HalfBlock | Color: Direct | Dither: BlueNoise16 | FPS: 60
 ```
 
 Camera-focused preset with smooth audio-driven motion. Bass→camera_zoom_amplitude (Smooth, 0.3), spectral_centroid→camera_rotation (Smooth, 0.2), mid→camera_pan_x (Linear, 0.2), presence→camera_pan_y (Linear, 0.15), rms→glow_intensity (Smooth, 0.4). High smoothing (0.7) for cinematic fluidity. Best with large images or video sources.
+
+### 20_sextant_film — Cinematic Sextant
+
+```
+Mode: Sextant | Color: Oklab | Dither: BlueNoise16 | FPS: 60
+```
+
+Sextant mode (2×3 sub-pixels per cell) delivers high spatial resolution with a filmic, organic aesthetic. Oklab color for perceptual accuracy. Soft edges (threshold 0.2, mix 0.3), cinematic glow (0.4), fade (0.6). Four audio mappings: rms→brightness (Smooth, per-mapping smoothing 0.8 for ultra-smooth response), spectral_centroid→saturation, bass→glow, peak→edge_mix (Threshold). First preset to use `peak` audio source and per-mapping `smoothing` override.
+
+### 21_octant_dense — Maximum Sub-Pixel Density
+
+```
+Mode: Octant | Color: Direct | Dither: BlueNoise16 | FPS: 60 | Fullscreen
+```
+
+Octant mode (2×4 sub-pixels per cell) pushes spatial density to the limit. CHARSET_GLITCH_2 (spectral bars `▂▃▄▅▆▇█`) complements the dense block aesthetic. High density (2.0), sharp contrast (1.5), temporal stability (0.5) crucial for Octant anti-flicker. Four audio mappings: rms→brightness, spectral_flux→contrast, beat_intensity→beat_flash (Threshold), beat_phase→wave_amplitude. First preset to use `beat_phase` audio source.
+
+### 22_hires_export — Ultra High-Resolution Batch Export
+
+```
+Mode: Ascii (CHARSET_FULL 70 chars) | Color: Oklab | Dither: BlueNoise16 | FPS: 30
+```
+
+Optimized for batch export with `--export-scale 24-48`. CHARSET_FULL provides the finest tonal gradient (70 characters). Oklab for maximum perceptual fidelity. Subtle effects only — no saturation at high resolution. Four audio mappings: rms→brightness (Smooth), spectral_centroid→saturation (Smooth), bass→contrast (Linear, offset 0.8 — always-elevated baseline), spectral_flux→glow (Smooth). First preset to use `offset` in audio mappings.
 
 ---
 

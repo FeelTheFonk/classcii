@@ -111,6 +111,7 @@ classcii --batch-folder ./media/ --preset 02_matrix
 | `--fps <N>` | Target framerate (30 or 60) | from config |
 | `--no-color` | Disable color output | `false` |
 | `--log-level <LEVEL>` | Log level: `error`, `warn`, `info`, `debug`, `trace` | `warn` |
+| `--preset-list` | List all available presets and exit | `false` |
 
 ## Runtime Controls
 
@@ -250,6 +251,9 @@ Available in `config/presets/`, selectable via `--preset <name>` or cycled live 
 | `17_static` | Broken TV / white noise, binary charset, zalgo on transients |
 | `18_spectral_bands` | Per-band frequency mapping, each band drives a distinct effect |
 | `19_cinematic_camera` | Audio-reactive virtual camera, bass→zoom, centroid→rotation |
+| `20_sextant_film` | Sextant mode cinematic rendering, Oklab perceptual color |
+| `21_octant_dense` | Maximum sub-pixel density, Octant mode, spectral bar charset |
+| `22_hires_export` | Ultra high-resolution batch export, CHARSET_FULL, Oklab |
 
 Usage: `classcii --image photo.jpg --preset 02_matrix`
 
@@ -265,7 +269,7 @@ Configurations and presets are managed via TOML files. Audio mappings and charse
 - Zero panicking unwraps — `?` operator and graceful fallback implemented across all layers (R3).
 - Zero unnecessary copies — driven by `Arc<FrameBuffer>`, `arc-swap`, and lock-free `triple_buffer` mechanics (R4).
 - Compile strictness: `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings with pedantic lints enabled.
-- 69 tests (unit + doctests) pass. `cargo fmt --check --all` clean.
+- 72+ tests (unit + doctests) pass. `cargo fmt --check --all` clean.
 - All division operations guarded against zero. All user inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

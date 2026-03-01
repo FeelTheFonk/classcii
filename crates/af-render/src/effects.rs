@@ -3,6 +3,16 @@ use af_core::frame::{AsciiCell, AsciiGrid};
 
 /// Post-processing effects on AsciiGrid before rendering.
 
+/// Minimum neighbor brightness to trigger glow propagation.
+/// Calibrated for high-contrast highlight detection.
+const GLOW_BRIGHTNESS_THRESHOLD: u8 = 140;
+
+/// RGB boost per unit of glow intensity.
+const GLOW_FACTOR_SCALE: f32 = 40.0;
+
+/// Scales user-facing threshold [0.0, 1.0] to internal density sensitivity.
+const STABILITY_DENSITY_SCALE: f32 = 0.3;
+
 /// Apply strobe: boost fg brightness proportional to onset envelope.
 ///
 /// Replaces the old `apply_beat_flash` with a continuous envelope-driven effect.
@@ -75,7 +85,7 @@ pub fn apply_glow(grid: &mut AsciiGrid, intensity: f32, brightness_buf: &mut Vec
         brightness_buf[i] = cell.fg.0.max(cell.fg.1).max(cell.fg.2);
     }
 
-    let glow_factor = (intensity * 40.0).min(255.0) as u8;
+    let glow_factor = (intensity * GLOW_FACTOR_SCALE).min(255.0) as u8;
 
     for cy in 1..grid.height.saturating_sub(1) {
         for cx in 1..grid.width.saturating_sub(1) {
@@ -86,7 +96,7 @@ pub fn apply_glow(grid: &mut AsciiGrid, intensity: f32, brightness_buf: &mut Vec
                 .max(brightness_buf[idx(cx, cy - 1)])
                 .max(brightness_buf[idx(cx, cy + 1)]);
 
-            if max_neighbor > 140 {
+            if max_neighbor > GLOW_BRIGHTNESS_THRESHOLD {
                 let cell = &mut grid.cells[idx(cx, cy)];
                 cell.fg.0 = cell.fg.0.saturating_add(glow_factor);
                 cell.fg.1 = cell.fg.1.saturating_add(glow_factor);
@@ -223,7 +233,7 @@ pub fn apply_temporal_stability(current: &mut AsciiGrid, previous: &AsciiGrid, t
         return;
     }
 
-    let t = threshold * 0.3;
+    let t = threshold * STABILITY_DENSITY_SCALE;
 
     for (cur, prev) in current.cells.iter_mut().zip(previous.cells.iter()) {
         if cur.ch == ' ' || prev.ch == ' ' {
@@ -265,6 +275,11 @@ fn char_density(ch: char) -> f32 {
             let idx = ch as u32 - 0x1FB00;
             idx.count_ones() as f32 / 6.0
         }
+        '\u{1CD00}'..='\u{1CDE5}' => {
+            // Octant: coverage from bit count (2×4 sub-pixels)
+            let idx = ch as u32 - 0x1CD00;
+            idx.count_ones() as f32 / 8.0
+        }
         _ => 0.5,
     }
 }
@@ -290,5 +305,36 @@ pub fn apply_scan_lines(grid: &mut AsciiGrid, gap: u8, darken_factor: f32) {
             cell.fg.1 = (f32::from(cell.fg.1) * factor) as u8;
             cell.fg.2 = (f32::from(cell.fg.2) * factor) as u8;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn char_density_octant_coverage() {
+        // U+1CD00 with 0 bits set → density 0.0
+        assert!((char_density('\u{1CD00}') - 0.0).abs() < f32::EPSILON);
+        // Single bit set (offset 0x01) → 1/8
+        assert!((char_density('\u{1CD01}') - 0.125).abs() < f32::EPSILON);
+        // Two bits set (offset 0x03 = 0b11) → 2/8 = 0.25
+        assert!((char_density('\u{1CD03}') - 0.25).abs() < f32::EPSILON);
+        // High end of valid range: U+1CDE5 (offset 0xE5 = 0b11100101 = 5 bits) → 5/8
+        assert!((char_density('\u{1CDE5}') - 0.625).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn char_density_braille_proportional() {
+        // Braille empty (U+2800) → 0 dots → 0.0
+        assert!((char_density('\u{2800}') - 0.0).abs() < f32::EPSILON);
+        // Braille all dots (U+28FF) → 8 dots → 1.0
+        assert!((char_density('\u{28FF}') - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn char_density_sextant_proportional() {
+        // Sextant empty offset (U+1FB00) → 0 bits → 0.0
+        assert!((char_density('\u{1FB00}') - 0.0).abs() < f32::EPSILON);
     }
 }

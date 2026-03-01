@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-03-01
+
+### Added
+- **Preset 20_sextant_film**: Cinematic Sextant rendering with Oklab perceptual color, soft edges, filmic glow. First preset to use `peak` audio source and per-mapping `smoothing` override.
+- **Preset 21_octant_dense**: Maximum sub-pixel density (Octant mode), spectral bar charset (CHARSET_GLITCH_2), fullscreen. First preset to use `beat_phase` audio source.
+- **Preset 22_hires_export**: Ultra high-resolution batch export preset optimized for `--export-scale 24-48`. CHARSET_FULL 70-char gradient, Oklab color, subtle effects. First preset to use `offset` in audio mappings.
+- **CHARSET_HIRES**: New 34-character ASCII-pure charset optimized for large character cells in batch export. Excludes lowercase letters (distractingly "readable" at large scale).
+- **`--preset-list` CLI flag**: Lists all available presets sorted alphabetically and exits.
+- **Octant `char_density()`**: Temporal stability now handles Octant characters (U+1CD00-U+1CDE5) natively via bit-count density instead of fallback 0.5.
+- **Sextant in batch mode cycle**: Sextant added to macro-generative mode rotation (was excluded since v0.6.0). 5 modes: Ascii/HalfBlock/Braille/Quadrant/Sextant.
+- **Octant rasterizer cache**: Octant codepoints (U+1CD00-U+1CDE5) pre-cached in batch export rasterizer (future-proof; .notdef guard silently skips absent glyphs).
+- **AudioMapping validation**: `clamp_all()` now validates mapping fields — amount clamped [-10, 10], offset [-5, 5], per-mapping smoothing [0, 1].
+- **Named constants in effects.rs**: `GLOW_BRIGHTNESS_THRESHOLD` (140), `GLOW_FACTOR_SCALE` (40.0), `STABILITY_DENSITY_SCALE` (0.3) extracted from inline magic numbers.
+- **3 new tests**: Oklab roundtrip (rgb→oklab→rgb ≤1 drift), CHARSET_HIRES LUT monotonicity, char_density Octant/Braille/Sextant coverage.
+
+### Changed
+- **default.toml**: `wave_amplitude` 0.1→0.0 (neutral by default — no unexpected wave effect on plain images), `wave_speed` 0.3→2.0 (ready for immediate effect when amplitude is activated manually).
+- **Batch charset_pool**: Expanded from 10 to 11 entries (added CHARSET_HIRES). Modulo index now uses `charset_pool.len()` instead of hardcoded 10.
+- **Preset 13_breath**: Added explicit `strobe_decay = 0.95` (was falling back to default 0.75; slow decay matches contemplative aesthetic).
+
+### Fixed
+- **Audio sources coverage**: `peak` (0→1 preset) and `beat_phase` (0→1 preset) were extracted but never used in any preset. Now used in presets 20 and 21 respectively.
+- **Mapping features unused**: `offset` and per-mapping `smoothing` were implemented but never demonstrated in any preset. Now used in presets 20 and 22.
+- **CHARSET_GLITCH_2 orphaned**: Spectral bar charset (`▂▃▄▅▆▇█`) was defined but never used in any preset. Now used as initial charset for preset 21_octant_dense.
+
 ## [0.7.1] — 2026-03-01
 
 ### Removed

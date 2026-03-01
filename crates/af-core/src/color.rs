@@ -207,4 +207,31 @@ mod tests {
         assert!((h - h2).abs() < 0.01, "Hue shifted: {h} vs {h2}");
         assert!((v2 - 1.0).abs() < 0.01, "V not 1.0: {v2}");
     }
+
+    #[test]
+    fn oklab_roundtrip() {
+        for r in (0..=255).step_by(17) {
+            for g in (0..=255).step_by(17) {
+                for b in (0..=255).step_by(17) {
+                    let r = r as u8;
+                    let g = g as u8;
+                    let b = b as u8;
+                    let (l, a, ob) = rgb_to_oklab(r, g, b);
+                    let (r2, g2, b2) = oklab_to_rgb(l, a, ob);
+                    assert!(
+                        (i16::from(r) - i16::from(r2)).abs() <= 1,
+                        "R drift at ({r},{g},{b}): got {r2}"
+                    );
+                    assert!(
+                        (i16::from(g) - i16::from(g2)).abs() <= 1,
+                        "G drift at ({r},{g},{b}): got {g2}"
+                    );
+                    assert!(
+                        (i16::from(b) - i16::from(b2)).abs() <= 1,
+                        "B drift at ({r},{g},{b}): got {b2}"
+                    );
+                }
+            }
+        }
+    }
 }

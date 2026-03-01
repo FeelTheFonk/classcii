@@ -40,6 +40,8 @@ Reduces ASCII character flickering by comparing the visual density of the curren
 | Keybind | `y` (−0.1) / `Y` (+0.1) |
 | Sidebar | TStab |
 
+The user-facing threshold [0.0, 1.0] is scaled by `STABILITY_DENSITY_SCALE` (0.3) to map to internal density sensitivity.
+
 - `0.0` = disabled — characters update every frame
 - `0.3` = moderate — reduces noise in low-contrast areas
 - `0.7` = heavy — significant stabilization, some detail loss
@@ -179,7 +181,7 @@ Brightness bloom effect — bright cells bleed light into their neighbors.
 | Keybind | `g` (−0.1) / `G` (+0.1) |
 | Sidebar | Glow |
 
-A cell is considered "bright" if its maximum RGB component exceeds 140 (threshold lowered from 200 in v0.5.1 for wider visibility). The 4 cardinal neighbors (up/down/left/right) receive a brightness boost proportional to `glow_intensity`.
+A cell is considered "bright" if its maximum RGB component exceeds `GLOW_BRIGHTNESS_THRESHOLD` (140, calibrated for high-contrast highlight detection). The 4 cardinal neighbors (up/down/left/right) receive a brightness boost of `intensity × GLOW_FACTOR_SCALE` (40.0 RGB units per intensity unit).
 
 - `0.0` = disabled
 - `0.3–0.7` = subtle bloom — adds warmth

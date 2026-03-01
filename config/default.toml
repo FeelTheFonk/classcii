@@ -29,8 +29,8 @@ fade_decay = 0.4
 glow_intensity = 0.2
 beat_flash_intensity = 0.3         # Strobe envelope intensity
 chromatic_offset = 0.0             # R/B channel offset (0 = off)
-wave_amplitude = 0.1               # Sinusoidal row shift (0 = off)
-wave_speed = 0.3                   # Wave oscillation speed
+wave_amplitude = 0.0               # Sinusoidal row shift (0 = off)
+wave_speed = 2.0                   # Wave oscillation speed (active when amplitude > 0)
 color_pulse_speed = 0.0            # HSV hue rotation speed (0 = off)
 scanline_gap = 0                   # Darken every Nth row (0 = off)
 strobe_decay = 0.85                # Strobe decay rate per frame

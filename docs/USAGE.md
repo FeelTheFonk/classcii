@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v0.7.0 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v0.8.0 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Quick Start
 
@@ -54,6 +54,7 @@ classcii --video clip.mp4 --audio track.mp3
 | `--fps <N>` | Target framerate (30 or 60) | from config |
 | `--no-color` | Disable color output | `false` |
 | `--log-level <LEVEL>` | Logging: `error`, `warn`, `info`, `debug`, `trace` | `warn` |
+| `--preset-list` | List all available presets and exit | `false` |
 
 ### Examples
 
@@ -290,7 +291,7 @@ The sidebar shows `K●` when Creation Mode is active (modulating) and `K○` wh
 
 ## Presets
 
-19 presets in `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`:
+22 presets in `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`:
 
 | Preset | Render Mode | Style |
 |--------|-------------|-------|
@@ -313,6 +314,9 @@ The sidebar shows `K●` when Creation Mode is active (modulating) and `K○` wh
 | `17_static` | Ascii | Broken TV / white noise, binary charset, zalgo on transients |
 | `18_spectral_bands` | Quadrant | Per-band frequency mapping, each band drives a distinct effect |
 | `19_cinematic_camera` | HalfBlock | Audio-reactive virtual camera, smooth cinematic motion |
+| `20_sextant_film` | Sextant | Cinematic Sextant rendering, Oklab perceptual color, filmic glow |
+| `21_octant_dense` | Octant | Maximum sub-pixel density, spectral bar charset, fullscreen |
+| `22_hires_export` | Ascii | Ultra high-resolution batch export, CHARSET_FULL 70-char gradient |
 
 ```bash
 classcii --image photo.jpg --preset 07_neon_abyss
@@ -364,7 +368,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --batch-out output.mp4 --fps 
 3. **Energy Classification**: Sliding-window RMS average (5-second window) with 30th/70th percentile thresholds → 3 energy levels (low/medium/high) driving clip pacing and mutation frequency.
 4. **Generative Mapping**: `AutoGenerativeMapper` modulates `RenderConfig` per frame from the timeline.
 5. **Clip Sequencing**: Energy-based clip budget — high energy sections use shorter clips (50%), low energy sections use longer clips (150%). Crossfade transitions (linear RGBA blend over ~15 frames) between consecutive media files.
-6. **Macro Director**: Mutation coordination with cooldown (90 frames), max 2 mutations per event, energy-scaled probabilities. Priority-ordered: mode cycling → charset rotation → effect burst → density pulse → color mode → invert flash.
+6. **Macro Director**: Mutation coordination with cooldown (90 frames), max 2 mutations per event, energy-scaled probabilities. Priority-ordered: mode cycling (Ascii/HalfBlock/Braille/Quadrant/Sextant) → charset rotation (11 charsets) → effect burst → density pulse → color mode → invert flash.
 7. **Compositing**: Source pixels → `AsciiGrid` via advanced bitmasking and dithering.
 8. **Rasterization**: `AsciiGrid` → high-resolution RGBA pixels (parallel, zero-alloc, alpha-blended Zalgo).
 9. **Encoding**: Lossless libx264rgb CRF 0 / rgb24.

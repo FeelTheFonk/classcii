@@ -53,6 +53,10 @@ pub struct Cli {
     /// Niveau de log : error, warn, info, debug, trace.
     #[arg(long, default_value = "warn")]
     pub log_level: String,
+
+    /// Lister tous les presets disponibles et quitter.
+    #[arg(long, default_value_t = false)]
+    pub preset_list: bool,
 }
 
 impl Cli {

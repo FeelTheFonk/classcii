@@ -201,7 +201,7 @@ pub fn run_batch_export(
 
         // === Pre-allocated charset pool (avoid per-beat .to_string()) ===
         // Only charsets whose characters are guaranteed in the export font (FiraCode).
-        let charset_pool: [&str; 10] = [
+        let charset_pool: [&str; 11] = [
             af_core::charset::CHARSET_FULL,
             af_core::charset::CHARSET_DENSE,
             af_core::charset::CHARSET_SHORT_1,
@@ -212,6 +212,7 @@ pub fn run_batch_export(
             af_core::charset::CHARSET_DIGITAL,
             af_core::charset::CHARSET_BINARY,
             af_core::charset::CHARSET_EXTENDED,
+            af_core::charset::CHARSET_HIRES,
         ];
 
         log::info!("Boucle de Rendu : {total_frames} frames à {target_fps}fps");
@@ -278,6 +279,7 @@ pub fn run_batch_export(
                         af_core::config::RenderMode::HalfBlock,
                         af_core::config::RenderMode::Braille,
                         af_core::config::RenderMode::Quadrant,
+                        af_core::config::RenderMode::Sextant,
                     ];
                     let current = macro_mode_override
                         .as_ref()
@@ -292,7 +294,7 @@ pub fn run_batch_export(
                     let current_idx = macro_charset_override
                         .as_ref()
                         .map_or(frame_config.charset_index, |(i, _)| *i);
-                    let new_idx = (current_idx + 1) % 10;
+                    let new_idx = (current_idx + 1) % charset_pool.len();
                     let mut new_charset = String::new();
                     new_charset.push_str(charset_pool[new_idx]);
                     macro_charset_override = Some((new_idx, new_charset));

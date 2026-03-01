@@ -405,6 +405,14 @@ impl RenderConfig {
         self.target_fps = self.target_fps.clamp(15, 120);
         self.audio_smoothing = self.audio_smoothing.clamp(0.0, 1.0);
         self.audio_sensitivity = self.audio_sensitivity.clamp(0.0, 5.0);
+
+        for mapping in &mut self.audio_mappings {
+            mapping.amount = mapping.amount.clamp(-10.0, 10.0);
+            mapping.offset = mapping.offset.clamp(-5.0, 5.0);
+            if let Some(s) = mapping.smoothing {
+                mapping.smoothing = Some(s.clamp(0.0, 1.0));
+            }
+        }
     }
 }
 

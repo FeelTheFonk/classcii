@@ -25,6 +25,7 @@ chromatic_offset = 0.0
 wave_amplitude = 0.0
 color_pulse_speed = 0.0
 scanline_gap = 0
+strobe_decay = 0.95
 temporal_stability = 0.7
 zalgo_intensity = 0.0
 target_fps = 30

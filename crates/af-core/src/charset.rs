@@ -38,6 +38,11 @@ pub const CHARSET_GLITCH_2: &str = " ▂▃▄▅▆▇█";
 /// Digital Matrix — purisme binaire et cryptique.
 pub const CHARSET_DIGITAL: &str = " 01";
 
+/// Haute Résolution — 34 caractères ASCII purs, gradient fin optimisé pour
+/// les grandes cellules de caractères (batch export scale 24-48px).
+/// Exclut les lettres minuscules (lisibles et distractantes à grande taille).
+pub const CHARSET_HIRES: &str = " .'`:,;_-~\"!|/\\(){}[]<>+*=?^#%&@$";
+
 /// Lookup table mapping luminance [0..255] → character.
 ///
 /// Pre-computed at startup for O(1) per-pixel cost.
@@ -120,6 +125,19 @@ mod tests {
             let ch = lut.map(i);
             let idx = chars.iter().position(|&c| c == ch).unwrap_or(0);
             assert!(idx >= prev_idx, "LUT non monotone à luminance {i}");
+            prev_idx = idx;
+        }
+    }
+
+    #[test]
+    fn luminance_lut_hires_monotonic() {
+        let lut = LuminanceLut::new(CHARSET_HIRES);
+        let chars: Vec<char> = CHARSET_HIRES.chars().collect();
+        let mut prev_idx = 0usize;
+        for i in 0..=255u8 {
+            let ch = lut.map(i);
+            let idx = chars.iter().position(|&c| c == ch).unwrap_or(0);
+            assert!(idx >= prev_idx, "HIRES LUT non monotone à luminance {i}");
             prev_idx = idx;
         }
     }

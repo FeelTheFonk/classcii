@@ -54,6 +54,9 @@ impl Rasterizer {
         // Sextant characters (Unicode 13.0 Symbols for Legacy Computing)
         rasterizer.cache_charset(&font, scale, 0x1FB00..=0x1FB3B);
 
+        // Octant characters (future-proof — skipped silently if font lacks coverage)
+        rasterizer.cache_charset(&font, scale, 0x1CD00..=0x1CDE5);
+
         Ok(rasterizer)
     }
 

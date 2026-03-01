@@ -23,6 +23,11 @@ fn main() -> Result<()> {
         .filter_level(cli.log_level.parse().unwrap_or(log::LevelFilter::Warn))
         .init();
 
+    // 2b. --preset-list : scan & display available presets, then exit
+    if cli.preset_list {
+        return list_presets();
+    }
+
     // 3. Valider la source
     let _ = cli.validate_source();
 
@@ -156,6 +161,35 @@ fn init_audio(
     } else {
         (None, None)
     }
+}
+
+/// Scan config/presets/ for .toml files, print sorted names, and exit.
+fn list_presets() -> Result<()> {
+    let presets_dir = std::path::Path::new("config/presets");
+    if !presets_dir.is_dir() {
+        anyhow::bail!("Dossier presets introuvable : {}", presets_dir.display());
+    }
+
+    let mut names: Vec<String> = std::fs::read_dir(presets_dir)?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                path.file_stem().and_then(|s| s.to_str()).map(String::from)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    names.sort();
+
+    println!("Available presets ({}):", names.len());
+    for name in &names {
+        println!("  {name}");
+    }
+
+    Ok(())
 }
 
 /// Resolve config: preset takes priority over --config.

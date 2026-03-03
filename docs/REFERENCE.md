@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.0.4.
+All default values are synchronized with `RenderConfig::default()` v1.1.0.
 
 ---
 
@@ -352,7 +352,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.0.4, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.1.0, synchronized with `config/default.toml`:
 
 ```toml
 [render]

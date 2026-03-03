@@ -149,6 +149,10 @@ pub struct App {
     perf_exceed_count: u8,
     /// Whether shape-matching auto-disable warning has been logged.
     shape_warn_logged: bool,
+    /// Parameter change flash countdown (decremented each frame, >0 = show indicator).
+    param_flash_frames: u8,
+    /// Help overlay scroll offset (lines).
+    help_scroll_offset: u16,
 }
 
 impl App {
@@ -230,6 +234,8 @@ impl App {
             perf_warning: false,
             perf_exceed_count: 0,
             shape_warn_logged: false,
+            param_flash_frames: 0,
+            help_scroll_offset: 0,
         })
     }
 
@@ -524,6 +530,8 @@ impl App {
             let creation_mode_active = self.creation_mode_active;
             let perf_warning = self.perf_warning;
             let base_config = self.config.load();
+            let playback_pos_secs = self.media_clock.as_ref().map(|c| c.pos_secs());
+            let param_flash = self.param_flash_frames;
             terminal.draw(|frame| {
                 let ctx = DrawContext {
                     grid,
@@ -540,10 +548,16 @@ impl App {
                     creation: layout_creation.as_ref(),
                     creation_mode_active,
                     perf_warning,
+                    playback_pos_secs,
+                    param_flash,
+                    help_scroll: self.help_scroll_offset,
                 };
                 af_render::ui::draw(frame, &ctx);
             })?;
             self.sidebar_dirty = false;
+
+            // Decrement param flash counter
+            self.param_flash_frames = self.param_flash_frames.saturating_sub(1);
 
             // Restore scratch (preserves internal Vec/String allocations for next frame)
             self.render_config_scratch = render_config;
@@ -597,6 +611,24 @@ impl App {
                 self.handle_creation_key(code);
                 return;
             }
+            if self.state == AppState::Help {
+                match code {
+                    KeyCode::Up => {
+                        self.help_scroll_offset = self.help_scroll_offset.saturating_sub(1);
+                        return;
+                    }
+                    KeyCode::Down => {
+                        self.help_scroll_offset = self.help_scroll_offset.saturating_add(1).min(40);
+                        return;
+                    }
+                    KeyCode::Char('?') | KeyCode::Esc => {
+                        self.state = AppState::Running;
+                        self.sidebar_dirty = true;
+                        return;
+                    }
+                    _ => return,
+                }
+            }
 
             match code {
                 KeyCode::Char('q' | '?' | ' ' | 'o' | 'O') | KeyCode::Esc => {
@@ -639,6 +671,9 @@ impl App {
                 ) => self.handle_effect_key(code),
                 KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
                     self.handle_playback_key(code);
+                }
+                KeyCode::Backspace => {
+                    self.reset_params_to_default();
                 }
                 _ => {}
             }
@@ -740,6 +775,7 @@ impl App {
                 self.state = if self.state == AppState::Help {
                     AppState::Running
                 } else {
+                    self.help_scroll_offset = 0;
                     AppState::Help
                 };
                 self.sidebar_dirty = true;
@@ -1203,6 +1239,18 @@ impl App {
         mutate(&mut new);
         self.config.store(Arc::new(new));
         self.sidebar_dirty = true;
+        self.param_flash_frames = 3;
+    }
+
+    /// Reset all render parameters to defaults, preserving runtime state
+    /// (loaded media, threads, media clock, presets, etc.).
+    fn reset_params_to_default(&mut self) {
+        let defaults = RenderConfig::default();
+        self.config.store(Arc::new(defaults));
+        self.sidebar_dirty = true;
+        self.param_flash_frames = 6; // Longer flash for full reset
+        self.terminal_size = (0, 0); // Force buffer recalculation
+        log::info!("Parameters reset to defaults");
     }
 
     /// Check if the terminal has been resized and update buffers accordingly.
@@ -1469,7 +1517,16 @@ impl App {
                     }
                 }
             }
-            MediaType::Video => self.start_video(path),
+            MediaType::Video => {
+                // Extraire et lire la bande sonore de la vidéo (audio réactif).
+                // L'audio démarre EN PREMIER pour créer le MediaClock partagé,
+                // puis le thread vidéo le reçoit pour la synchronisation A/V.
+                self.shutdown_audio();
+                self.start_audio_from_path(&path.to_string_lossy());
+                self.loaded_audio_name =
+                    path.file_name().and_then(|n| n.to_str()).map(String::from);
+                self.start_video(path);
+            }
             MediaType::Audio => {} // unreachable in this context
         }
         self.loaded_visual_name = path.file_name().and_then(|n| n.to_str()).map(String::from);

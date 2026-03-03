@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-03-03
+
+### Added
+- **Playback position display**: `▶ MM:SS` in sidebar Audio section, reads from `MediaClock` (video/audio file playback).
+- **Parameter reset** (`Backspace`): Resets all `RenderConfig` to defaults, preserving loaded media, threads, and media clock.
+- **Parameter change flash**: Green `●` indicator on sidebar title for 3 frames on toggle, 6 frames on full reset.
+- **Scrollable Help overlay**: `Up`/`Down` scroll with `▲▼` indicators in title. Backspace hint added to Navigation section.
+- **Overlay background dim**: Canvas behind Help and CharsetEdit overlays dimmed (RGB/3 foreground, dark background) for visual separation.
+- **Compact sidebar mode**: Zero-value effects hidden when terminal height < 30 rows.
+- **Sidebar perf warning**: `⚠` shown in sidebar title when frame budget exceeded for 10+ consecutive frames.
+
+### Changed
+- **Creation Mode overlay**: Docked to top-right (44 cols) instead of center-screen. Non-invasive — leaves canvas visible on left.
+- **Help overlay**: Camera and audio sections compacted into 2-line format. Total line count reduced. Footer updated to `↑↓ scroll  ? or Esc close`.
+- **Footer action hints**: `[o]Med [O]Aud K●/K○` replaces `o/O C K●` — clearer discoverability with creation mode status.
+- **Help state isolation**: Help mode now intercepts all keys (Up/Down scroll, ?/Esc close only). No unintended parameter changes while reading help.
+- **Sidebar formatting**: `format!()` direct replaces `buf.clone()` intermediate — eliminates unnecessary String allocation per sidebar line.
+
+### Fixed
+- **Audio playback from video**: Loading a video via UI file dialog (`o`) now correctly starts audio playback from the video's soundtrack, enabling audio-reactive features.
+
+### Quality
+- 0 clippy warnings (pedantic + deny), 0 compilation warnings.
+
 ## [1.0.4] — 2026-03-03
 
 ### Fixed

@@ -41,7 +41,7 @@ Lock-free synchronization via `triple_buffer` and `flume` channels. A fourth mod
 cargo build
 
 # Release with video + batch export support
-cargo build --release --features video
+cargo build --release --features full
 ```
 
 ## Quick Start
@@ -81,7 +81,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 - Zero `unsafe` blocks — `#![deny(unsafe_code)]` workspace-wide (R2).
 - Zero panicking unwraps — `?` operator and graceful fallback (R3).
 - Zero unnecessary copies — `Arc<FrameBuffer>`, `arc-swap`, lock-free `triple_buffer` (R4).
-- `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings.
+- `cargo clippy --workspace --features full -- -D warnings` passes 0 warnings.
 - 83 tests (unit + doctests). `cargo fmt --check --all` clean.
 - All division operations guarded. All inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.

@@ -69,6 +69,12 @@ pub struct DrawContext<'a> {
     pub creation: Option<&'a CreationOverlayData<'a>>,
     pub creation_mode_active: bool,
     pub perf_warning: bool,
+    /// Current playback position in seconds (from MediaClock), None if no media loaded.
+    pub playback_pos_secs: Option<f64>,
+    /// Parameter change flash countdown (>0 means show flash indicator).
+    pub param_flash: u8,
+    /// Help overlay scroll offset.
+    pub help_scroll: u16,
 }
 
 // ─── Main draw ─────────────────────────────────────────────────────
@@ -130,17 +136,39 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
             ctx.state,
             ctx.creation_mode_active,
             ctx.perf_warning,
+            ctx.playback_pos_secs,
+            ctx.param_flash,
         );
     }
 
     // Overlays (modal, one at a time)
     // Help overlay draws even in fullscreen if toggled
     if *ctx.state == RenderState::Help {
-        draw_help_overlay(frame, area);
+        dim_overlay_background(frame, area);
+        draw_help_overlay(frame, area, ctx.help_scroll);
     } else if let Some((buf, cursor)) = ctx.charset_edit {
+        dim_overlay_background(frame, area);
         draw_charset_edit_overlay(frame, area, buf, cursor);
     } else if let Some(creation) = ctx.creation {
         draw_creation_overlay(frame, area, creation, ctx.audio);
+    }
+}
+
+/// Dim the entire frame area to create visual separation for overlays.
+fn dim_overlay_background(frame: &mut Frame, area: Rect) {
+    let buf = frame.buffer_mut();
+    for y in area.y..area.y + area.height {
+        for x in area.x..area.x + area.width {
+            if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, y)) {
+                cell.set_bg(Color::Rgb(12, 12, 16));
+                // Dim foreground
+                if let Color::Rgb(r, g, b) = cell.fg {
+                    cell.set_fg(Color::Rgb(r / 3, g / 3, b / 3));
+                } else {
+                    cell.set_fg(Color::DarkGray);
+                }
+            }
+        }
     }
 }
 
@@ -188,6 +216,8 @@ fn draw_sidebar(
     state: &RenderState,
     creation_mode_active: bool,
     perf_warning: bool,
+    playback_pos_secs: Option<f64>,
+    param_flash: u8,
 ) {
     let mode_str = match config.render_mode {
         af_core::config::RenderMode::Ascii => "ASCII",
@@ -234,9 +264,6 @@ fn draw_sidebar(
         "\u{25cb}"
     };
 
-    // Reusable formatting buffer — single allocation reused for all numeric values
-    let mut buf = String::with_capacity(16);
-
     // Key-value line builder: key 4-pad, label 6-pad, value remainder
     let label = Color::Gray;
     let val_c = Color::White;
@@ -250,12 +277,7 @@ fn draw_sidebar(
     };
 
     macro_rules! fmt {
-        ($fmt:literal, $val:expr) => {{
-            use std::fmt::Write;
-            buf.clear();
-            write!(buf, $fmt, $val).ok();
-            buf.clone()
-        }};
+        ($fmt:literal, $val:expr) => {{ format!($fmt, $val) }};
     }
 
     let dither_str = match config.dither_mode {
@@ -319,6 +341,17 @@ fn draw_sidebar(
         kv_line("u/U", "WSpeed", &fmt!("{:.1}", config.wave_speed)),
     ];
 
+    // Compact mode: hide zero-value effects on small terminals
+    let compact_effects = area.height < 30;
+    if compact_effects {
+        lines.retain(|line| {
+            // Keep section headers and lines with non-zero values
+            let text = line.to_string();
+            // Keep all non-effect lines (they don't start with key hints like "f/F")
+            !text.contains(": 0.0") && !text.contains(": OFF")
+        });
+    }
+
     // ─── Camera (conditional — hidden on small terminals) ─────────
     let show_camera = area.height >= 35;
     if show_camera {
@@ -369,6 +402,17 @@ fn draw_sidebar(
         )));
     }
 
+    // Playback position (MM:SS) when media clock is available
+    if let Some(secs) = playback_pos_secs {
+        let total_s = secs as u64;
+        let mm = total_s / 60;
+        let ss = total_s % 60;
+        lines.push(Line::from(Span::styled(
+            format!(" \u{25b6} {mm:02}:{ss:02}"),
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+
     // ─── Info (condensed on small terminals) ────────────────
     let show_full_info = area.height >= 28;
 
@@ -412,24 +456,42 @@ fn draw_sidebar(
 
         lines.push(Line::from(""));
         let creation_indicator = if creation_mode_active {
-            Span::styled(" K\u{25cf}", Style::default().fg(Color::Cyan))
+            Span::styled("K\u{25cf}", Style::default().fg(Color::Cyan))
         } else {
-            Span::styled(" K\u{25cb}", Style::default().fg(label))
+            Span::styled("K\u{25cb}", Style::default().fg(Color::DarkGray))
         };
         lines.push(Line::from(vec![
-            Span::styled(" o/O C", Style::default().fg(label)),
+            Span::styled(" [o]Med ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[O]Aud ", Style::default().fg(Color::DarkGray)),
             creation_indicator,
         ]));
     }
 
-    let sidebar =
-        Paragraph::new(lines).block(Block::default().borders(Borders::LEFT).title(" Params "));
+    let sidebar_title = if param_flash > 0 {
+        " Params \u{25cf} "
+    } else if perf_warning {
+        " Params \u{26a0} "
+    } else {
+        " Params "
+    };
+    let title_color = if param_flash > 0 {
+        Color::Green
+    } else {
+        Color::White
+    };
+    let sidebar = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::LEFT)
+            .title(sidebar_title)
+            .title_style(Style::default().fg(title_color)),
+    );
 
     frame.render_widget(sidebar, area);
 }
 
-/// Draw a semi-transparent help overlay with all keybindings.
-fn draw_help_overlay(frame: &mut Frame, area: Rect) {
+/// Draw a scrollable help overlay with all keybindings.
+#[allow(clippy::too_many_lines)]
+fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
     let help_text = vec![
         Line::from(Span::styled(
             " clasSCII \u{2014} Controls ",
@@ -443,6 +505,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         Line::from(" q/Esc    Quit"),
         Line::from(" Space    Play/Pause"),
         Line::from(" ?        Toggle help"),
+        Line::from(" Bksp     Reset all params"),
         Line::from(Span::styled(
             " \u{2500}\u{2500} Render \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
             Style::default().fg(Color::Yellow),
@@ -513,17 +576,32 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect) {
         )),
     ];
 
+    let total_lines = help_text.len() as u16;
     let help_width = 42u16.min(area.width.saturating_sub(4));
     let max_height = area.height.saturating_sub(2);
-    let help_height = (help_text.len() as u16 + 2).min(max_height);
+    let help_height = (total_lines + 2).min(max_height);
     let x = area.x + area.width.saturating_sub(help_width) / 2;
     let y = area.y + area.height.saturating_sub(help_height) / 2;
     let help_area = Rect::new(x, y, help_width, help_height);
 
-    let help = Paragraph::new(help_text).block(
+    // Scroll indicators in title
+    let inner_height = help_height.saturating_sub(2);
+    let can_scroll_up = scroll > 0;
+    let can_scroll_down = total_lines > scroll + inner_height;
+    let title = if can_scroll_up && can_scroll_down {
+        " Help \u{25b2}\u{25bc} "
+    } else if can_scroll_up {
+        " Help \u{25b2} "
+    } else if can_scroll_down {
+        " Help \u{25bc} "
+    } else {
+        " Help "
+    };
+
+    let help = Paragraph::new(help_text).scroll((scroll, 0)).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Help ")
+            .title(title)
             .style(Style::default().bg(Color::Black).fg(Color::White)),
     );
 
@@ -719,14 +797,15 @@ fn draw_creation_overlay(
     // Footer
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        " [\u{2191}\u{2193}] Select [\u{2190}\u{2192}] Adjust [a] Auto [p] Preset [Esc] Hide [q] Off",
+        " [\u{2191}\u{2193}]Sel [\u{2190}\u{2192}]Adj [a]Auto [p]Pre [Esc]Hide",
         Style::default().fg(Color::DarkGray),
     )));
 
-    let overlay_width = 52u16.min(area.width.saturating_sub(4));
-    let overlay_height = lines.len() as u16 + 2;
-    let x = area.x + area.width.saturating_sub(overlay_width) / 2;
-    let y = area.y + area.height.saturating_sub(overlay_height) / 2;
+    let overlay_width = 44u16.min(area.width.saturating_sub(2));
+    let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(2));
+    // Dock to right side (non-invasive — leaves canvas visible on the left)
+    let x = area.x + area.width.saturating_sub(overlay_width).saturating_sub(1);
+    let y = area.y + 1;
     let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
 
     let widget = Paragraph::new(lines).block(

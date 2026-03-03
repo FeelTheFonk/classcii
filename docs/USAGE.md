@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v1.0.4 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.1.0 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ Complete reference for classcii v1.0.4 — real-time audio-reactive ASCII/Unicod
 ```bash
 git clone https://github.com/FeelTheFonk/classcii.git
 cd classcii
-cargo build --release --features video
+cargo build --release --features full
 ```
 
 ## First Run
@@ -68,7 +68,7 @@ All flags are optional. Running `classcii` with no arguments launches the TUI wi
 
 ## Keyboard Controls
 
-Press `?` to show the in-app help overlay.
+Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 
 ### Navigation & Playback
 
@@ -78,6 +78,7 @@ Press `?` to show the in-app help overlay.
 | `?` | Toggle help overlay |
 | `Space` | Pause / Resume |
 | `Left` / `Right` | Seek video/audio stream |
+| `Backspace` | Reset all parameters to defaults |
 
 ### Render Mode & Display
 

@@ -3,7 +3,7 @@
 [render]
 render_mode = "Octant"
 charset_index = 0
-charset = " .'\`:,;_-~\"!|/\\(){}[]<>+*=?^#%&@$"
+charset = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
 density_scale = 1.0
 invert = false
 color_enabled = true

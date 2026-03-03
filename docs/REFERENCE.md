@@ -15,7 +15,7 @@ Configuration files have two sections: `[render]` and `[audio]`. All fields are 
 | Field | Type | Values / Range | Default |
 |-------|------|----------------|---------|
 | `render_mode` | String | `"Ascii"`, `"Braille"`, `"HalfBlock"`, `"Quadrant"`, `"Sextant"`, `"Octant"` | `"Octant"` |
-| `charset` | String | Any string, min 2 chars | `" .'\\`:,;_-~\"!\|/\\(){}[]<>+*=?^#%&@$"` (70 chars) |
+| `charset` | String | Any string, min 2 chars | CHARSET_FULL (70 chars) |
 | `charset_index` | Integer | 0–9 | `0` |
 | `dither_mode` | String | `"Bayer8x8"`, `"BlueNoise16"`, `"None"` | `"BlueNoise16"` |
 | `invert` | Boolean | — | `false` |
@@ -356,7 +356,7 @@ All values as defined in `RenderConfig::default()` v1.0.1, synchronized with `co
 [render]
 render_mode = "Octant"
 charset_index = 0
-charset = " .'`:,;_-~\"!|/\\(){}[]<>+*=?^#%&@$"
+charset = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
 dither_mode = "BlueNoise16"
 invert = false
 color_enabled = true

@@ -62,7 +62,11 @@ pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
         _ => (v, p, q),
     };
 
-    ((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
+    (
+        (r.clamp(0.0, 1.0) * 255.0) as u8,
+        (g.clamp(0.0, 1.0) * 255.0) as u8,
+        (b.clamp(0.0, 1.0) * 255.0) as u8,
+    )
 }
 
 /// Technique HSV Bright : force V=1.0, le char ASCII encode la luminance.

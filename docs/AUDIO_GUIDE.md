@@ -66,7 +66,7 @@ Audio runs on a dedicated thread. Features are published via a lock-free `triple
 | `onset` | 0 or 1 | Binary trigger — fires on detected beat/transient. |
 | `beat_intensity` | 0.0–1.0 | Onset strength — how strong the detected beat is. |
 | `beat_phase` | 0.0–1.0 | Position within current beat cycle (0.0 = on beat, 0.5 = off-beat). |
-| `bpm` | normalized | Estimated BPM / 200. Slow-moving, useful for macro modulation. |
+| `bpm` | normalized | Estimated BPM / 300. Slow-moving, useful for macro modulation. |
 | `onset_envelope` | 0.0–1.0 | Exponential decay envelope from last onset. Ideal for strobe/flash. |
 
 ### MFCC Timbral Features
@@ -100,7 +100,7 @@ Each target is a visual parameter in `RenderConfig`. Mappings are additive — d
 | `brightness` | -1.0–1.0 | 0.0 | Luminance offset |
 | `saturation` | 0.0–3.0 | 1.0 | Color saturation multiplier |
 | `density_scale` | 0.25–4.0 | 1.0 | Character density multiplier |
-| `invert` | toggle | false | Flips luminance when delta > 0.5 |
+| `invert` | threshold | false | Sets invert = true when delta > 0.5, false otherwise |
 
 ### Effect Parameters
 
@@ -197,38 +197,40 @@ curve = "Smooth"               # Linear, Exponential, Threshold, Smooth
 smoothing = 0.3                # Per-mapping EMA override (optional)
 ```
 
-Multiple mappings can be active simultaneously. The global `audio_smoothing` applies to all mappings unless overridden by per-mapping `smoothing`.
+Multiple mappings can be active simultaneously. Per-mapping smoothing is opt-in. Without explicit `smoothing` field, features pass through directly (already smoothed by the feature-level EMA).
 
 ---
 
 ## Smoothing
 
-### Global Smoothing
+### Feature-Level Smoothing (Global)
 
-`smoothing` in `[audio]` applies an Exponential Moving Average (EMA) to all mapping outputs:
+`smoothing` in `[audio]` controls the `FeatureSmoother` EMA applied to all audio features before they reach mappings:
 
 ```
 smoothed = previous × (1 - alpha) + current × alpha
 ```
 
-- `0.0` = no smoothing (raw signal, jittery)
-- `0.3` = light smoothing (responsive, default)
-- `0.7` = moderate (smooth, slight lag)
-- `1.0` = maximum (very smooth, noticeable lag)
+- `0.1` = minimal smoothing (responsive, slight jitter)
+- `0.3` = balanced (responsive, default)
+- `0.6` = moderate (smooth, slight lag)
+- `0.9` = heavy (very smooth, significant lag)
 
-### Per-Mapping Smoothing
+This smoothing is attack/release asymmetric: fast response to increases, slow decay.
 
-Override global smoothing for individual mappings:
+### Per-Mapping Smoothing (Opt-In)
+
+Add a **second** EMA stage to individual mappings. Without this field, features pass through directly — no additional filtering:
 
 ```toml
 [[audio.mappings]]
 source = "onset_envelope"
 target = "beat_flash_intensity"
 amount = 0.5
-smoothing = 0.2    # Faster response than global
+smoothing = 0.3    # Optional — adds per-mapping EMA (framerate-corrected)
 ```
 
-Use lower smoothing for beat-driven mappings (fast attack) and higher for ambient modulation (prevent jitter).
+Per-mapping smoothing is framerate-independent (calibrated for 60 FPS, corrected via `1 - (1-alpha)^(60/fps)`). Use sparingly — double-smoothing (feature + per-mapping) can over-dampen transient signals.
 
 ### Adaptive Per-Band Smoothing
 

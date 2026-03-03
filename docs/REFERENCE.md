@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.1.1.
+All default values are synchronized with `RenderConfig::default()` v1.1.2.
 
 ---
 
@@ -355,7 +355,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.1.1, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.1.2, synchronized with `config/default.toml`:
 
 ```toml
 [render]
@@ -397,7 +397,7 @@ show_spectrum = false
 
 [audio]
 smoothing = 0.3
-sensitivity = 1.5
+sensitivity = 2.0
 ```
 
 ### Default Audio Mappings (5)
@@ -406,30 +406,30 @@ sensitivity = 1.5
 [[audio.mappings]]
 source = "bass"
 target = "edge_threshold"
-amount = 0.5
-curve = "Exponential"
+amount = 0.7
+curve = "Smooth"
 
 [[audio.mappings]]
 source = "spectral_flux"
 target = "contrast"
-amount = 0.6
+amount = 0.8
 curve = "Linear"
 
 [[audio.mappings]]
 source = "rms"
 target = "brightness"
-amount = 0.25
+amount = 0.4
 curve = "Linear"
 
 [[audio.mappings]]
 source = "beat_intensity"
 target = "beat_flash_intensity"
-amount = 0.8
+amount = 1.2
 curve = "Smooth"
 
 [[audio.mappings]]
 source = "spectral_centroid"
 target = "glow_intensity"
-amount = 0.5
+amount = 0.7
 curve = "Linear"
 ```

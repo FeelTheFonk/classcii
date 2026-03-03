@@ -126,6 +126,11 @@ pub fn start_source(
 ///
 /// `onset_envelope` est un signal synthétique calculé dans App (decay exponentiel).
 /// `smooth_state` accumule l'EMA per-mapping (redimensionné si nécessaire).
+/// `target_fps` permet la correction framerate-independent du lissage per-mapping.
+///
+/// Le lissage per-mapping est **opt-in** : seuls les mappings avec `smoothing: Some(val)`
+/// appliquent un EMA supplémentaire. Sans override, les features (déjà lissées par
+/// `FeatureSmoother`) sont utilisées directement — évite le double-smoothing.
 ///
 /// # Example
 /// ```
@@ -136,7 +141,7 @@ pub fn start_source(
 /// let mut config = RenderConfig::default();
 /// let features = AudioFeatures::default();
 /// let mut smooth = vec![];
-/// apply_audio_mappings(&mut config, &features, 0.0, &mut smooth);
+/// apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
 /// ```
 #[allow(clippy::too_many_lines)]
 pub fn apply_audio_mappings(
@@ -144,11 +149,11 @@ pub fn apply_audio_mappings(
     features: &AudioFeatures,
     onset_envelope: f32,
     smooth_state: &mut Vec<f32>,
+    target_fps: u32,
 ) {
     use af_core::config::MappingCurve;
 
     let sensitivity = config.audio_sensitivity;
-    let global_smoothing = config.audio_smoothing;
 
     // Resize smooth_state si le nombre de mappings a changé
     if smooth_state.len() != config.audio_mappings.len() {
@@ -207,10 +212,20 @@ pub fn apply_audio_mappings(
 
         let raw_delta = shaped * mapping.amount * sensitivity + mapping.offset;
 
-        // Per-mapping EMA smoothing
-        let alpha = mapping.smoothing.unwrap_or(global_smoothing);
-        smooth_state[i] = smooth_state[i] * (1.0 - alpha) + raw_delta * alpha;
-        let delta = smooth_state[i];
+        // Per-mapping EMA smoothing — opt-in only.
+        // Without explicit per-mapping smoothing, features pass through directly
+        // (already smoothed by FeatureSmoother in the audio thread).
+        let delta = if let Some(user_alpha) = mapping.smoothing {
+            // Framerate-independent correction: alpha calibrated for 60 FPS baseline.
+            let fps = f32::from(target_fps.max(1) as u16);
+            let alpha = 1.0 - (1.0 - user_alpha).powf(60.0 / fps);
+            smooth_state[i] = smooth_state[i] * (1.0 - alpha) + raw_delta * alpha;
+            smooth_state[i]
+        } else {
+            // No per-mapping smoothing — direct passthrough (eliminates double-smoothing)
+            smooth_state[i] = raw_delta;
+            raw_delta
+        };
 
         match mapping.target.as_str() {
             "edge_threshold" => {

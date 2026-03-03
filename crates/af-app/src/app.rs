@@ -308,22 +308,26 @@ impl App {
             // R1: reuse scratch RenderConfig (clone_from preserves Vec/String capacity)
             let mut render_config = std::mem::take(&mut self.render_config_scratch);
             render_config.clone_from(&config);
-            if let Some(ref features) = audio_features {
-                pipeline::apply_audio_mappings(
-                    &mut render_config,
-                    features,
-                    self.onset_envelope,
-                    &mut self.mapping_smooth_state,
-                );
-            }
 
-            // Update onset envelope (continuous decay — must run even without source frame)
+            // Update onset envelope BEFORE mapping — ensures onset_envelope is synchronous
+            // (mappings using onset_envelope as source see the current frame's value)
             if let Some(ref features) = audio_features {
                 if features.onset {
                     self.onset_envelope = 1.0;
                 } else {
                     self.onset_envelope *= render_config.strobe_decay;
                 }
+            }
+
+            if let Some(ref features) = audio_features {
+                let fps = render_config.target_fps;
+                pipeline::apply_audio_mappings(
+                    &mut render_config,
+                    features,
+                    self.onset_envelope,
+                    &mut self.mapping_smooth_state,
+                    fps,
+                );
             }
 
             // === Process source frame into ASCII grid ===

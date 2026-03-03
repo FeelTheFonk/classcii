@@ -28,27 +28,26 @@ smoothing = 0.65
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.2
+amount = 0.35
 curve = "Smooth"
-smoothing = 0.8
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
 target = "saturation"
-amount = 0.25
+amount = 0.35
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "bass"
 target = "camera_zoom_amplitude"
-amount = 0.2
+amount = 0.35
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "peak"
 target = "edge_mix"
-amount = 0.2
-curve = "Threshold"
+amount = 0.35
+curve = "Smooth"

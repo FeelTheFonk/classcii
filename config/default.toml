@@ -33,6 +33,7 @@ wave_amplitude = 0.0               # Sinusoidal row shift (0 = off)
 wave_speed = 0.0                   # Wave oscillation speed (active when amplitude > 0)
 color_pulse_speed = 0.0            # HSV hue rotation speed (0 = off)
 scanline_gap = 0                   # Darken every Nth row (0 = off)
+scanline_darken = 0.3
 strobe_decay = 0.85                # Strobe decay rate per frame
 temporal_stability = 0.3           # Anti-flicker strength (0 = off)
 zalgo_intensity = 0.0              # Zalgo diacritics intensity (0 = off)
@@ -43,8 +44,8 @@ fullscreen = false
 show_spectrum = false
 
 [audio]
-smoothing = 0.3                    # Mapping-level EMA (feature-level smooth already applied)
-sensitivity = 1.5                  # Global multiplier for all mapping deltas
+smoothing = 0.3                    # FeatureSmoother alpha (feature-level EMA)
+sensitivity = 2.0                  # Global multiplier for all mapping deltas
 
 # Audio-reactive mappings
 
@@ -52,15 +53,15 @@ sensitivity = 1.5                  # Global multiplier for all mapping deltas
 enabled = true
 source = "bass"
 target = "edge_threshold"
-amount = 0.5
+amount = 0.7
 offset = 0.0
-curve = "Exponential"              # Suppress noise, amplify peaks
+curve = "Smooth"                   # Hermite smoothstep — softer gate than Exponential
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_flux"
 target = "contrast"
-amount = 0.6
+amount = 0.8
 offset = 0.0
 curve = "Linear"
 
@@ -68,7 +69,7 @@ curve = "Linear"
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.25
+amount = 0.4
 offset = 0.0
 curve = "Linear"
 
@@ -76,7 +77,7 @@ curve = "Linear"
 enabled = true
 source = "beat_intensity"
 target = "beat_flash_intensity"
-amount = 0.8
+amount = 1.2
 offset = 0.0
 curve = "Smooth"
 
@@ -84,6 +85,6 @@ curve = "Smooth"
 enabled = true
 source = "spectral_centroid"
 target = "glow_intensity"
-amount = 0.5
+amount = 0.7
 offset = 0.0
 curve = "Linear"

@@ -31,26 +31,26 @@ smoothing = 0.15
 enabled = true
 source = "spectral_flux"
 target = "zalgo_intensity"
-amount = 1.2
+amount = 0.84
 curve = "Exponential"
 
 [[audio.mappings]]
 enabled = true
 source = "onset"
 target = "invert"
-amount = 0.8
+amount = 0.56
 curve = "Threshold"
 
 [[audio.mappings]]
 enabled = true
 source = "bass"
 target = "density_scale"
-amount = 0.6
+amount = 0.42
 curve = "Exponential"
 
 [[audio.mappings]]
 enabled = true
 source = "timbral_roughness"
 target = "contrast"
-amount = 0.5
+amount = 0.35
 curve = "Smooth"

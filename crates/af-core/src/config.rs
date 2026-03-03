@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 /// use af_core::config::RenderConfig;
 /// let config = RenderConfig::default();
-/// assert_eq!(config.audio_sensitivity, 1.5);
+/// assert_eq!(config.audio_sensitivity, 2.0);
 /// ```
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -311,16 +311,16 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "bass".into(),
                     target: "edge_threshold".into(),
-                    amount: 0.5,
+                    amount: 0.7,
                     offset: 0.0,
-                    curve: MappingCurve::Exponential,
+                    curve: MappingCurve::Smooth,
                     smoothing: None,
                 },
                 AudioMapping {
                     enabled: true,
                     source: "spectral_flux".into(),
                     target: "contrast".into(),
-                    amount: 0.6,
+                    amount: 0.8,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
@@ -329,7 +329,7 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "rms".into(),
                     target: "brightness".into(),
-                    amount: 0.25,
+                    amount: 0.4,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
@@ -338,7 +338,7 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "beat_intensity".into(),
                     target: "beat_flash_intensity".into(),
-                    amount: 0.8,
+                    amount: 1.2,
                     offset: 0.0,
                     curve: MappingCurve::Smooth,
                     smoothing: None,
@@ -347,14 +347,14 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "spectral_centroid".into(),
                     target: "glow_intensity".into(),
-                    amount: 0.5,
+                    amount: 0.7,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
                 },
             ],
             audio_smoothing: 0.3,
-            audio_sensitivity: 1.5,
+            audio_sensitivity: 2.0,
             fade_decay: 0.0,
             glow_intensity: 0.0,
             zalgo_intensity: 0.0,

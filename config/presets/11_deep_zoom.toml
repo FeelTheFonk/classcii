@@ -35,7 +35,7 @@ curve = "Smooth"
 enabled = true
 source = "spectral_centroid"
 target = "camera_rotation"
-amount = 0.15
+amount = 0.35
 curve = "Smooth"
 
 [[audio.mappings]]

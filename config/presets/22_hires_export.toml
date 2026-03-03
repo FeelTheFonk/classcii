@@ -23,27 +23,27 @@ target_fps = 30
 
 [audio]
 sensitivity = 1.0
-smoothing = 0.65
+smoothing = 0.4
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.2
+amount = 0.3
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
 target = "saturation"
-amount = 0.25
+amount = 0.35
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "bass"
 target = "contrast"
-amount = 0.2
+amount = 0.3
 offset = 0.8
 curve = "Linear"
 
@@ -51,5 +51,5 @@ curve = "Linear"
 enabled = true
 source = "spectral_flux"
 target = "glow_intensity"
-amount = 0.3
+amount = 0.45
 curve = "Smooth"

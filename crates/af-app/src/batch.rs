@@ -698,7 +698,14 @@ pub fn run_batch_export(
                 mapper.set_base_config(preset_config_buf.clone());
             }
 
-            // Apply audio mappings with curve + smoothing (zero-alloc: reuses frame_config)
+            // Update onset envelope BEFORE mapping — synchronous with current frame
+            if current_features.onset {
+                onset_envelope = 1.0;
+            } else {
+                onset_envelope *= frame_config.strobe_decay;
+            }
+
+            // Apply audio mappings with curve (zero-alloc: reuses frame_config)
             mapper.apply_at(timestamp_secs, onset_envelope, &mut frame_config);
 
             // === 1. CLIP SEQUENCING (decoupled from mutations) ===
@@ -918,12 +925,7 @@ pub fn run_batch_export(
                     );
                 }
 
-                // Onset envelope tracking
-                if current_features.onset {
-                    onset_envelope = 1.0;
-                } else {
-                    onset_envelope *= frame_config.strobe_decay;
-                }
+                // Onset envelope tracking — already updated before mapper.apply_at() above.
 
                 // Color pulse phase
                 if frame_config.color_pulse_speed > 0.0 {

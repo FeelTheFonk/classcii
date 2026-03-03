@@ -20,12 +20,12 @@ fullscreen = true
 show_spectrum = false
 
 [audio]
-sensitivity = 0.6
-smoothing = 0.9
+sensitivity = 1.0
+smoothing = 0.6
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.35
+amount = 0.5
 curve = "Smooth"

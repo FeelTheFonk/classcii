@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] — 2026-03-03
+
+### Fixed
+- **Double-smoothing eliminated** — per-mapping EMA was redundantly applied on top of FeatureSmoother output, attenuating audio signal ~3×. Per-mapping smoothing is now opt-in only (explicit `smoothing` field required). Without it, features pass through directly. ~3× more audio signal reaches visual parameters.
+- **onset_envelope synchronization** — envelope now updated BEFORE `apply_audio_mappings()` in both TUI and batch mode. Mappings using `onset_envelope` as source see current-frame value (was 1-frame late).
+- **Batch onset double-decay** — onset_envelope was decayed twice per frame in batch render loop. Removed duplicate update.
+- **`invert` target semantics unified** — interactive mode used threshold (`delta > 0.5`), batch used toggle (`!config.invert`). Both now use threshold for deterministic behavior.
+- **HSV→RGB color clamp** — added `.clamp(0.0, 1.0)` before u8 cast to prevent color corruption on floating-point overflow.
+- **camera_rotation wrap in batch** — added `rem_euclid(TAU)` in generative.rs to prevent unbounded float drift during long renders. Matches interactive pipeline.
+- **Per-mapping smoothing framerate-corrected** — `alpha_corrected = 1 - (1-alpha)^(60/fps)` ensures identical behavior at 30 and 60 FPS.
+
+### Changed
+- **Default audio sensitivity** — 1.5 → 2.0 for stronger baseline reactivity.
+- **Default mapping amounts** — bass 0.5→0.7, spectral_flux 0.6→0.8, rms 0.25→0.4, beat_intensity 0.8→1.2, spectral_centroid 0.5→0.7.
+- **Default bass→edge_threshold curve** — Exponential → Smooth (Hermite smoothstep). Less aggressive compression of moderate signals (Smooth(0.3) = 0.216 vs Exponential(0.3) = 0.09).
+- **13 presets recalibrated** — 9 under-reactive presets boosted (amounts, sensitivity, smoothing), 4 over-reactive presets attenuated (×0.7 amounts) to compensate for double-smoothing elimination.
+- **AUDIO_GUIDE.md** — smoothing documentation updated (opt-in per-mapping, feature-level global), BPM normalization corrected (/ 300), invert target description corrected (threshold, not toggle).
+
+### Quality
+- 84 tests (25 unit + 59 doctests), 0 clippy warnings, 0 rustdoc warnings.
+- Full architecture audit: pipeline parity verified, no double-processing, no redundant allocations.
+
 ## [1.1.1] — 2026-03-03
 
 ### Fixed

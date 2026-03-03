@@ -44,12 +44,12 @@ curve = "Smooth"
 enabled = true
 source = "rms"
 target = "camera_pan_x"
-amount = 0.15
+amount = 0.3
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
 target = "glow_intensity"
-amount = 0.3
+amount = 0.5
 curve = "Linear"

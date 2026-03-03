@@ -26,14 +26,14 @@ impl AutoGenerativeMapper {
     /// Applique les mappings audio sur `out`, en le réinitialisant depuis `base_config`.
     ///
     /// L'`onset_envelope` est calculé par l'appelant (batch loop) et passé ici.
-    /// L'EMA smoothing est appliqué séquentiellement frame-par-frame, exactement
-    /// comme le pipeline interactif.
+    /// Le lissage per-mapping est opt-in : seuls les mappings avec `smoothing: Some(val)`
+    /// appliquent un EMA supplémentaire (correction framerate-independent, ref 60 FPS).
     pub fn apply_at(&mut self, timestamp_secs: f64, onset_envelope: f32, out: &mut RenderConfig) {
         let features = self.timeline.get_at_time(timestamp_secs);
         out.clone_from(&self.base_config);
 
         let sensitivity = self.base_config.audio_sensitivity;
-        let global_smoothing = self.base_config.audio_smoothing;
+        let fps = self.base_config.target_fps.max(1) as f32;
 
         if self.smooth_state.len() != self.base_config.audio_mappings.len() {
             self.smooth_state
@@ -52,10 +52,15 @@ impl AutoGenerativeMapper {
 
             let raw_delta = shaped * mapping.amount * sensitivity + mapping.offset;
 
-            // Per-mapping EMA smoothing
-            let alpha = mapping.smoothing.unwrap_or(global_smoothing);
-            self.smooth_state[i] = self.smooth_state[i] * (1.0 - alpha) + raw_delta * alpha;
-            let delta = self.smooth_state[i];
+            // Per-mapping EMA smoothing — opt-in only (parité avec pipeline.rs).
+            let delta = if let Some(user_alpha) = mapping.smoothing {
+                let alpha = 1.0 - (1.0 - user_alpha).powf(60.0 / fps);
+                self.smooth_state[i] = self.smooth_state[i] * (1.0 - alpha) + raw_delta * alpha;
+                self.smooth_state[i]
+            } else {
+                self.smooth_state[i] = raw_delta;
+                raw_delta
+            };
 
             apply_target(out, mapping.target.as_str(), delta);
         }
@@ -142,9 +147,7 @@ fn apply_target(config: &mut RenderConfig, target: &str, delta: f32) {
             config.density_scale = (config.density_scale + delta).clamp(0.25, 4.0);
         }
         "invert" => {
-            if delta > 0.5 {
-                config.invert = !config.invert;
-            }
+            config.invert = delta > 0.5;
         }
         "beat_flash_intensity" => {
             config.beat_flash_intensity = (config.beat_flash_intensity + delta).clamp(0.0, 2.0);
@@ -173,6 +176,7 @@ fn apply_target(config: &mut RenderConfig, target: &str, delta: f32) {
         }
         "camera_rotation" => {
             config.camera_rotation += delta * 0.1;
+            config.camera_rotation = config.camera_rotation.rem_euclid(std::f32::consts::TAU);
         }
         "camera_pan_x" => {
             config.camera_pan_x = (config.camera_pan_x + delta * 0.5).clamp(-2.0, 2.0);

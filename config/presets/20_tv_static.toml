@@ -33,7 +33,7 @@ enabled = true
 source = "zero_crossing_rate"
 target = "zalgo_intensity"
 amount = 0.5
-curve = "Threshold"
+curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true

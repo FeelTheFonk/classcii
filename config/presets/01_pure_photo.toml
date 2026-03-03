@@ -16,12 +16,12 @@ temporal_stability = 0.3
 target_fps = 60
 
 [audio]
-sensitivity = 0.8
-smoothing = 0.8
+sensitivity = 1.2
+smoothing = 0.5
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.15
+amount = 0.25
 curve = "Linear"

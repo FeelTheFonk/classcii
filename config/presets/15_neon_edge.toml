@@ -34,26 +34,26 @@ smoothing = 0.25
 enabled = true
 source = "bass"
 target = "brightness"
-amount = 0.35
+amount = 0.25
 curve = "Exponential"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
 target = "saturation"
-amount = 0.3
+amount = 0.21
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "onset_envelope"
 target = "beat_flash_intensity"
-amount = 0.5
+amount = 0.35
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "timbral_roughness"
 target = "contrast"
-amount = 0.3
+amount = 0.21
 curve = "Smooth"

@@ -82,7 +82,7 @@ Color modes:
 | Field | Type | Range | Default | Description |
 |-------|------|-------|---------|-------------|
 | `smoothing` | Float | 0.0–1.0 | `0.3` | Global EMA smoothing for all mappings |
-| `sensitivity` | Float | 0.0–5.0 | `1.5` | Global multiplier for all mapping outputs |
+| `sensitivity` | Float | 0.0–5.0 | `2.0` | Global multiplier for all mapping outputs |
 
 ### `[[audio.mappings]]` — Audio-to-Visual Mappings
 

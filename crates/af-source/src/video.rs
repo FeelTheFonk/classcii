@@ -113,8 +113,9 @@ impl VideoState {
 ///
 /// # Example
 /// ```no_run
-/// // Nécessite ffprobe en PATH
-/// // let info = probe_video(Path::new("video.mkv"));
+/// use std::path::Path;
+/// use af_source::video::probe_video;
+/// let info = probe_video(Path::new("video.mkv"));
 /// ```
 pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     let path_str = path.to_str().context("Chemin vidéo invalide (non-UTF8)")?;

@@ -1,36 +1,27 @@
-# Monochrome brutalist — high contrast blocks, heavy glow, stark.
+# 14_brutalism — Architectural monochrome brutalism. High density, strong glow.
+# Fullscreen, beat-driven density modulation, onset→invert for impact.
+
 [render]
 render_mode = "HalfBlock"
-charset_index = 3
 color_enabled = false
-color_mode = "Direct"
 dither_mode = "Bayer8x8"
 density_scale = 2.0
-invert = false
 contrast = 1.5
-brightness = 0.2
+brightness = 0.15
 saturation = 0.0
-edge_threshold = 0.0
-edge_mix = 0.0
-shape_matching = false
-aspect_ratio = 1.5
+aspect_ratio = 2.0
 bg_style = "Black"
 fade_decay = 0.2
-glow_intensity = 1.5
-beat_flash_intensity = 1.2
-chromatic_offset = 0.0
-wave_amplitude = 0.0
-color_pulse_speed = 0.0
-scanline_gap = 0
+glow_intensity = 1.3
+beat_flash_intensity = 1.0
+temporal_stability = 0.35
 strobe_decay = 0.8
-temporal_stability = 0.4
-zalgo_intensity = 0.0
 target_fps = 60
 fullscreen = true
 show_spectrum = false
 
 [audio]
-sensitivity = 2.0
+sensitivity = 1.8
 smoothing = 0.3
 
 [[audio.mappings]]
@@ -38,21 +29,18 @@ enabled = true
 source = "rms"
 target = "brightness"
 amount = 0.4
-offset = 0.0
-curve = "Exponential"
+curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "beat_intensity"
 target = "density_scale"
-amount = 0.8
-offset = -0.3
+amount = 0.6
 curve = "Threshold"
 
 [[audio.mappings]]
 enabled = true
 source = "onset"
 target = "invert"
-amount = 0.5
-offset = 0.0
+amount = 0.8
 curve = "Threshold"

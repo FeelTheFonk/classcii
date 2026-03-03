@@ -1,58 +1,42 @@
-# Spectral Bands — Each frequency band drives a distinct visual effect.
-# Sub-bass to brilliance mapped across the visual pipeline.
-# Showcases the full range of audio sources.
+# 09_spectral_bands — Each frequency band drives a distinct visual effect.
+# Educational and spectacular: sub_bass→wave, low_mid→fade, high_mid→chromatic,
+# presence→glow, brilliance→color_pulse.
+
 [render]
 render_mode = "Quadrant"
-charset_index = 0
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "Bayer8x8"
 density_scale = 1.0
-invert = false
-contrast = 1.2
+contrast = 1.15
 brightness = 0.0
-saturation = 1.4
-edge_threshold = 0.3
-edge_mix = 0.3
+saturation = 1.3
 shape_matching = true
+edge_threshold = 0.25
+edge_mix = 0.3
 aspect_ratio = 2.0
 bg_style = "SourceDim"
-fade_decay = 0.3
+fade_decay = 0.25
 glow_intensity = 0.3
-beat_flash_intensity = 0.2
-chromatic_offset = 0.0
-wave_amplitude = 0.0
-color_pulse_speed = 0.0
-scanline_gap = 0
-strobe_decay = 0.85
 temporal_stability = 0.4
-zalgo_intensity = 0.0
-camera_zoom_amplitude = 1.0
-camera_rotation = 0.0
-camera_pan_x = 0.0
-camera_pan_y = 0.0
 target_fps = 60
-fullscreen = false
-show_spectrum = true
 
 [audio]
-sensitivity = 1.3
+sensitivity = 1.2
 smoothing = 0.5
 
 [[audio.mappings]]
 enabled = true
 source = "sub_bass"
 target = "wave_amplitude"
-amount = 0.4
-offset = 0.0
+amount = 0.3
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "low_mid"
 target = "fade_decay"
-amount = 0.5
-offset = 0.0
+amount = 0.3
 curve = "Linear"
 
 [[audio.mappings]]
@@ -60,15 +44,13 @@ enabled = true
 source = "high_mid"
 target = "chromatic_offset"
 amount = 0.3
-offset = 0.0
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "presence"
 target = "glow_intensity"
-amount = 0.5
-offset = 0.0
+amount = 0.35
 curve = "Linear"
 
 [[audio.mappings]]
@@ -76,5 +58,4 @@ enabled = true
 source = "brilliance"
 target = "color_pulse_speed"
 amount = 0.4
-offset = 0.0
 curve = "Smooth"

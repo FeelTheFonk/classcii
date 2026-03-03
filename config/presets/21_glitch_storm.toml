@@ -1,0 +1,56 @@
+# 21_glitch_storm — Controlled chaos. Maximum visual distortion, musically driven.
+# Every extreme effect, but all driven by audio — never random.
+
+[render]
+render_mode = "Braille"
+color_enabled = true
+color_mode = "Quantized"
+dither_mode = "BlueNoise16"
+density_scale = 1.3
+contrast = 1.6
+brightness = -0.05
+saturation = 2.2
+invert = true
+aspect_ratio = 2.0
+bg_style = "SourceDim"
+chromatic_offset = 2.0
+wave_amplitude = 0.25
+wave_speed = 3.5
+color_pulse_speed = 1.5
+scanline_gap = 4
+beat_flash_intensity = 1.2
+fade_decay = 0.35
+strobe_decay = 0.7
+target_fps = 60
+
+[audio]
+sensitivity = 2.0
+smoothing = 0.15
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "zalgo_intensity"
+amount = 1.2
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "invert"
+amount = 0.8
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "density_scale"
+amount = 0.6
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "timbral_roughness"
+target = "contrast"
+amount = 0.5
+curve = "Smooth"

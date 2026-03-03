@@ -1,0 +1,55 @@
+# 12_aurora — Aurora borealis: saturated colors, undulating glow, camera drift.
+# Spectral rolloff drives color pulse, zero-crossing drives wave.
+
+[render]
+render_mode = "Quadrant"
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+contrast = 1.0
+brightness = 0.0
+saturation = 1.7
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.55
+glow_intensity = 0.7
+chromatic_offset = 0.4
+wave_amplitude = 0.12
+wave_speed = 1.5
+color_pulse_speed = 0.6
+temporal_stability = 0.3
+camera_zoom_amplitude = 1.0
+target_fps = 60
+
+[audio]
+sensitivity = 1.0
+smoothing = 0.6
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_rolloff"
+target = "color_pulse_speed"
+amount = 0.4
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "zero_crossing_rate"
+target = "wave_amplitude"
+amount = 0.25
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "camera_pan_x"
+amount = 0.15
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "glow_intensity"
+amount = 0.3
+curve = "Linear"

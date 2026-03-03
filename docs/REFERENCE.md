@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.0.1.
+All default values are synchronized with `RenderConfig::default()` v1.0.3.
 
 ---
 
@@ -300,30 +300,32 @@ Press `C` in TUI. Type characters from lightest to densest, `Enter` to apply, `E
 
 In `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`. Auto-discovered alphabetically.
 
-| Preset | Mode | Style |
-|--------|------|-------|
-| `01_cyber_braille` | Braille | High contrast cyberpunk, neon glow, chromatic, scan lines |
-| `02_matrix` | Ascii | Classic Matrix digital rain (heavy fade 0.85) |
-| `03_ghost_edge` | Quadrant | Edge detection with spectral fade trails, inverted |
-| `04_pure_ascii` | Ascii | Clean gradient, no color, no effects — baseline |
-| `05_classic_gradient` | Ascii | Balanced SourceDim, moderate effects |
-| `06_vector_edges` | Ascii | Monochrome wireframe, edge mix 1.0, heavy fade |
-| `07_neon_abyss` | Ascii | Full color edges, max contrast, glow, chromatic, timbral |
-| `08_cyber_noise` | Braille | Maximum chaos — heavy chromatic, wave, zalgo, Quantized |
-| `09_brutalism_mono` | HalfBlock | Monochrome brutalist, high density, fullscreen |
-| `10_ethereal_shape` | Ascii | Shape matching, Oklab, transparent, timbral |
-| `11_reactive` | Ascii | All 8 effects at moderate levels, 4 mappings |
-| `12_deep_zoom` | Braille | Audio-reactive camera zoom + rotation |
-| `13_breath` | Ascii | Ultra-minimalist, single RMS mapping, fullscreen |
-| `14_interference` | Braille | Wave interference (speed 7.0), moiré patterns |
-| `15_noir` | HalfBlock | Cinematic film noir, monochrome, shape matching |
-| `16_aurora` | Quadrant | Aurora borealis, saturated glow, camera pan |
-| `17_static` | Ascii | Broken TV, binary charset ` 01`, zalgo on transients |
-| `18_spectral_bands` | Quadrant | Per-band mapping — each band drives a distinct effect |
-| `19_cinematic_camera` | HalfBlock | Smooth audio-driven camera motion, high smoothing |
-| `20_sextant_film` | Sextant | Cinematic Sextant, Oklab, per-mapping smoothing |
-| `21_octant_dense` | Octant | Maximum sub-pixel density, spectral bars, fullscreen |
-| `22_hires_export` | Ascii | Batch export optimized, CHARSET_FULL, Oklab, offset mapping |
+Ordered from most faithful to input (01) to most chaotic (21), with 22 as export-optimized.
+
+| Preset | Mode | Fidelity | Style |
+|--------|------|----------|-------|
+| `01_pure_photo` | Octant | ★★★★★ | Photo-faithful, Oklab, zero effects, 1 subtle mapping |
+| `02_film_grain` | Sextant | ★★★★★ | Cinematic film grain, Oklab, soft fade+temporal |
+| `03_soft_focus` | Octant | ★★★★☆ | Photographic bloom, shape matching, HsvBright |
+| `04_noir` | HalfBlock | ★★★★☆ | Film noir monochrome, high contrast edges |
+| `05_breath` | Ascii | ★★★★☆ | Ultra-minimalist contemplative, single RMS mapping |
+| `06_clean_gradient` | Ascii | ★★★☆☆ | Versatile reference, SourceDim, balanced reactivity |
+| `07_sextant_cinema` | Sextant | ★★★☆☆ | Cinematic Sextant, Oklab, bass-reactive camera |
+| `08_braille_hd` | Braille | ★★★☆☆ | High-density pointillism, Direct color, balanced |
+| `09_spectral_bands` | Quadrant | ★★★☆☆ | Per-band frequency mapping, 5 distinct effects |
+| `10_vector_wire` | Ascii | ★★☆☆☆ | Monochrome wireframe, onset→invert, edge-dominant |
+| `11_deep_zoom` | Braille | ★★☆☆☆ | Audio-reactive camera zoom+rotation, spatial |
+| `12_aurora` | Quadrant | ★★☆☆☆ | Aurora borealis, saturated glow, color pulse |
+| `13_reactive_showcase` | Ascii | ★★☆☆☆ | All 8 effects at moderate levels, demonstration |
+| `14_brutalism` | HalfBlock | ★★☆☆☆ | Monochrome brutal, density 2.0, glow, fullscreen |
+| `15_neon_edge` | Ascii | ★☆☆☆☆ | Neon urban, edge-dominant, chromatic+glow |
+| `16_cyber_braille` | Braille | ★☆☆☆☆ | Cyberpunk saturated, glow+chromatic+scanlines |
+| `17_matrix_rain` | Ascii | ★☆☆☆☆ | Matrix digital rain, long fade, binary charset |
+| `18_interference` | Braille | ★☆☆☆☆ | Moiré wave patterns, speed 6.0, chromatic |
+| `19_ghost_trail` | Quadrant | ★☆☆☆☆ | Inverted spectral ghost, extreme persistence |
+| `20_tv_static` | Ascii | ☆☆☆☆☆ | Broken TV, binary charset, flatness→density, zalgo |
+| `21_glitch_storm` | Braille | ☆☆☆☆☆ | Controlled chaos, all extreme effects, musically driven |
+| `22_hires_export` | Ascii | ★★★★☆ | Batch export optimized, CHARSET_FULL, Oklab, subtle |
 
 ### Creating a Custom Preset
 
@@ -350,7 +352,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.0.1, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.0.3, synchronized with `config/default.toml`:
 
 ```toml
 [render]

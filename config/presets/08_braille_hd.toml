@@ -1,0 +1,43 @@
+# 08_braille_hd — High-density Braille pointillism.
+# Direct color for faithful reproduction, balanced beat reactivity.
+
+[render]
+render_mode = "Braille"
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 1.3
+contrast = 1.3
+brightness = 0.0
+saturation = 1.1
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.3
+glow_intensity = 0.3
+temporal_stability = 0.3
+target_fps = 60
+
+[audio]
+sensitivity = 1.2
+smoothing = 0.5
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.3
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "contrast"
+amount = 0.35
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.4
+curve = "Smooth"

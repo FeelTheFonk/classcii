@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] — 2026-03-03
+
+### Changed
+- **Complete preset redesign**: 22 presets rewritten from scratch based on SOTA VJ research (Resolume, Synesthesia, IRCAM spectral mapping). Ordered from most faithful (01_pure_photo) to most chaotic (21_glitch_storm), with 22_hires_export for batch.
+- New naming convention: descriptive, ordered by visual intensity.
+- Audio mappings calibrated per VJ best practices: bass→spatial, mids→tonal, highs→detail, onset→impact.
+- Smoothing/sensitivity tuned per preset character: 0.15 for glitch, 0.9 for contemplative.
+- All 6 render modes represented, all 4 color modes used, all 8 effects showcased.
+
+### Quality
+- 83 tests, 0 clippy warnings.
+- All 22 presets parse and load correctly.
+
 ## [1.0.2] — 2026-03-03
 
 ### Fixed

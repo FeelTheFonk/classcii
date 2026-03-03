@@ -1,0 +1,31 @@
+# 05_breath — Ultra-minimalist contemplative. Sound breathes as light.
+# Reduced charset, no color, single RMS mapping, extreme smoothing.
+
+[render]
+render_mode = "Ascii"
+charset = " .:░▒"
+color_enabled = false
+dither_mode = "None"
+density_scale = 1.0
+contrast = 1.0
+brightness = 0.0
+saturation = 0.0
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.85
+temporal_stability = 0.7
+strobe_decay = 0.95
+target_fps = 30
+fullscreen = true
+show_spectrum = false
+
+[audio]
+sensitivity = 0.6
+smoothing = 0.9
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.35
+curve = "Smooth"

@@ -199,6 +199,7 @@ pub struct AudioMapping {
     /// Amplitude du mapping [0.0, ∞).
     pub amount: f32,
     /// Offset ajouté après multiplication.
+    #[serde(default)]
     pub offset: f32,
     /// Response curve applied before amount/sensitivity.
     #[serde(default)]

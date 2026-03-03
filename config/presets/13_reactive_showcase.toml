@@ -1,0 +1,60 @@
+# 13_reactive_showcase — All 8 effects at moderate levels. Demonstration preset.
+# Balanced showcase of every post-processing capability.
+
+[render]
+render_mode = "Ascii"
+charset_index = 0
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+contrast = 1.4
+brightness = 0.0
+saturation = 1.1
+edge_threshold = 0.25
+edge_mix = 0.4
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.35
+glow_intensity = 0.7
+chromatic_offset = 1.2
+wave_amplitude = 0.2
+wave_speed = 2.0
+color_pulse_speed = 0.8
+scanline_gap = 3
+beat_flash_intensity = 0.3
+temporal_stability = 0.3
+zalgo_intensity = 0.3
+target_fps = 60
+
+[audio]
+sensitivity = 1.2
+smoothing = 0.45
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "wave_amplitude"
+amount = 0.35
+curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "glow_intensity"
+amount = 0.4
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "chromatic_offset"
+amount = 0.35
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.25
+curve = "Linear"

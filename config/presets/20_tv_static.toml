@@ -1,0 +1,43 @@
+# 20_tv_static — Broken TV / white noise. Binary charset, no stability.
+# Spectral flatness→density, zero-crossing→zalgo on transients.
+
+[render]
+render_mode = "Ascii"
+charset = " 01"
+color_enabled = true
+color_mode = "Quantized"
+dither_mode = "None"
+density_scale = 1.4
+contrast = 1.7
+brightness = 0.0
+saturation = 0.4
+aspect_ratio = 2.0
+bg_style = "Black"
+scanline_gap = 2
+target_fps = 60
+show_spectrum = false
+
+[audio]
+sensitivity = 1.5
+smoothing = 0.2
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flatness"
+target = "density_scale"
+amount = 0.6
+curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "zero_crossing_rate"
+target = "zalgo_intensity"
+amount = 0.5
+curve = "Threshold"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.4
+curve = "Smooth"

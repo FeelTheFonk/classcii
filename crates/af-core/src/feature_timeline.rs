@@ -83,6 +83,7 @@ impl FeatureTimeline {
         collect_minmax!(timbral_brightness, tb_min, tb_max);
         collect_minmax!(timbral_roughness, tr_min, tr_max);
         collect_minmax!(onset_envelope, oe_min, oe_max);
+        collect_minmax!(beat_intensity, bi_min, bi_max);
 
         for f in &mut self.frames {
             f.rms = norm(f.rms, rms_min, rms_max);
@@ -102,6 +103,7 @@ impl FeatureTimeline {
             f.timbral_brightness = norm(f.timbral_brightness, tb_min, tb_max);
             f.timbral_roughness = norm(f.timbral_roughness, tr_min, tr_max);
             f.onset_envelope = norm(f.onset_envelope, oe_min, oe_max);
+            f.beat_intensity = norm(f.beat_intensity, bi_min, bi_max);
         }
     }
 

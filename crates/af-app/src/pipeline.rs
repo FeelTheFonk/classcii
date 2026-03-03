@@ -232,9 +232,7 @@ pub fn apply_audio_mappings(
                 config.density_scale = (config.density_scale + delta).clamp(0.25, 4.0);
             }
             "invert" => {
-                if delta > 0.5 {
-                    config.invert = !config.invert;
-                }
+                config.invert = delta > 0.5;
             }
             "beat_flash_intensity" => {
                 config.beat_flash_intensity = (config.beat_flash_intensity + delta).clamp(0.0, 2.0);
@@ -264,8 +262,9 @@ pub fn apply_audio_mappings(
                     (config.camera_zoom_amplitude + delta * 2.0).clamp(0.1, 10.0);
             }
             "camera_rotation" => {
-                // Audio delta -> Rotate left/right smoothly. We let it unbounded or wrap at 2PI later if needed.
                 config.camera_rotation += delta * 0.1;
+                // Wrap at TAU to prevent float precision degradation
+                config.camera_rotation = config.camera_rotation.rem_euclid(std::f32::consts::TAU);
             }
             "camera_pan_x" => {
                 // Audio delta for panning (wiggling) on X axis

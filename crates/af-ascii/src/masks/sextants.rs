@@ -137,7 +137,7 @@ pub fn process_sextant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
 
                         let lum = frame.luminance_linear(px, py);
                         let (r, g, b, _) = frame.pixel(px, py);
-                        let idx = (dy * 2 + dx) as usize;
+                        let idx = (dx * 3 + dy) as usize;
                         lum_values[idx] = lum;
                         lum_sum += u32::from(lum);
 

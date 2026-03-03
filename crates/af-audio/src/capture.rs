@@ -65,12 +65,14 @@ impl AudioCapture {
         })
     }
 
-    /// Read available samples from the ring buffer into `out`.
+    /// Append available samples from the ring buffer into `out`.
     ///
-    /// Returns how many samples were read.
+    /// Samples accumulate across calls — the caller is responsible for
+    /// clearing `out` after processing (e.g. once FFT window is reached).
+    ///
+    /// Returns how many samples were appended.
     pub fn read_samples(&mut self, out: &mut Vec<f32>) -> usize {
         let available = self.consumer.slots();
-        out.clear();
         out.reserve(available);
         let mut count = 0;
         while let Ok(sample) = self.consumer.pop() {

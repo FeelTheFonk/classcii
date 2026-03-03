@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     }
 
     // 3. Valider la source
-    let _ = cli.validate_source();
+    cli.validate_source()?;
 
     // Export Par lots
     if let Some(folder) = cli.batch_folder.as_deref() {

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 /// use af_core::config::RenderConfig;
 /// let config = RenderConfig::default();
-/// assert_eq!(config.target_fps, 30);
+/// assert_eq!(config.audio_sensitivity, 1.5);
 /// ```
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -295,13 +295,13 @@ impl Default for RenderConfig {
             dither_mode: DitherMode::Bayer8x8,
             invert: false,
             color_enabled: true,
-            edge_threshold: 0.3,
-            edge_mix: 0.5,
+            edge_threshold: 0.0,
+            edge_mix: 0.3,
             shape_matching: false,
             aspect_ratio: 2.0,
             density_scale: 1.0,
             color_mode: ColorMode::HsvBright,
-            saturation: 1.2,
+            saturation: 1.0,
             contrast: 1.0,
             brightness: 0.0,
             bg_style: BgStyle::Black,
@@ -310,16 +310,16 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "bass".into(),
                     target: "edge_threshold".into(),
-                    amount: 0.3,
+                    amount: 0.5,
                     offset: 0.0,
-                    curve: MappingCurve::Linear,
+                    curve: MappingCurve::Exponential,
                     smoothing: None,
                 },
                 AudioMapping {
                     enabled: true,
                     source: "spectral_flux".into(),
                     target: "contrast".into(),
-                    amount: 0.5,
+                    amount: 0.6,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
@@ -328,7 +328,7 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "rms".into(),
                     target: "brightness".into(),
-                    amount: 0.2,
+                    amount: 0.25,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
@@ -337,7 +337,7 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "beat_intensity".into(),
                     target: "beat_flash_intensity".into(),
-                    amount: 0.3,
+                    amount: 0.8,
                     offset: 0.0,
                     curve: MappingCurve::Smooth,
                     smoothing: None,
@@ -346,25 +346,25 @@ impl Default for RenderConfig {
                     enabled: true,
                     source: "spectral_centroid".into(),
                     target: "glow_intensity".into(),
-                    amount: 0.4,
+                    amount: 0.5,
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
                 },
             ],
-            audio_smoothing: 0.7,
-            audio_sensitivity: 1.0,
-            fade_decay: 0.3,
-            glow_intensity: 0.5,
+            audio_smoothing: 0.3,
+            audio_sensitivity: 1.5,
+            fade_decay: 0.0,
+            glow_intensity: 0.0,
             zalgo_intensity: 0.0,
-            beat_flash_intensity: 0.3,
+            beat_flash_intensity: 0.0,
             chromatic_offset: 0.0,
             wave_amplitude: 0.0,
             wave_speed: 2.0,
             color_pulse_speed: 0.0,
             scanline_gap: 0,
             scanline_darken: 0.3,
-            strobe_decay: 0.75,
+            strobe_decay: 0.85,
             temporal_stability: 0.0,
             camera_zoom_amplitude: 1.0,
             camera_rotation: 0.0,
@@ -386,6 +386,7 @@ impl RenderConfig {
         self.saturation = self.saturation.clamp(0.0, 3.0);
         self.edge_threshold = self.edge_threshold.clamp(0.0, 1.0);
         self.edge_mix = self.edge_mix.clamp(0.0, 1.0);
+        self.aspect_ratio = self.aspect_ratio.clamp(0.1, 10.0);
         self.density_scale = self.density_scale.clamp(0.25, 4.0);
         self.fade_decay = self.fade_decay.clamp(0.0, 1.0);
         self.glow_intensity = self.glow_intensity.clamp(0.0, 2.0);
@@ -452,6 +453,7 @@ struct RenderSection {
     wave_speed: Option<f32>,
     color_pulse_speed: Option<f32>,
     scanline_gap: Option<u8>,
+    scanline_darken: Option<f32>,
     strobe_decay: Option<f32>,
     temporal_stability: Option<f32>,
     camera_zoom_amplitude: Option<f32>,
@@ -573,6 +575,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     }
     if let Some(v) = r.scanline_gap {
         config.scanline_gap = v;
+    }
+    if let Some(v) = r.scanline_darken {
+        config.scanline_darken = v;
     }
     if let Some(v) = r.strobe_decay {
         config.strobe_decay = v;

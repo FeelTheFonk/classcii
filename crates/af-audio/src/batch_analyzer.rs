@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use crate::features::extract_features;
 use crate::fft::FftPipeline;
+use crate::mfcc::MelFilterbank;
 use af_core::feature_timeline::FeatureTimeline;
 
 /// Analyseur audio pour le traitement offline en lot (Batch Export).
@@ -63,6 +64,7 @@ impl BatchAnalyzer {
         let mut frames = Vec::with_capacity(num_frames);
 
         let mut prev_magnitudes: Vec<f32> = Vec::new();
+        let mut filterbank = MelFilterbank::new(self.fft.fft_size(), self.sample_rate);
 
         for i in 0..num_frames {
             let start = i * samples_per_frame;
@@ -90,8 +92,14 @@ impl BatchAnalyzer {
             } else {
                 prev_magnitudes.resize(magnitudes.len(), 0.0);
             }
-            features.spectral_flux = flux;
+            features.spectral_flux = (flux * 5.0).sqrt().min(1.0);
             prev_magnitudes.copy_from_slice(magnitudes);
+
+            // MFCC timbral features (parity with live mode)
+            let mfcc = filterbank.compute(magnitudes);
+            features.mfcc = mfcc;
+            features.timbral_brightness = (mfcc[1] / 50.0 + 0.5).clamp(0.0, 1.0);
+            features.timbral_roughness = (mfcc[2].abs() / 30.0).clamp(0.0, 1.0);
 
             frames.push(features);
         }

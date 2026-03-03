@@ -43,8 +43,8 @@ impl BeatDetector {
 
     /// Process a spectrum frame.
     ///
-    /// Returns (onset, beat_intensity, bpm, phase).
-    pub fn process(&mut self, spectrum: &[f32], fps: f32) -> (bool, f32, f32, f32) {
+    /// Returns (onset, beat_intensity, bpm, phase, spectral_flux).
+    pub fn process(&mut self, spectrum: &[f32], fps: f32) -> (bool, f32, f32, f32, f32) {
         self.frame_count += 1;
 
         // Spectral flux — weight bass bands (first 1/4 of spectrum) more heavily
@@ -125,7 +125,10 @@ impl BeatDetector {
         }
         self.prev_spectrum.copy_from_slice(spectrum);
 
-        (onset, beat_intensity, self.bpm, self.phase)
+        // Normalize flux to [0, 1] with gain + sqrt compression for mapping use
+        let normalized_flux = (flux * 5.0).sqrt().min(1.0);
+
+        (onset, beat_intensity, self.bpm, self.phase, normalized_flux)
     }
 }
 

@@ -1,22 +1,22 @@
-# config/default.toml — Configuration clasSCII par défaut.
+# config/default.toml — Configuration clasSCII par défaut (SOTA Fidelity).
 
 [render]
-render_mode = "Ascii"
-charset_index = 2                    # Short (`.:-=+*#%@`)
-charset = " .:-=+*#%@"
+render_mode = "Octant"
+charset_index = 0
+charset = " .'\`:,;_-~\"!|/\\(){}[]<>+*=?^#%&@$"
 density_scale = 1.0
 invert = false
 color_enabled = true
-color_mode = "HsvBright"           # Direct, HsvBright, Oklab, Quantized
-dither_mode = "Bayer8x8"           # Bayer8x8, BlueNoise16, None
-edge_threshold = 0.3
-edge_mix = 0.5
-shape_matching = true
+color_mode = "Oklab"                 # Direct, HsvBright, Oklab, Quantized
+dither_mode = "BlueNoise16"          # Bayer8x8, BlueNoise16, None
+edge_threshold = 0.0
+edge_mix = 0.3                       # >0 requis pour que bass→edge_threshold soit visible
+shape_matching = false
 aspect_ratio = 2.0
-saturation = 1.2
-contrast = 1.3
+saturation = 1.0
+contrast = 1.0
 brightness = 0.0
-bg_style = "SourceDim"             # Black, SourceDim, Transparent
+bg_style = "Black"                   # Black, SourceDim, Transparent
 
 # Virtual Camera
 camera_zoom_amplitude = 1.0
@@ -25,53 +25,42 @@ camera_pan_x = 0.0
 camera_pan_y = 0.0
 
 # Post-processing effects
-fade_decay = 0.4
-glow_intensity = 0.2
-beat_flash_intensity = 0.3         # Strobe envelope intensity
+fade_decay = 0.0
+glow_intensity = 0.0
+beat_flash_intensity = 0.0         # Strobe envelope intensity
 chromatic_offset = 0.0             # R/B channel offset (0 = off)
 wave_amplitude = 0.0               # Sinusoidal row shift (0 = off)
-wave_speed = 2.0                   # Wave oscillation speed (active when amplitude > 0)
+wave_speed = 0.0                   # Wave oscillation speed (active when amplitude > 0)
 color_pulse_speed = 0.0            # HSV hue rotation speed (0 = off)
 scanline_gap = 0                   # Darken every Nth row (0 = off)
 strobe_decay = 0.85                # Strobe decay rate per frame
-temporal_stability = 0.5           # Anti-flicker strength (0 = off)
+temporal_stability = 0.3           # Anti-flicker strength (0 = off)
 zalgo_intensity = 0.0              # Zalgo diacritics intensity (0 = off)
 
 # Display
 target_fps = 60
 fullscreen = false
-show_spectrum = true
+show_spectrum = false
 
 [audio]
-smoothing = 1.0
-sensitivity = 0.5
+smoothing = 0.3                    # Mapping-level EMA (feature-level smooth already applied)
+sensitivity = 1.5                  # Global multiplier for all mapping deltas
 
-# Audio-reactive mappings: source → target with optional curve and smoothing.
-# Sources: rms, peak, sub_bass, bass, low_mid, mid, high_mid, presence,
-#          brilliance, spectral_centroid, spectral_flux, spectral_flatness,
-#          onset, beat_intensity, beat_phase, bpm, timbral_brightness,
-#          timbral_roughness, onset_envelope, spectral_rolloff,
-#          zero_crossing_rate
-# Targets: edge_threshold, edge_mix, contrast, brightness, saturation,
-#          density_scale, invert, zalgo_intensity, beat_flash_intensity,
-#          chromatic_offset, wave_amplitude, color_pulse_speed, fade_decay,
-#          glow_intensity, camera_zoom_amplitude, camera_rotation,
-#          camera_pan_x, camera_pan_y
-# Curves:  Linear, Exponential, Threshold, Smooth
+# Audio-reactive mappings
 
 [[audio.mappings]]
 enabled = true
 source = "bass"
 target = "edge_threshold"
-amount = 0.3
+amount = 0.5
 offset = 0.0
-curve = "Linear"
+curve = "Exponential"              # Suppress noise, amplify peaks
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_flux"
 target = "contrast"
-amount = 0.5
+amount = 0.6
 offset = 0.0
 curve = "Linear"
 
@@ -79,23 +68,15 @@ curve = "Linear"
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.2
+amount = 0.25
 offset = 0.0
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "beat_intensity"
-target = "density_scale"
-amount = 0.5
-offset = -0.2
-curve = "Linear"
-
-[[audio.mappings]]
-enabled = true
-source = "beat_intensity"
 target = "beat_flash_intensity"
-amount = 0.3
+amount = 0.8
 offset = 0.0
 curve = "Smooth"
 
@@ -103,6 +84,6 @@ curve = "Smooth"
 enabled = true
 source = "spectral_centroid"
 target = "glow_intensity"
-amount = 0.4
+amount = 0.5
 offset = 0.0
 curve = "Linear"

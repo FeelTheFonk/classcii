@@ -99,6 +99,10 @@ pub fn extract_features(samples: &[f32], spectrum: &[f32], sample_rate: u32) -> 
 }
 
 /// Compute energy in a frequency band.
+///
+/// Raw FFT magnitudes (normalized by N) are very small for typical music
+/// (~0.005-0.05). Apply gain ×20 + sqrt compression to map into usable
+/// [0.0, 1.0] range: 0.005→0.32, 0.02→0.63, 0.05→1.0.
 fn band_energy(spectrum: &[f32], low_hz: f32, high_hz: f32, bin_hz: f32) -> f32 {
     let lo = (low_hz / bin_hz) as usize;
     let hi = ((high_hz / bin_hz) as usize).min(spectrum.len());
@@ -107,7 +111,8 @@ fn band_energy(spectrum: &[f32], low_hz: f32, high_hz: f32, bin_hz: f32) -> f32 
     }
     let sum: f32 = spectrum[lo..hi].iter().sum();
     let count = (hi - lo) as f32;
-    (sum / count).min(1.0)
+    let avg = sum / count;
+    (avg * 20.0).sqrt().min(1.0)
 }
 
 /// Fill 32 log-spaced frequency bands for visualization.
@@ -127,7 +132,8 @@ fn fill_spectrum_bands(spectrum: &[f32], bin_hz: f32, bands: &mut [f32; 32]) {
 
         if lo < spectrum.len() && hi <= spectrum.len() {
             let sum: f32 = spectrum[lo..hi].iter().sum();
-            *band = (sum / (hi - lo) as f32).min(1.0);
+            let avg = sum / (hi - lo) as f32;
+            *band = (avg * 20.0).sqrt().min(1.0);
         } else {
             *band = 0.0;
         }

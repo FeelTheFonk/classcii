@@ -37,10 +37,15 @@ impl FftPipeline {
         let spectrum_buf = plan.make_output_vec();
         let scratch = plan.make_scratch_vec();
 
-        // Hann window
+        // Hann window (guard size==1 to avoid 0/0 NaN)
         let window: Vec<f32> = (0..size)
             .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (size as f32 - 1.0)).cos())
+                if size <= 1 {
+                    1.0
+                } else {
+                    0.5 * (1.0
+                        - (2.0 * std::f32::consts::PI * i as f32 / (size as f32 - 1.0)).cos())
+                }
             })
             .collect();
 

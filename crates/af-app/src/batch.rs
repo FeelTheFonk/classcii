@@ -320,13 +320,13 @@ impl PresetSequencer {
     }
 
     /// Check if a preset change should be triggered.
-    fn should_change(&mut self, energy: u8, preset_duration_frames: u32) -> bool {
+    fn should_change(&mut self, energy: u8, preset_duration_frames: u32, fps: u32) -> bool {
         if self.transition.is_some() || self.presets.len() < 2 {
             return false;
         }
 
         // Energy transition trigger (with minimum duration)
-        let min_frames = (MIN_PRESET_DURATION_SECS * 60.0) as u32; // ~5s at 60fps rough
+        let min_frames = (MIN_PRESET_DURATION_SECS * fps as f32) as u32;
         let energy_changed = energy != self.prev_energy && self.frames_at_current >= min_frames;
         self.prev_energy = energy;
 
@@ -682,7 +682,7 @@ pub fn run_batch_export(
             let energy = mapper.get_timeline().energy_at(frame_idx);
 
             if let Some(ref mut seq) = preset_seq {
-                if seq.should_change(energy, preset_duration_frames) {
+                if seq.should_change(energy, preset_duration_frames, target_fps) {
                     let transition_dur = match energy {
                         2 => target_fps,     // ~1s fast
                         0 => target_fps * 3, // ~3s slow

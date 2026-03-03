@@ -255,11 +255,12 @@ fn run_file_analysis_loop(
         let mut feats = features::extract_features(&window_buf, spectrum, sample_rate);
 
         let fps = target_fps as f32;
-        let (onset, intensity, bpm, phase) = beat.process(spectrum, fps);
+        let (onset, intensity, bpm, phase, flux) = beat.process(spectrum, fps);
         feats.onset = onset;
         feats.beat_intensity = intensity;
         feats.bpm = bpm;
         feats.beat_phase = phase;
+        feats.spectral_flux = flux;
 
         // MFCC timbral features
         let mfcc = filterbank.compute(spectrum);
@@ -305,11 +306,12 @@ fn run_analysis_loop(
             let mut feats = features::extract_features(window, spectrum, sample_rate);
 
             let fps = target_fps as f32;
-            let (onset, intensity, bpm, phase) = beat.process(spectrum, fps);
+            let (onset, intensity, bpm, phase, flux) = beat.process(spectrum, fps);
             feats.onset = onset;
             feats.beat_intensity = intensity;
             feats.bpm = bpm;
             feats.beat_phase = phase;
+            feats.spectral_flux = flux;
 
             // MFCC timbral features
             let mfcc = filterbank.compute(spectrum);

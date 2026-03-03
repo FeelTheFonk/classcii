@@ -216,7 +216,7 @@ pub fn apply_color_pulse(grid: &mut AsciiGrid, hue_shift: f32) {
         }
 
         let (h, s, v) = rgb_to_hsv(cell.fg.0, cell.fg.1, cell.fg.2);
-        let new_h = (h + hue_shift) % 1.0;
+        let new_h = (h + hue_shift).rem_euclid(1.0);
         cell.fg = hsv_to_rgb(new_h, s, v);
     }
 }

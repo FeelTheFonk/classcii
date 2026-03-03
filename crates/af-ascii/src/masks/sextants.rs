@@ -107,7 +107,6 @@ const SEXTANT_LUT: [char; 64] = [
 
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiCell, AsciiGrid, FrameBuffer};
-use rayon::prelude::*;
 
 /// Process frame in sextant mode (2×3 sub-pixels per terminal cell).
 pub fn process_sextant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut AsciiGrid) {

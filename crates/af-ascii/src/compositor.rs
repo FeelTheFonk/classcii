@@ -1,7 +1,6 @@
 use af_core::charset::LuminanceLut;
 use af_core::config::{BgStyle, RenderConfig, RenderMode};
 use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
-use rayon::prelude::*;
 
 use crate::color_map;
 use crate::shape_match::ShapeMatcher;

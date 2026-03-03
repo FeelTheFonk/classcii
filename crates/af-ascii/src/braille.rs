@@ -1,6 +1,5 @@
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiCell, AsciiGrid, FrameBuffer};
-use rayon::prelude::*;
 
 /// Braille base codepoint (U+2800).
 const BRAILLE_BASE: u32 = 0x2800;

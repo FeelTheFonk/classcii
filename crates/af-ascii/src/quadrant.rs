@@ -1,6 +1,5 @@
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiCell, AsciiGrid, FrameBuffer};
-use rayon::prelude::*;
 
 /// 16 quadrant block characters (2×2 sub-pixels).
 ///

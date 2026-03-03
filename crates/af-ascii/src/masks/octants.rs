@@ -300,7 +300,6 @@ pub const fn get_octant_char(bitmask: u8) -> char {
 
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiCell, AsciiGrid, FrameBuffer};
-use rayon::prelude::*;
 
 /// Process frame in octant mode (2×4 sub-pixels per terminal cell).
 pub fn process_octant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut AsciiGrid) {

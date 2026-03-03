@@ -56,96 +56,93 @@ pub fn process_braille(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
     let pixel_w = u32::from(grid.width) * 2;
     let pixel_h = u32::from(grid.height) * 4;
 
-    grid.cells
-        .par_chunks_mut(grid.width as usize)
-        .enumerate()
-        .for_each(|(cy, row)| {
-            for (cx, cell) in row.iter_mut().enumerate() {
-                let base_x = (cx as u32) * 2 * frame.width / pixel_w.max(1);
-                let base_y = (cy as u32) * 4 * frame.height / pixel_h.max(1);
+    crate::for_each_row(&mut grid.cells, grid.width as usize, |cy, row| {
+        for (cx, cell) in row.iter_mut().enumerate() {
+            let base_x = (cx as u32) * 2 * frame.width / pixel_w.max(1);
+            let base_y = (cy as u32) * 4 * frame.height / pixel_h.max(1);
 
-                // Passe 1 : collecter luminances, couleurs, et indices dot
-                let mut lum_values = [0u8; 8];
-                let mut lum_sum = 0u32;
-                let mut dot_indices = [0usize; 8];
-                let mut avg_r = 0u32;
-                let mut avg_g = 0u32;
-                let mut avg_b = 0u32;
-                let mut count = 0u32;
-                let mut sub_idx = 0usize;
+            // Passe 1 : collecter luminances, couleurs, et indices dot
+            let mut lum_values = [0u8; 8];
+            let mut lum_sum = 0u32;
+            let mut dot_indices = [0usize; 8];
+            let mut avg_r = 0u32;
+            let mut avg_g = 0u32;
+            let mut avg_b = 0u32;
+            let mut count = 0u32;
+            let mut sub_idx = 0usize;
 
-                for dy in 0..4u32 {
-                    for dx in 0..2u32 {
-                        let px = (base_x + dx * frame.width / pixel_w.max(1))
-                            .min(frame.width.saturating_sub(1));
-                        let py = (base_y + dy * frame.height / pixel_h.max(1))
-                            .min(frame.height.saturating_sub(1));
+            for dy in 0..4u32 {
+                for dx in 0..2u32 {
+                    let px = (base_x + dx * frame.width / pixel_w.max(1))
+                        .min(frame.width.saturating_sub(1));
+                    let py = (base_y + dy * frame.height / pixel_h.max(1))
+                        .min(frame.height.saturating_sub(1));
 
-                        let lum = frame.luminance_linear(px, py);
-                        let (r, g, b, _) = frame.pixel(px, py);
+                    let lum = frame.luminance_linear(px, py);
+                    let (r, g, b, _) = frame.pixel(px, py);
 
-                        let dot_idx = if dx == 0 {
-                            match dy {
-                                0 => 0,
-                                1 => 1,
-                                2 => 2,
-                                _ => 6,
-                            }
-                        } else {
-                            match dy {
-                                0 => 3,
-                                1 => 4,
-                                2 => 5,
-                                _ => 7,
-                            }
-                        };
-
-                        lum_values[sub_idx] = lum;
-                        dot_indices[sub_idx] = dot_idx;
-                        lum_sum += u32::from(lum);
-                        sub_idx += 1;
-
-                        avg_r += u32::from(r);
-                        avg_g += u32::from(g);
-                        avg_b += u32::from(b);
-                        count += 1;
-                    }
-                }
-
-                // Passe 2 : seuil adaptatif (moyenne locale)
-                let local_threshold = if count > 0 {
-                    (lum_sum / count) as u8
-                } else {
-                    128
-                };
-                let mut dots = [false; 8];
-                for i in 0..sub_idx {
-                    let on = if config.invert {
-                        lum_values[i] < local_threshold
+                    let dot_idx = if dx == 0 {
+                        match dy {
+                            0 => 0,
+                            1 => 1,
+                            2 => 2,
+                            _ => 6,
+                        }
                     } else {
-                        lum_values[i] > local_threshold
+                        match dy {
+                            0 => 3,
+                            1 => 4,
+                            2 => 5,
+                            _ => 7,
+                        }
                     };
-                    dots[dot_indices[i]] = on;
+
+                    lum_values[sub_idx] = lum;
+                    dot_indices[sub_idx] = dot_idx;
+                    lum_sum += u32::from(lum);
+                    sub_idx += 1;
+
+                    avg_r += u32::from(r);
+                    avg_g += u32::from(g);
+                    avg_b += u32::from(b);
+                    count += 1;
                 }
-
-                let ch = encode_braille(dots);
-                let fg = if count > 0 {
-                    (
-                        (avg_r / count) as u8,
-                        (avg_g / count) as u8,
-                        (avg_b / count) as u8,
-                    )
-                } else {
-                    (255, 255, 255)
-                };
-
-                *cell = AsciiCell {
-                    ch,
-                    fg,
-                    bg: (0, 0, 0),
-                };
             }
-        });
+
+            // Passe 2 : seuil adaptatif (moyenne locale)
+            let local_threshold = if count > 0 {
+                (lum_sum / count) as u8
+            } else {
+                128
+            };
+            let mut dots = [false; 8];
+            for i in 0..sub_idx {
+                let on = if config.invert {
+                    lum_values[i] < local_threshold
+                } else {
+                    lum_values[i] > local_threshold
+                };
+                dots[dot_indices[i]] = on;
+            }
+
+            let ch = encode_braille(dots);
+            let fg = if count > 0 {
+                (
+                    (avg_r / count) as u8,
+                    (avg_g / count) as u8,
+                    (avg_b / count) as u8,
+                )
+            } else {
+                (255, 255, 255)
+            };
+
+            *cell = AsciiCell {
+                ch,
+                fg,
+                bg: (0, 0, 0),
+            };
+        }
+    });
 }
 
 #[cfg(test)]

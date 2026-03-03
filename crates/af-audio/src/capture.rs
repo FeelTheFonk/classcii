@@ -37,8 +37,8 @@ impl AudioCapture {
         let sample_rate = config.sample_rate().0;
         let channels = config.channels() as usize;
 
-        // Ring buffer: 2 seconds of audio @ sample_rate
-        let buf_size = sample_rate as usize * 2;
+        // Ring buffer: 100ms of audio @ sample_rate (sufficient for 60 FPS frame reads)
+        let buf_size = (sample_rate as usize / 10).max(4096);
         let (mut producer, consumer) = RingBuffer::new(buf_size);
 
         let stream = device.build_input_stream(

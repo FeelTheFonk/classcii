@@ -22,33 +22,29 @@ pub fn process_halfblock(frame: &FrameBuffer, config: &RenderConfig, grid: &mut 
     let pixel_h = u32::from(grid.height) * 2;
     let pixel_w = u32::from(grid.width);
 
-    grid.cells
-        .par_chunks_mut(pixel_w as usize)
-        .enumerate()
-        .for_each(|(cy, row)| {
-            for (cx, cell) in row.iter_mut().enumerate() {
-                let x0 = (cx as u32) * frame.width / pixel_w.max(1);
-                let x1 = ((cx as u32 + 1) * frame.width / pixel_w.max(1)).min(frame.width);
-                let y_top = (cy as u32) * 2 * frame.height / pixel_h.max(1);
-                let y_mid = ((cy as u32) * 2 + 1) * frame.height / pixel_h.max(1);
-                let y_bot =
-                    (((cy as u32) * 2 + 2) * frame.height / pixel_h.max(1)).min(frame.height);
+    crate::for_each_row(&mut grid.cells, pixel_w as usize, |cy, row| {
+        for (cx, cell) in row.iter_mut().enumerate() {
+            let x0 = (cx as u32) * frame.width / pixel_w.max(1);
+            let x1 = ((cx as u32 + 1) * frame.width / pixel_w.max(1)).min(frame.width);
+            let y_top = (cy as u32) * 2 * frame.height / pixel_h.max(1);
+            let y_mid = ((cy as u32) * 2 + 1) * frame.height / pixel_h.max(1);
+            let y_bot = (((cy as u32) * 2 + 2) * frame.height / pixel_h.max(1)).min(frame.height);
 
-                let (tr, tg, tb, _) = frame.area_sample(x0, y_top, x1, y_mid);
-                let (br, bg, bb, _) = frame.area_sample(x0, y_mid, x1, y_bot);
+            let (tr, tg, tb, _) = frame.area_sample(x0, y_top, x1, y_mid);
+            let (br, bg, bb, _) = frame.area_sample(x0, y_mid, x1, y_bot);
 
-                // Invert swaps top/bottom colors
-                let (fg, bg_color) = if config.invert {
-                    ((tr, tg, tb), (br, bg, bb))
-                } else {
-                    ((br, bg, bb), (tr, tg, tb))
-                };
+            // Invert swaps top/bottom colors
+            let (fg, bg_color) = if config.invert {
+                ((tr, tg, tb), (br, bg, bb))
+            } else {
+                ((br, bg, bb), (tr, tg, tb))
+            };
 
-                *cell = AsciiCell {
-                    ch: '▄',
-                    fg,
-                    bg: bg_color,
-                };
-            }
-        });
+            *cell = AsciiCell {
+                ch: '▄',
+                fg,
+                bg: bg_color,
+            };
+        }
+    });
 }

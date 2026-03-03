@@ -63,83 +63,94 @@ impl VirtualCamera {
         let in_width = input.width as i32;
         let in_height = input.height as i32;
 
-        // Pixel-perfect parallel chunks over output rows
-        output
-            .data
-            .par_chunks_exact_mut(out_stride)
-            .enumerate()
-            .for_each(|(y_out, row)| {
-                let y_f = y_out as f32 - center_y;
+        // Conditional parallelism: rayon for large frames, sequential for small terminals.
+        let pixel_count = output.width * output.height;
+        let process_row = |y_out: usize, row: &mut [u8]| {
+            let y_f = y_out as f32 - center_y;
 
-                for x_out in 0..output.width {
-                    let x_f = x_out as f32 - center_x;
+            for x_out in 0..output.width {
+                let x_f = x_out as f32 - center_x;
 
-                    // Reverse Pan
-                    let x_panned = x_f - (pan_x * out_w);
-                    let y_panned = y_f - (pan_y * out_h);
+                // Reverse Pan
+                let x_panned = x_f - (pan_x * out_w);
+                let y_panned = y_f - (pan_y * out_h);
 
-                    // Reverse Zoom
-                    let x_zoomed = x_panned / zoom;
-                    let y_zoomed = y_panned / zoom;
+                // Reverse Zoom
+                let x_zoomed = x_panned / zoom;
+                let y_zoomed = y_panned / zoom;
 
-                    // Reverse Rotation
-                    let x_src_f = x_zoomed * cos_a - y_zoomed * sin_a + in_center_x;
-                    let y_src_f = x_zoomed * sin_a + y_zoomed * cos_a + in_center_y;
+                // Reverse Rotation
+                let x_src_f = x_zoomed * cos_a - y_zoomed * sin_a + in_center_x;
+                let y_src_f = x_zoomed * sin_a + y_zoomed * cos_a + in_center_y;
 
-                    let out_idx = (x_out * 4) as usize;
+                let out_idx = (x_out * 4) as usize;
 
-                    // Bilinear interpolation
-                    let x0 = x_src_f.floor() as i32;
-                    let y0 = y_src_f.floor() as i32;
-                    let x1 = x0 + 1;
-                    let y1 = y0 + 1;
+                // Bilinear interpolation
+                let x0 = x_src_f.floor() as i32;
+                let y0 = y_src_f.floor() as i32;
+                let x1 = x0 + 1;
+                let y1 = y0 + 1;
 
-                    if x0 >= 0 && x1 < in_width && y0 >= 0 && y1 < in_height {
-                        let fx = x_src_f - x0 as f32;
-                        let fy = y_src_f - y0 as f32;
-                        let ifx = 1.0 - fx;
-                        let ify = 1.0 - fy;
+                if x0 >= 0 && x1 < in_width && y0 >= 0 && y1 < in_height {
+                    let fx = x_src_f - x0 as f32;
+                    let fy = y_src_f - y0 as f32;
+                    let ifx = 1.0 - fx;
+                    let ify = 1.0 - fy;
 
-                        let w00 = ifx * ify;
-                        let w10 = fx * ify;
-                        let w01 = ifx * fy;
-                        let w11 = fx * fy;
+                    let w00 = ifx * ify;
+                    let w10 = fx * ify;
+                    let w01 = ifx * fy;
+                    let w11 = fx * fy;
 
-                        let i00 = (y0 as usize * in_stride) + (x0 as usize * 4);
-                        let i10 = i00 + 4;
-                        let i01 = i00 + in_stride;
-                        let i11 = i01 + 4;
+                    let i00 = (y0 as usize * in_stride) + (x0 as usize * 4);
+                    let i10 = i00 + 4;
+                    let i01 = i00 + in_stride;
+                    let i11 = i01 + 4;
 
-                        for c in 0..4 {
-                            row[out_idx + c] = (f32::from(in_data[i00 + c]) * w00
-                                + f32::from(in_data[i10 + c]) * w10
-                                + f32::from(in_data[i01 + c]) * w01
-                                + f32::from(in_data[i11 + c]) * w11)
-                                as u8;
-                        }
+                    for c in 0..4 {
+                        row[out_idx + c] = (f32::from(in_data[i00 + c]) * w00
+                            + f32::from(in_data[i10 + c]) * w10
+                            + f32::from(in_data[i01 + c]) * w01
+                            + f32::from(in_data[i11 + c]) * w11)
+                            as u8;
+                    }
+                    continue;
+                }
+
+                // Edge fallback: nearest neighbor for border pixels
+                let x_src = x_src_f.round() as i32;
+                let y_src = y_src_f.round() as i32;
+                if x_src >= 0 && x_src < in_width && y_src >= 0 && y_src < in_height {
+                    let in_idx = (y_src as usize * in_stride) + (x_src as usize * 4);
+                    if in_idx + 3 < in_data.len() {
+                        row[out_idx] = in_data[in_idx];
+                        row[out_idx + 1] = in_data[in_idx + 1];
+                        row[out_idx + 2] = in_data[in_idx + 2];
+                        row[out_idx + 3] = in_data[in_idx + 3];
                         continue;
                     }
-
-                    // Edge fallback: nearest neighbor for border pixels
-                    let x_src = x_src_f.round() as i32;
-                    let y_src = y_src_f.round() as i32;
-                    if x_src >= 0 && x_src < in_width && y_src >= 0 && y_src < in_height {
-                        let in_idx = (y_src as usize * in_stride) + (x_src as usize * 4);
-                        if in_idx + 3 < in_data.len() {
-                            row[out_idx] = in_data[in_idx];
-                            row[out_idx + 1] = in_data[in_idx + 1];
-                            row[out_idx + 2] = in_data[in_idx + 2];
-                            row[out_idx + 3] = in_data[in_idx + 3];
-                            continue;
-                        }
-                    }
-
-                    // Out-of-bounds -> Black transparent
-                    row[out_idx] = 0;
-                    row[out_idx + 1] = 0;
-                    row[out_idx + 2] = 0;
-                    row[out_idx + 3] = 0;
                 }
-            });
+
+                // Out-of-bounds -> Black transparent
+                row[out_idx] = 0;
+                row[out_idx + 1] = 0;
+                row[out_idx + 2] = 0;
+                row[out_idx + 3] = 0;
+            }
+        };
+
+        if pixel_count >= 50_000 {
+            output
+                .data
+                .par_chunks_exact_mut(out_stride)
+                .enumerate()
+                .for_each(|(y, row)| process_row(y, row));
+        } else {
+            output
+                .data
+                .chunks_exact_mut(out_stride)
+                .enumerate()
+                .for_each(|(y, row)| process_row(y, row));
+        }
     }
 }

@@ -107,100 +107,90 @@ impl Compositor {
         let grid_w = u32::from(grid.width).max(1);
         let grid_h = u32::from(grid.height).max(1);
 
-        grid.cells
-            .par_chunks_mut(grid.width as usize)
-            .enumerate()
-            .for_each(|(cy, row)| {
-                for (cx, cell) in row.iter_mut().enumerate() {
-                    // Area-averaged sampling : moyenne sur la région source couverte par cette cellule
-                    let cell_x0 = (cx as u32) * frame.width / grid_w;
-                    let cell_x1 = ((cx as u32 + 1) * frame.width / grid_w).min(frame.width);
-                    let cell_y0 = (cy as u32) * frame.height / grid_h;
-                    let cell_y1 = ((cy as u32 + 1) * frame.height / grid_h).min(frame.height);
-                    let (r, g, b, area_lum) = frame.area_sample(cell_x0, cell_y0, cell_x1, cell_y1);
-                    // Point de référence pour l'edge detection (centre de la zone)
-                    let px = cell_x0.min(frame.width.saturating_sub(1));
-                    let py = cell_y0.min(frame.height.saturating_sub(1));
+        crate::for_each_row(&mut grid.cells, grid.width as usize, |cy, row| {
+            for (cx, cell) in row.iter_mut().enumerate() {
+                // Area-averaged sampling : moyenne sur la région source couverte par cette cellule
+                let cell_x0 = (cx as u32) * frame.width / grid_w;
+                let cell_x1 = ((cx as u32 + 1) * frame.width / grid_w).min(frame.width);
+                let cell_y0 = (cy as u32) * frame.height / grid_h;
+                let cell_y1 = ((cy as u32 + 1) * frame.height / grid_h).min(frame.height);
+                let (r, g, b, area_lum) = frame.area_sample(cell_x0, cell_y0, cell_x1, cell_y1);
+                // Point de référence pour l'edge detection (centre de la zone)
+                let px = cell_x0.min(frame.width.saturating_sub(1));
+                let py = cell_y0.min(frame.height.saturating_sub(1));
 
-                    // A. Base Ascii (Luminance + Couleur Directe)
-                    if is_ascii {
-                        let mut lum = area_lum;
-                        if config.invert {
-                            lum = 255 - lum;
-                        }
-                        let val = f32::from(lum);
-                        let adjusted =
-                            (val - 128.0) * config.contrast + 128.0 + config.brightness * 255.0;
+                // A. Base Ascii (Luminance + Couleur Directe)
+                if is_ascii {
+                    let mut lum = area_lum;
+                    if config.invert {
+                        lum = 255 - lum;
+                    }
+                    let val = f32::from(lum);
+                    let adjusted =
+                        (val - 128.0) * config.contrast + 128.0 + config.brightness * 255.0;
 
-                        let mut final_lum = adjusted.clamp(0.0, 255.0) as u8;
-                        if config.dither_mode != af_core::config::DitherMode::None && !use_shape {
-                            final_lum = crate::dither::apply_dither(
-                                final_lum,
-                                cx as u32,
-                                cy as u32,
-                                charset_len,
-                                &config.dither_mode,
-                            );
-                        }
+                    let mut final_lum = adjusted.clamp(0.0, 255.0) as u8;
+                    if config.dither_mode != af_core::config::DitherMode::None && !use_shape {
+                        final_lum = crate::dither::apply_dither(
+                            final_lum,
+                            cx as u32,
+                            cy as u32,
+                            charset_len,
+                            &config.dither_mode,
+                        );
+                    }
 
-                        // Shape matching or standard LUT
-                        cell.ch = if use_shape {
-                            if let Some(ref matcher) = self.shape_matcher {
-                                let mut block = [0u8; 25];
-                                for dy in 0..5u32 {
-                                    for dx in 0..5u32 {
-                                        let sx = (px + dx).min(frame.width.saturating_sub(1));
-                                        let sy = (py + dy).min(frame.height.saturating_sub(1));
-                                        block[(dy * 5 + dx) as usize] =
-                                            frame.luminance_linear(sx, sy);
-                                    }
+                    // Shape matching or standard LUT
+                    cell.ch = if use_shape {
+                        if let Some(ref matcher) = self.shape_matcher {
+                            let mut block = [0u8; 25];
+                            for dy in 0..5u32 {
+                                for dx in 0..5u32 {
+                                    let sx = (px + dx).min(frame.width.saturating_sub(1));
+                                    let sy = (py + dy).min(frame.height.saturating_sub(1));
+                                    block[(dy * 5 + dx) as usize] = frame.luminance_linear(sx, sy);
                                 }
-                                matcher.match_cell(&block)
-                            } else {
-                                self.lut.map(final_lum)
                             }
+                            matcher.match_cell(&block)
                         } else {
                             self.lut.map(final_lum)
-                        };
+                        }
+                    } else {
+                        self.lut.map(final_lum)
+                    };
 
-                        if config.color_enabled {
-                            let (mr, mg, mb) = color_map::map_color(
-                                r,
-                                g,
-                                b,
-                                &config.color_mode,
-                                config.saturation,
-                            );
-                            cell.fg = (mr, mg, mb);
+                    if config.color_enabled {
+                        let (mr, mg, mb) =
+                            color_map::map_color(r, g, b, &config.color_mode, config.saturation);
+                        cell.fg = (mr, mg, mb);
+                    } else {
+                        cell.fg = (r, g, b);
+                    }
+                    cell.bg = match config.bg_style {
+                        BgStyle::Black | BgStyle::Transparent => (0, 0, 0),
+                        BgStyle::SourceDim => (r / 4, g / 4, b / 4),
+                    };
+                }
+
+                // B. Edge Blending (proportional: mix × magnitude determines edge visibility)
+                if edge_enabled {
+                    let (normalized_mag, angle) = crate::edge::detect_edge(frame, px, py);
+                    if normalized_mag > config.edge_threshold && normalized_mag * mix > 0.5 {
+                        if is_ascii && !use_shape {
+                            cell.ch = crate::edge::ascii_edge_char(angle);
                         } else {
-                            cell.fg = (r, g, b);
+                            let idx = ((normalized_mag * (edge_chars.len() - 1) as f32) as usize)
+                                .min(edge_chars.len() - 1);
+                            cell.ch = edge_chars[idx];
                         }
-                        cell.bg = match config.bg_style {
-                            BgStyle::Black | BgStyle::Transparent => (0, 0, 0),
-                            BgStyle::SourceDim => (r / 4, g / 4, b / 4),
-                        };
-                    }
-
-                    // B. Edge Blending (proportional: mix × magnitude determines edge visibility)
-                    if edge_enabled {
-                        let (normalized_mag, angle) = crate::edge::detect_edge(frame, px, py);
-                        if normalized_mag > config.edge_threshold && normalized_mag * mix > 0.5 {
-                            if is_ascii && !use_shape {
-                                cell.ch = crate::edge::ascii_edge_char(angle);
-                            } else {
-                                let idx = ((normalized_mag * (edge_chars.len() - 1) as f32)
-                                    as usize)
-                                    .min(edge_chars.len() - 1);
-                                cell.ch = edge_chars[idx];
-                            }
-                        }
-                    }
-
-                    // C. Override Bg Style (for non-ascii modes that don't do it)
-                    if !is_ascii && apply_bg {
-                        cell.bg = (r / 4, g / 4, b / 4);
                     }
                 }
-            });
+
+                // C. Override Bg Style (for non-ascii modes that don't do it)
+                if !is_ascii && apply_bg {
+                    cell.bg = (r / 4, g / 4, b / 4);
+                }
+            }
+        });
     }
 }

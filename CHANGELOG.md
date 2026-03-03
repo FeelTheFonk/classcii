@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-03-03
+
+### Changed
+- **Conditional rayon parallelism** — Grid processing (compositor, braille, quadrant, halfblock, sextant, octant) and camera transform now dispatch to sequential iteration when cell/pixel count is below threshold (4000 cells / 50K pixels). Eliminates rayon thread-pool scheduling overhead (~200-400ns) on typical 80×24 terminals. Zero-cost for large grids (batch export, fullscreen).
+- **Capture ring buffer reduced** — Audio capture ring buffer from 2 seconds (88K samples) to 100ms (4.4K samples). Sufficient for 60 FPS reads with safety margin. No latency change (ring buffer is capacity, not enforced delay).
+
+### Quality
+- 118 tests, 0 clippy warnings, 0 rustdoc warnings, 3 benchmark suites.
+
 ## [1.2.0] — 2026-03-03
 
 ### Added

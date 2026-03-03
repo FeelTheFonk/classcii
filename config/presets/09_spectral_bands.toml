@@ -29,33 +29,33 @@ smoothing = 0.5
 enabled = true
 source = "sub_bass"
 target = "wave_amplitude"
-amount = 0.21
+amount = 0.42
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "low_mid"
 target = "fade_decay"
-amount = 0.21
+amount = 0.42
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "high_mid"
 target = "chromatic_offset"
-amount = 0.21
+amount = 0.42
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "presence"
 target = "glow_intensity"
-amount = 0.25
+amount = 0.50
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "brilliance"
 target = "color_pulse_speed"
-amount = 0.28
+amount = 0.56
 curve = "Smooth"

@@ -28,26 +28,26 @@ smoothing = 0.55
 enabled = true
 source = "bass"
 target = "camera_zoom_amplitude"
-amount = 0.6
+amount = 0.8
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
 target = "camera_rotation"
-amount = 0.35
+amount = 0.5
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "glow_intensity"
-amount = 0.3
+amount = 0.5
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_flux"
 target = "color_pulse_speed"
-amount = 0.3
+amount = 0.5
 curve = "Smooth"

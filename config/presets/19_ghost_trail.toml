@@ -32,19 +32,26 @@ smoothing = 0.65
 enabled = true
 source = "spectral_centroid"
 target = "edge_mix"
-amount = 0.35
+amount = 0.5
 curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.35
+amount = 0.5
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
 source = "timbral_brightness"
 target = "saturation"
-amount = 0.35
+amount = 0.5
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "glow_intensity"
+amount = 0.6
 curve = "Smooth"

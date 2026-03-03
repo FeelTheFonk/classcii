@@ -42,11 +42,11 @@ impl FeatureSmoother {
         let mut smoothed = *current;
 
         // Adaptive smoothing per frequency band category:
-        // Low = ×1.3 (slower), Mid = ×1.0, High = ×0.7 (faster), Events = ×0.5
+        // Low = ×0.8 (punchy), Mid = ×1.0, High = ×0.7 (fast), Events = passthrough
         smoothed.rms = self.ar(current.rms, self.prev.rms);
         smoothed.peak = self.ar(current.peak, self.prev.peak);
-        smoothed.sub_bass = self.ar_scaled(current.sub_bass, self.prev.sub_bass, 1.3);
-        smoothed.bass = self.ar_scaled(current.bass, self.prev.bass, 1.3);
+        smoothed.sub_bass = self.ar_scaled(current.sub_bass, self.prev.sub_bass, 0.8);
+        smoothed.bass = self.ar_scaled(current.bass, self.prev.bass, 0.8);
         smoothed.low_mid = self.ar(current.low_mid, self.prev.low_mid);
         smoothed.mid = self.ar(current.mid, self.prev.mid);
         smoothed.high_mid = self.ar_scaled(current.high_mid, self.prev.high_mid, 0.7);
@@ -58,8 +58,6 @@ impl FeatureSmoother {
         smoothed.spectral_flatness =
             self.ar(current.spectral_flatness, self.prev.spectral_flatness);
         smoothed.bpm = self.ar(current.bpm, self.prev.bpm);
-        smoothed.beat_intensity =
-            self.ar_scaled(current.beat_intensity, self.prev.beat_intensity, 0.5);
         smoothed.timbral_brightness =
             self.ar(current.timbral_brightness, self.prev.timbral_brightness);
         smoothed.timbral_roughness =
@@ -70,12 +68,13 @@ impl FeatureSmoother {
             self.prev.zero_crossing_rate,
             0.7,
         );
-        smoothed.onset_envelope =
-            self.ar_scaled(current.onset_envelope, self.prev.onset_envelope, 0.5);
 
-        // Events: no smoothing
+        // Events: NO smoothing — transient signals must pass through unattenuated.
+        // beat_intensity, onset_envelope need full amplitude on first frame for punch.
         smoothed.onset = current.onset;
         smoothed.beat_phase = current.beat_phase;
+        smoothed.beat_intensity = current.beat_intensity;
+        smoothed.onset_envelope = current.onset_envelope;
 
         // Spectrum bands
         for i in 0..32 {

@@ -238,10 +238,11 @@ The internal feature smoother applies frequency-aware multipliers automatically:
 
 | Band Category | Multiplier | Rationale |
 |---------------|------------|-----------|
-| Sub-bass, Bass | x1.3 | Slower — prevents jittery bass modulation |
+| Sub-bass, Bass | x0.8 | Punchy — fast attack for kick/bass hits |
 | Mid, Low-mid | x1.0 | Neutral — standard smoothing |
-| High-mid, Presence, Brilliance | x0.7 | Faster — high frequencies need quick tracking |
-| Beat, Onset, Events | x0.5 | Fastest — transient events must not be smoothed away |
+| High-mid, Presence, Brilliance | x0.7 | Fast — high frequencies need quick tracking |
+| Beat intensity, Onset envelope | bypass | **No smoothing** — transient events pass through at full amplitude |
+| Onset (bool), Beat phase | bypass | Instantaneous — no smoothing applied |
 
 This is automatic and requires no configuration. Per-mapping `smoothing` overrides take priority.
 

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] — 2026-03-03
+
+### Fixed
+- **Edge display condition was impossible** — compositor.rs required `normalized_mag * edge_mix > 0.5`, making edges unreachable at default `edge_mix=0.3` (would need `mag > 1.67`, max is 1.0). The bass→edge_threshold default mapping produced **zero visual effect**. Removed the impossible gate; edges now display whenever magnitude exceeds threshold.
+- **beat_intensity fully attenuated by FeatureSmoother** — scale=0.5 gave attack alpha=0.3, passing only 30% of signal on first frame. A perfect beat of 1.0 was seen as 0.3. beat_intensity and onset_envelope now **bypass smoothing entirely** for full transient amplitude.
+- **Bass/sub-bass smoothing too sluggish** — scale reduced from 1.3 to 0.8. Release decay tau drops from ~500ms to ~340ms for punchier bass response.
+
+### Changed
+- **10 preset recalibration** — presets 01, 02, 03, 04, 05, 07, 09, 11, 13, 19 had effective deltas < 0.05 (barely perceptible). Amounts increased 1.5-2× and sensitivities raised to MODERATE tier. Presets 01 and 05 gain a second mapping for visible modulation.
+- **AUDIO_GUIDE.md** — smoother band scaling table updated (bass x0.8, beat/onset bypass).
+
+### Quality
+- 84 tests, 0 clippy warnings.
+
 ## [1.1.2] — 2026-03-03
 
 ### Fixed

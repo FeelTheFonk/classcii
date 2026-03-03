@@ -1,3 +1,11 @@
+/// MFCC coefficient 1 normalization divisor.
+/// Maps typical MFCC[1] range [-25, 25] to centered [0, 1] via `(mfcc[1] / SCALE + 0.5)`.
+const MFCC_BRIGHTNESS_SCALE: f32 = 50.0;
+
+/// MFCC coefficient 2 normalization divisor.
+/// Maps typical |MFCC[2]| range [0, 15] to [0, 1] via `(mfcc[2].abs() / SCALE)`.
+const MFCC_ROUGHNESS_SCALE: f32 = 30.0;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
@@ -265,8 +273,8 @@ fn run_file_analysis_loop(
         // MFCC timbral features
         let mfcc = filterbank.compute(spectrum);
         feats.mfcc = mfcc;
-        feats.timbral_brightness = (mfcc[1] / 50.0 + 0.5).clamp(0.0, 1.0);
-        feats.timbral_roughness = (mfcc[2].abs() / 30.0).clamp(0.0, 1.0);
+        feats.timbral_brightness = (mfcc[1] / MFCC_BRIGHTNESS_SCALE + 0.5).clamp(0.0, 1.0);
+        feats.timbral_roughness = (mfcc[2].abs() / MFCC_ROUGHNESS_SCALE).clamp(0.0, 1.0);
 
         let smoothed = smoother.smooth(&feats);
         buf_input.write(smoothed);
@@ -316,8 +324,8 @@ fn run_analysis_loop(
             // MFCC timbral features
             let mfcc = filterbank.compute(spectrum);
             feats.mfcc = mfcc;
-            feats.timbral_brightness = (mfcc[1] / 50.0 + 0.5).clamp(0.0, 1.0);
-            feats.timbral_roughness = (mfcc[2].abs() / 30.0).clamp(0.0, 1.0);
+            feats.timbral_brightness = (mfcc[1] / MFCC_BRIGHTNESS_SCALE + 0.5).clamp(0.0, 1.0);
+            feats.timbral_roughness = (mfcc[2].abs() / MFCC_ROUGHNESS_SCALE).clamp(0.0, 1.0);
 
             let smoothed = smoother.smooth(&feats);
             buf_input.write(smoothed);

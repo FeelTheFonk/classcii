@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v1.0.3 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.0.4 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Prerequisites
 

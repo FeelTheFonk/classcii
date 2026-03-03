@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] — 2026-03-03
+
+### Fixed
+- **CRITICAL — Anti-aliasing downsampling**: 2:1 decimation in symphonia decoder now uses 4-tap FIR low-pass pre-filter (moving average), preventing spectral fold-back that corrupted high-frequency features (brilliance, presence, spectral_centroid) on 44.1kHz+ audio.
+- **Spectral centroid normalization**: divided by actual Nyquist frequency (`sample_rate / 2`) instead of hardcoded 20kHz. Fixes centroid bias on 24kHz decoded audio (was capped at 0.6 instead of 1.0).
+- **Silence guard parity**: batch onset detection now uses spectral energy threshold (`> 1e-6`) matching live mode, replacing inconsistent RMS-based guard (`> 1e-4`).
+- **BPM normalization range**: `bpm / 200.0` → `bpm / 300.0` in both pipeline.rs and generative.rs, covering the full [30, 300] BPM clamp range for drum & bass and speedcore genres.
+
+### Changed
+- Named constants with documentation: `BAND_ENERGY_GAIN` (features.rs), `FLUX_GAIN` (beat.rs), `MFCC_BRIGHTNESS_SCALE` / `MFCC_ROUGHNESS_SCALE` (state.rs). All empirical gain/normalization values now documented.
+- `AudioMapping::offset` field now `#[serde(default)]` — optional in TOML (defaults to 0.0).
+
+### Quality
+- 83 tests + 1 video-feature test, 0 clippy warnings.
+- Audio pipeline audited against librosa, essentia, aubio standards.
+
 ## [1.0.3] — 2026-03-03
 
 ### Changed

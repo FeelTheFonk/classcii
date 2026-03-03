@@ -182,7 +182,7 @@ pub fn apply_audio_mappings(
                 }
             }
             "beat_phase" => features.beat_phase,
-            "bpm" => features.bpm / 200.0,
+            "bpm" => features.bpm / 300.0,
             "timbral_brightness" => features.timbral_brightness,
             "timbral_roughness" => features.timbral_roughness,
             "onset_envelope" => onset_envelope,

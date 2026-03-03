@@ -133,14 +133,19 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
         let interleaved = buf.samples();
 
         if downsample_factor > 1 {
-            // 2-tap averaging decimation (anti-aliased downsampling)
-            let mut accum = 0.0f32;
+            // Anti-aliased 2:1 decimation with 4-tap FIR low-pass pre-filter.
+            // Moving average [1,1,1,1]/4 cuts -6dB at Nyquist/2, preventing
+            // spectral fold-back that would corrupt high-frequency features
+            // (brilliance, presence, timbral_brightness, spectral_centroid).
+            let mut ring = [0.0f32; 4];
+            let ds = downsample_factor as usize;
             for (i, chunk) in interleaved.chunks(channels).enumerate() {
                 let mono: f32 = chunk.iter().sum::<f32>() / channels as f32;
-                accum += mono;
-                if (i + 1) % downsample_factor as usize == 0 {
-                    all_samples.push(accum / downsample_factor as f32);
-                    accum = 0.0;
+                ring[i % 4] = mono;
+                let n = i + 1;
+                if n >= 4 && n.is_multiple_of(ds) {
+                    let filtered = (ring[0] + ring[1] + ring[2] + ring[3]) * 0.25;
+                    all_samples.push(filtered);
                 }
             }
         } else {

@@ -144,10 +144,15 @@ impl BatchAnalyzer {
             let threshold = ema_flux * 1.5 + 0.01;
 
             // Warmup: skip first ~10 frames to avoid false positives
-            // Silence guard: reject onsets when RMS is negligible
+            // Silence guard: spectral energy threshold (parity with live BeatDetector)
+            let spectral_energy = frame.sub_bass * frame.sub_bass
+                + frame.bass * frame.bass
+                + frame.mid * frame.mid
+                + frame.brilliance * frame.brilliance;
             let warmup_complete = i > 10;
             let since = i.saturating_sub(last_onset);
-            let onset = warmup_complete && frame.rms > 1e-4 && flux > threshold && since > cooldown;
+            let onset =
+                warmup_complete && spectral_energy > 1e-6 && flux > threshold && since > cooldown;
 
             if onset {
                 frame.onset = true;

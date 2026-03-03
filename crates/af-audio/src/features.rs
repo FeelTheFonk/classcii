@@ -1,5 +1,11 @@
 use af_core::frame::AudioFeatures;
 
+/// Gain applied to average FFT magnitude before sqrt compression.
+/// Compensates for the FFT normalization (magnitude / N) which produces
+/// very small values (~0.005–0.05) for typical music.
+/// Mapping: 0.005→0.32, 0.02→0.63, 0.05→1.0.
+const BAND_ENERGY_GAIN: f32 = 20.0;
+
 /// Extract audio features from a spectrum and raw samples.
 ///
 /// # Example
@@ -48,7 +54,8 @@ pub fn extract_features(samples: &[f32], spectrum: &[f32], sample_rate: u32) -> 
                 .enumerate()
                 .map(|(i, &mag)| i as f32 * bin_hz * mag)
                 .sum();
-            features.spectral_centroid = (weighted / total_energy / 20000.0).clamp(0.0, 1.0);
+            let nyquist = sample_rate as f32 / 2.0;
+            features.spectral_centroid = (weighted / total_energy / nyquist).clamp(0.0, 1.0);
         }
 
         // Spectral flatness (geometric mean / arithmetic mean)
@@ -112,7 +119,7 @@ fn band_energy(spectrum: &[f32], low_hz: f32, high_hz: f32, bin_hz: f32) -> f32 
     let sum: f32 = spectrum[lo..hi].iter().sum();
     let count = (hi - lo) as f32;
     let avg = sum / count;
-    (avg * 20.0).sqrt().min(1.0)
+    (avg * BAND_ENERGY_GAIN).sqrt().min(1.0)
 }
 
 /// Fill 32 log-spaced frequency bands for visualization.
@@ -133,7 +140,7 @@ fn fill_spectrum_bands(spectrum: &[f32], bin_hz: f32, bands: &mut [f32; 32]) {
         if lo < spectrum.len() && hi <= spectrum.len() {
             let sum: f32 = spectrum[lo..hi].iter().sum();
             let avg = sum / (hi - lo) as f32;
-            *band = (avg * 20.0).sqrt().min(1.0);
+            *band = (avg * BAND_ENERGY_GAIN).sqrt().min(1.0);
         } else {
             *band = 0.0;
         }

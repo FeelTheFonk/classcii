@@ -1,5 +1,9 @@
 use std::collections::VecDeque;
 
+/// Gain applied to spectral flux before sqrt compression for [0,1] normalization.
+/// Compensates for per-bin normalization that yields small raw values.
+const FLUX_GAIN: f32 = 5.0;
+
 /// Simple onset / beat detection.
 ///
 /// Uses spectral flux with an adaptive threshold and onset cooldown.
@@ -125,8 +129,8 @@ impl BeatDetector {
         }
         self.prev_spectrum.copy_from_slice(spectrum);
 
-        // Normalize flux to [0, 1] with gain + sqrt compression for mapping use
-        let normalized_flux = (flux * 5.0).sqrt().min(1.0);
+        // Normalize flux to [0, 1] with gain + sqrt compression for mapping use.
+        let normalized_flux = (flux * FLUX_GAIN).sqrt().min(1.0);
 
         (onset, beat_intensity, self.bpm, self.phase, normalized_flux)
     }

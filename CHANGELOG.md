@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-03-03
+
+### Added
+- **Regression test suite** — 14 unit tests covering all bugs fixed in v1.1.1–v1.1.3 (octant LUT, double-smoothing, edge gate, beat passthrough, invert semantics, camera rotation wrap).
+- **Integration test suite** — 4 test files (14 tests): audio pipeline end-to-end (sine wave → FFT → features → smoother), mapping pipeline (features → parameter deltas), preset loading (22 TOML files validated), compositor (ASCII/Octant/Braille rendering verification).
+- **Criterion benchmarks** — 3 benchmark files: compositor (ASCII/Octant/Braille modes), audio (FFT/features/smoother), effects (strobe/glow/chromatic/temporal stability). Run: `cargo bench`.
+- **`input_gain` parameter** — Pre-FFT sample gain [0.1, 10.0], default 1.0. Multiplies audio samples before FFT, affecting all features proportionally. Keys: `N` (down) / `M` (up). TOML: `[audio] input_gain = 1.0`.
+- **CI: rustdoc + bench** — `RUSTDOCFLAGS="-D warnings" cargo doc` and `cargo bench --no-run` added to CI pipeline.
+
+### Changed
+- **`edge_mix` proportional blend restored** — `mix × magnitude > 0.5` determines edge visibility. Default edge_mix raised from 0.3 to 0.5 so the bass→edge_threshold mapping produces visible edges at moderate magnitudes.
+- **Rasterizer alpha clamp** — `v.clamp(0.0, 1.0)` added before u8 cast in glyph rasterization to prevent color corruption from ab_glyph overflow.
+- **af-app lib.rs created** — Exposes pipeline, generative, creation, cli modules for integration testing.
+
+### Quality
+- 118 tests (43 unit + 14 integration + 61 doctests), 0 clippy warnings, 0 rustdoc warnings.
+- 3 criterion benchmark suites (compositor, audio, effects).
+
 ## [1.1.3] — 2026-03-03
 
 ### Fixed

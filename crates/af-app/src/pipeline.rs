@@ -36,20 +36,21 @@ pub fn start_audio(
 )> {
     let fps = config.load().target_fps;
     let smoothing = config.load().audio_smoothing;
+    let input_gain = config.load().input_gain;
 
     match audio_arg {
         "default" | "mic" | "microphone" => {
-            log::info!("Starting microphone capture");
-            let out = af_audio::state::spawn_audio_thread(fps, smoothing)?;
+            log::info!("Starting microphone capture (gain={input_gain:.1})");
+            let out = af_audio::state::spawn_audio_thread(fps, smoothing, input_gain)?;
             Ok((out, None))
         }
         path => {
             let audio_path = std::path::Path::new(path);
             if audio_path.exists() {
-                log::info!("Starting audio file analysis: {path}");
+                log::info!("Starting audio file analysis: {path} (gain={input_gain:.1})");
                 let (cmd_tx, cmd_rx) = flume::bounded(10);
                 let out = af_audio::state::spawn_audio_file_thread(
-                    audio_path, fps, smoothing, cmd_rx, clock,
+                    audio_path, fps, smoothing, input_gain, cmd_rx, clock,
                 )?;
                 Ok((out, Some(cmd_tx)))
             } else {
@@ -291,5 +292,83 @@ pub fn apply_audio_mappings(
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+    use af_core::config::{AudioMapping, MappingCurve, RenderConfig};
+    use af_core::frame::AudioFeatures;
+
+    #[test]
+    fn no_smoothing_by_default_direct_passthrough() {
+        let mut config = RenderConfig::default();
+        let mut features = AudioFeatures::default();
+        features.bass = 0.5;
+        let mut smooth = vec![];
+
+        apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+
+        // With Smooth curve on bass=0.5: shaped = 3*(0.25) - 2*(0.125) = 0.5
+        // delta = 0.5 * 0.7 * 2.0 = 0.7 — direct passthrough (no per-mapping EMA)
+        assert!(
+            config.edge_threshold > 0.5,
+            "bass mapping should produce substantial edge_threshold, got {}",
+            config.edge_threshold
+        );
+    }
+
+    #[test]
+    fn explicit_smoothing_applies_ema() {
+        let mut config = RenderConfig::default();
+        config.audio_mappings = vec![AudioMapping {
+            enabled: true,
+            source: "rms".into(),
+            target: "brightness".into(),
+            amount: 1.0,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: Some(0.3), // Explicit per-mapping smoothing
+        }];
+        let mut features = AudioFeatures::default();
+        features.rms = 1.0;
+        let mut smooth = vec![];
+
+        // First frame: EMA with alpha=0.3 → 0.3 * raw_delta + 0.7 * 0
+        apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+        let first = config.brightness;
+
+        // With smoothing, first frame should be substantially less than raw delta
+        // raw_delta = 1.0 * 1.0 * 2.0 = 2.0, smoothed ≈ 0.3 * 2.0 = 0.6
+        assert!(
+            first < 1.5,
+            "with smoothing=0.3, first frame should be dampened, got {first}"
+        );
+    }
+
+    #[test]
+    fn onset_envelope_passthrough() {
+        let mut config = RenderConfig::default();
+        config.audio_mappings = vec![AudioMapping {
+            enabled: true,
+            source: "onset_envelope".into(),
+            target: "brightness".into(),
+            amount: 1.0,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+        }];
+        let features = AudioFeatures::default();
+        let mut smooth = vec![];
+
+        apply_audio_mappings(&mut config, &features, 0.75, &mut smooth, 60);
+        // delta = 0.75 * 1.0 * 2.0 = 1.5, clamped brightness to 1.0
+        assert!(
+            config.brightness > 0.5,
+            "onset_envelope should pass through directly, got {}",
+            config.brightness
+        );
     }
 }

@@ -110,3 +110,76 @@ impl FeatureSmoother {
         alpha * current + (1.0 - alpha) * previous
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::float_cmp, clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn beat_intensity_bypasses_smoothing() {
+        let mut smoother = FeatureSmoother::new(0.3);
+        let mut features = AudioFeatures::default();
+
+        // First call initializes
+        features.beat_intensity = 0.0;
+        smoother.smooth(&features);
+
+        // Second call: beat spike should pass through at full amplitude
+        features.beat_intensity = 1.0;
+        let smoothed = smoother.smooth(&features);
+        assert_eq!(
+            smoothed.beat_intensity, 1.0,
+            "beat_intensity must bypass smoothing (got {})",
+            smoothed.beat_intensity
+        );
+    }
+
+    #[test]
+    fn onset_envelope_bypasses_smoothing() {
+        let mut smoother = FeatureSmoother::new(0.3);
+        let mut features = AudioFeatures::default();
+
+        smoother.smooth(&features);
+
+        features.onset_envelope = 0.8;
+        let smoothed = smoother.smooth(&features);
+        assert_eq!(
+            smoothed.onset_envelope, 0.8,
+            "onset_envelope must bypass smoothing (got {})",
+            smoothed.onset_envelope
+        );
+    }
+
+    #[test]
+    fn bass_is_smoothed() {
+        let mut smoother = FeatureSmoother::new(0.3);
+        let mut features = AudioFeatures::default();
+
+        features.bass = 0.0;
+        smoother.smooth(&features);
+
+        features.bass = 1.0;
+        let smoothed = smoother.smooth(&features);
+        // With scale=0.8, attack = min(0.6*0.8, 1.0) = 0.48
+        // smoothed = 0.48 * 1.0 + 0.52 * 0.0 = 0.48
+        assert!(
+            smoothed.bass < 1.0 && smoothed.bass > 0.3,
+            "bass should be smoothed (got {})",
+            smoothed.bass
+        );
+    }
+
+    #[test]
+    fn onset_bool_not_smoothed() {
+        let mut smoother = FeatureSmoother::new(0.3);
+        let mut features = AudioFeatures::default();
+
+        features.onset = false;
+        smoother.smooth(&features);
+
+        features.onset = true;
+        let smoothed = smoother.smooth(&features);
+        assert!(smoothed.onset, "onset bool must pass through directly");
+    }
+}

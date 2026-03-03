@@ -365,3 +365,54 @@ pub fn process_octant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut Asc
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lut_boundaries() {
+        assert_eq!(OCTANT_LUT[0], ' ', "index 0 must be space");
+        assert_eq!(OCTANT_LUT[255], '\u{2588}', "index 255 must be full block");
+    }
+
+    #[test]
+    fn lut_block_elements_preserved() {
+        assert_eq!(OCTANT_LUT[3], '\u{2598}', "index 3 must be ▘ quadrant UL");
+        assert_eq!(OCTANT_LUT[204], '\u{2584}', "index 204 must be ▄ lower half");
+        assert_eq!(OCTANT_LUT[51], '\u{2580}', "index 51 must be ▀ upper half");
+        assert_eq!(OCTANT_LUT[15], '\u{258C}', "index 15 must be ▌ left half");
+        assert_eq!(OCTANT_LUT[240], '\u{2590}', "index 240 must be ▐ right half");
+    }
+
+    #[test]
+    fn lut_real_octants_in_range() {
+        // Index 2 (bitmask 0x02 = cell 3 only) must be a real octant U+1CD00-U+1CDE5
+        let ch = OCTANT_LUT[2];
+        let cp = ch as u32;
+        assert!(
+            (0x1CD00..=0x1CDE5).contains(&cp),
+            "index 2 should be real octant, got U+{cp:04X}"
+        );
+    }
+
+    #[test]
+    fn lut_braille_fallbacks_in_range() {
+        // 6 patterns without octant/block element coverage use Braille fallback
+        let braille_indices = [1, 6, 8, 16, 96, 128];
+        for &idx in &braille_indices {
+            let cp = OCTANT_LUT[idx] as u32;
+            assert!(
+                (0x2800..=0x28FF).contains(&cp),
+                "index {idx} should be braille fallback, got U+{cp:04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_all_chars_valid() {
+        for (i, &ch) in OCTANT_LUT.iter().enumerate() {
+            assert!(ch != '\0', "index {i} must not be null char");
+        }
+    }
+}

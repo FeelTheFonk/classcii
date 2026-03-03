@@ -61,6 +61,10 @@ pub struct RenderConfig {
     pub audio_smoothing: f32,
     /// Sensibilité globale de la réactivité audio [0.0, 5.0].
     pub audio_sensitivity: f32,
+    /// Gain d'entrée audio [0.1, 10.0]. Multiplie les échantillons avant FFT.
+    /// 1.0 = neutre. Augmenter pour micro faible, réduire pour source forte.
+    #[serde(default = "default_input_gain")]
+    pub input_gain: f32,
 
     // === Post-processing Effects ===
     /// Fade trails decay factor [0.0, 1.0]. 0.0 = disabled.
@@ -158,6 +162,11 @@ pub const AUDIO_TARGETS: &[&str] = &[
 #[must_use]
 pub fn default_true() -> bool {
     true
+}
+
+#[must_use]
+fn default_input_gain() -> f32 {
+    1.0
 }
 
 #[must_use]
@@ -297,7 +306,7 @@ impl Default for RenderConfig {
             invert: false,
             color_enabled: true,
             edge_threshold: 0.0,
-            edge_mix: 0.3,
+            edge_mix: 0.5,
             shape_matching: false,
             aspect_ratio: 2.0,
             density_scale: 1.0,
@@ -355,6 +364,7 @@ impl Default for RenderConfig {
             ],
             audio_smoothing: 0.3,
             audio_sensitivity: 2.0,
+            input_gain: 1.0,
             fade_decay: 0.0,
             glow_intensity: 0.0,
             zalgo_intensity: 0.0,
@@ -407,6 +417,7 @@ impl RenderConfig {
         self.target_fps = self.target_fps.clamp(15, 120);
         self.audio_smoothing = self.audio_smoothing.clamp(0.0, 1.0);
         self.audio_sensitivity = self.audio_sensitivity.clamp(0.0, 5.0);
+        self.input_gain = self.input_gain.clamp(0.1, 10.0);
 
         for mapping in &mut self.audio_mappings {
             mapping.amount = mapping.amount.clamp(-10.0, 10.0);
@@ -471,6 +482,7 @@ struct RenderSection {
 struct AudioSection {
     smoothing: Option<f32>,
     sensitivity: Option<f32>,
+    input_gain: Option<f32>,
     mappings: Option<Vec<AudioMapping>>,
 }
 
@@ -614,6 +626,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
         }
         if let Some(v) = a.sensitivity {
             config.audio_sensitivity = v;
+        }
+        if let Some(v) = a.input_gain {
+            config.input_gain = v;
         }
         if let Some(v) = a.mappings {
             config.audio_mappings = v;

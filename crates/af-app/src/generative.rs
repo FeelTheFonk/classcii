@@ -187,3 +187,35 @@ fn apply_target(config: &mut RenderConfig, target: &str, delta: f32) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invert_threshold_not_toggle() {
+        let mut config = RenderConfig::default();
+
+        // delta > 0.5 → invert = true
+        config.invert = false;
+        apply_target(&mut config, "invert", 0.8);
+        assert!(config.invert, "delta 0.8 should set invert=true");
+
+        // delta < 0.5 → invert = false (NOT toggle)
+        apply_target(&mut config, "invert", 0.2);
+        assert!(!config.invert, "delta 0.2 should set invert=false, not toggle");
+    }
+
+    #[test]
+    fn camera_rotation_wraps() {
+        let mut config = RenderConfig::default();
+        config.camera_rotation = 6.0; // near TAU (6.28)
+        apply_target(&mut config, "camera_rotation", 5.0); // adds 0.5 radians
+        assert!(
+            config.camera_rotation < std::f32::consts::TAU,
+            "rotation should wrap at TAU, got {}",
+            config.camera_rotation
+        );
+    }
+}

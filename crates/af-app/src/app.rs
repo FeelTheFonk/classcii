@@ -1038,6 +1038,12 @@ impl App {
             KeyCode::Char('G') => {
                 self.toggle_config(|c| c.glow_intensity = (c.glow_intensity + 0.1).min(2.0));
             }
+            KeyCode::Char('N') => {
+                self.toggle_config(|c| c.input_gain = (c.input_gain - 0.5).max(0.1));
+            }
+            KeyCode::Char('M') => {
+                self.toggle_config(|c| c.input_gain = (c.input_gain + 0.5).min(10.0));
+            }
             KeyCode::Char('r') => {
                 self.toggle_config(|c| c.chromatic_offset = (c.chromatic_offset - 0.5).max(0.0));
             }

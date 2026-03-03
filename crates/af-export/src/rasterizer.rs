@@ -89,7 +89,7 @@ impl Rasterizer {
                         if px < self.char_width && py < self.char_height {
                             let idx = (py * self.char_width + px) as usize;
                             if idx < buffer.len() {
-                                buffer[idx] = (v * 255.0).round() as u8;
+                                buffer[idx] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
                             }
                         }
                     });

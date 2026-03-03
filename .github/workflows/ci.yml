@@ -41,6 +41,14 @@ jobs:
       - name: Tests
         run: cargo test --workspace --features video
 
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --no-deps --all-features
+
+      - name: Bench (compile-only)
+        run: cargo bench --workspace --no-run --all-features
+
   msrv:
     name: MSRV (1.88)
     runs-on: ubuntu-latest

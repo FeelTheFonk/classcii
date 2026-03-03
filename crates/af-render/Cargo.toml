@@ -14,5 +14,12 @@ crossterm = { workspace = true }
 log = { workspace = true }
 rayon.workspace = true
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "effects"
+harness = false
+
 [lints]
 workspace = true

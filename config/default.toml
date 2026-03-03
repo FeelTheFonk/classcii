@@ -10,7 +10,7 @@ color_enabled = true
 color_mode = "Oklab"                 # Direct, HsvBright, Oklab, Quantized
 dither_mode = "BlueNoise16"          # Bayer8x8, BlueNoise16, None
 edge_threshold = 0.0
-edge_mix = 0.3                       # >0 requis pour que bass→edge_threshold soit visible
+edge_mix = 0.5                       # Proportional blend: mix×magnitude > 0.5 shows edge
 shape_matching = false
 aspect_ratio = 2.0
 saturation = 1.0
@@ -46,6 +46,7 @@ show_spectrum = false
 [audio]
 smoothing = 0.3                    # FeatureSmoother alpha (feature-level EMA)
 sensitivity = 2.0                  # Global multiplier for all mapping deltas
+input_gain = 1.0                   # Pre-FFT sample gain [0.1, 10.0] (increase for quiet mic)
 
 # Audio-reactive mappings
 

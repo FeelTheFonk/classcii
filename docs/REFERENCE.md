@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.1.3.
+All default values are synchronized with `RenderConfig::default()` v1.2.0.
 
 ---
 
@@ -83,6 +83,7 @@ Color modes:
 |-------|------|-------|---------|-------------|
 | `smoothing` | Float | 0.0–1.0 | `0.3` | Global EMA smoothing for all mappings |
 | `sensitivity` | Float | 0.0–5.0 | `2.0` | Global multiplier for all mapping outputs |
+| `input_gain` | Float | 0.1–10.0 | `1.0` | Pre-FFT sample gain (increase for quiet mic) |
 
 ### `[[audio.mappings]]` — Audio-to-Visual Mappings
 
@@ -355,7 +356,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.1.3, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.2.0, synchronized with `config/default.toml`:
 
 ```toml
 [render]
@@ -367,7 +368,7 @@ invert = false
 color_enabled = true
 color_mode = "Oklab"
 edge_threshold = 0.0
-edge_mix = 0.3
+edge_mix = 0.5
 shape_matching = false
 aspect_ratio = 2.0
 density_scale = 1.0
@@ -398,6 +399,7 @@ show_spectrum = false
 [audio]
 smoothing = 0.3
 sensitivity = 2.0
+input_gain = 1.0
 ```
 
 ### Default Audio Mappings (5)

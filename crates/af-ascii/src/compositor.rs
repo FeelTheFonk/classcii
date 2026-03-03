@@ -100,7 +100,8 @@ impl Compositor {
 
         // 2. MEGA-BOUCLE  (SIMD Philosophy)
         let edge_chars = [' ', '.', '-', '|', '/', '\\', '+', '#'];
-        let edge_enabled = config.edge_threshold > 0.0 && config.edge_mix > 0.0;
+        let mix = config.edge_mix.clamp(0.0, 1.0);
+        let edge_enabled = config.edge_threshold > 0.0 && mix > 0.0;
         let apply_bg = matches!(config.bg_style, BgStyle::SourceDim);
 
         let grid_w = u32::from(grid.width).max(1);
@@ -180,15 +181,15 @@ impl Compositor {
                         };
                     }
 
-                    // B. Edge Blending
+                    // B. Edge Blending (proportional: mix × magnitude determines edge visibility)
                     if edge_enabled {
                         let (normalized_mag, angle) = crate::edge::detect_edge(frame, px, py);
-                        if normalized_mag > config.edge_threshold {
-                            // En mode ASCII pur, on utilise le mapping directionnel asciify-them
+                        if normalized_mag > config.edge_threshold
+                            && normalized_mag * mix > 0.5
+                        {
                             if is_ascii && !use_shape {
                                 cell.ch = crate::edge::ascii_edge_char(angle);
                             } else {
-                                // Fallback pour les modes blocs ou si les shapes sont déjà actives
                                 let idx = ((normalized_mag * (edge_chars.len() - 1) as f32)
                                     as usize)
                                     .min(edge_chars.len() - 1);

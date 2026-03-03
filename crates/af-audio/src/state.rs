@@ -39,6 +39,7 @@ use crate::smoothing::FeatureSmoother;
 pub fn spawn_audio_thread(
     target_fps: u32,
     audio_smoothing: f32,
+    input_gain: f32,
 ) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
     let mut capture = AudioCapture::start_default()?;
     let sample_rate = capture.sample_rate();
@@ -53,6 +54,7 @@ pub fn spawn_audio_thread(
                 target_fps,
                 sample_rate,
                 audio_smoothing,
+                input_gain,
                 &mut |out| {
                     capture.read_samples(out);
                 },
@@ -76,6 +78,7 @@ pub fn spawn_audio_file_thread(
     path: &std::path::Path,
     target_fps: u32,
     audio_smoothing: f32,
+    input_gain: f32,
     cmd_rx: flume::Receiver<AudioCommand>,
     clock: Arc<MediaClock>,
 ) -> anyhow::Result<triple_buffer::Output<AudioFeatures>> {
@@ -182,6 +185,7 @@ pub fn spawn_audio_file_thread(
                 target_fps,
                 sample_rate,
                 audio_smoothing,
+                input_gain,
                 &samples,
                 &playback_pos,
                 &is_paused,
@@ -200,6 +204,7 @@ fn run_file_analysis_loop(
     target_fps: u32,
     sample_rate: u32,
     audio_smoothing: f32,
+    input_gain: f32,
     samples: &[f32],
     playback_pos: &AtomicUsize,
     is_paused: &AtomicBool,
@@ -259,6 +264,13 @@ fn run_file_analysis_loop(
             *slot = samples[idx];
         }
 
+        // Apply input gain before FFT
+        if (input_gain - 1.0).abs() > f32::EPSILON {
+            for s in &mut window_buf {
+                *s *= input_gain;
+            }
+        }
+
         let spectrum = fft.process(&window_buf);
         let mut feats = features::extract_features(&window_buf, spectrum, sample_rate);
 
@@ -289,6 +301,7 @@ fn run_analysis_loop(
     target_fps: u32,
     sample_rate: u32,
     audio_smoothing: f32,
+    input_gain: f32,
     read_fn: &mut dyn FnMut(&mut Vec<f32>),
 ) {
     let fft_size = 2048;
@@ -302,6 +315,13 @@ fn run_analysis_loop(
 
     loop {
         read_fn(&mut sample_buf);
+
+        // Apply input gain before FFT (affects all downstream features proportionally)
+        if (input_gain - 1.0).abs() > f32::EPSILON {
+            for s in &mut sample_buf {
+                *s *= input_gain;
+            }
+        }
 
         if sample_buf.len() >= fft_size {
             let window = if sample_buf.len() > fft_size {

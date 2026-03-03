@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-03-03
+
+### Fixed
+- **UI launch regression**: `validate_source()` no longer requires a visual source — TUI launches with empty canvas when no `--image`/`--video` is provided.
+- **RenderConfig::default() sync**: 7 divergences between code defaults and `config/default.toml` resolved — code now matches TOML (Octant, BlueNoise16, Oklab, 60fps, spectrum off, wave_speed 0.0, temporal_stability 0.3).
+- **Enum `#[default]` attributes**: `RenderMode`, `ColorMode`, `DitherMode` enum derive defaults now match `RenderConfig::default()` (Octant, Oklab, BlueNoise16). Doctests updated accordingly.
+
+### Changed
+- **Documentation consolidation**: 10 docs reduced to 6 (README, CHANGELOG, CLAUDE.md, USAGE.md, AUDIO_GUIDE.md, REFERENCE.md). Zero duplication. All defaults synchronized with code. Stale Audio Mixer Panel references removed (feature removed in v0.9.0).
+- **Workspace version**: bumped to 1.0.2.
+
+### Quality
+- 83 tests (28 unit + 55 doctests), 0 clippy warnings.
+
+## [1.0.1] — 2026-03-02
+
+### Fixed
+- **CRITICAL — Sextant bit ordering**: `dy*2+dx` (row-major) corrected to `dx*3+dy` (column-major) matching U+1FB00 LUT specification.
+- **HIGH — scanline_darken deserialization**: field added to `RenderSection` and `load_config()` — TOML `scanline_darken` values now correctly applied.
+- **aspect_ratio clamped**: `clamp_all()` now bounds aspect_ratio to [0.1, 10.0].
+- **beat_intensity normalization**: added to `FeatureTimeline::normalize()` min-max pass.
+- **validate_source error propagation**: `let _ =` replaced with `?` for proper CLI error reporting.
+- **invert mapping**: changed from toggle (`!config.invert`) to level-set (`delta > 0.5`) preventing oscillation.
+- **camera_rotation wrapping**: `rem_euclid(TAU)` prevents float precision degradation over time.
+- **FFT Hann window**: NaN guard for `size==1` (division by zero in `size-1`).
+- **color_pulse hue**: `% 1.0` replaced with `.rem_euclid(1.0)` for negative hue safety.
+- **Batch MFCC**: timbral_brightness and timbral_roughness now computed in `BatchAnalyzer` (parity with live mode).
+- **Batch min_frames**: hardcoded `60` replaced with actual `fps` parameter.
+
+### Removed
+- `luminance.rs` module (unused `process_luminance`).
+- `geometry/` module (`box_drawing_char`, `PETSCII_TO_UNICODE` — unused).
+- `edge_char()` and `gradient()` functions from `edge.rs` (unused).
+
+### Quality
+- 83 tests (28 unit + 55 doctests), 0 clippy warnings.
+
 ## [1.0.0] — 2026-03-01
 
 ### Fixed
@@ -24,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **af-core test coverage**: 2 unit tests (onset_envelope normalization, energy levels classification).
 
 ### Quality
-- 90 tests total (28 unit + 62 doctests), all 7 crates with test coverage.
+- 90 tests total (28 unit + 62 doctests) at release, all 7 crates with test coverage.
 - 0 clippy warnings (pedantic + deny).
 - All audit findings from 6-agent comprehensive review verified and resolved.
 

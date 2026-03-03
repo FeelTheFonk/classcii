@@ -214,12 +214,11 @@ pub struct AudioMapping {
 /// ```
 /// use af_core::config::RenderMode;
 /// let mode = RenderMode::default();
-/// assert!(matches!(mode, RenderMode::Ascii));
+/// assert!(matches!(mode, RenderMode::Octant));
 /// ```
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum RenderMode {
     /// Standard ASCII character mapping.
-    #[default]
     Ascii,
     /// Braille Unicode patterns (2×4 sub-pixels).
     Braille,
@@ -230,6 +229,7 @@ pub enum RenderMode {
     /// Sextant Unicode 13.0 block characters (2x3 sub-pixels).
     Sextant,
     /// Octant Unicode 16.0 block characters (2x4 sub-pixels).
+    #[default]
     Octant,
 }
 
@@ -239,28 +239,28 @@ pub enum RenderMode {
 /// ```
 /// use af_core::config::ColorMode;
 /// let mode = ColorMode::default();
-/// assert!(matches!(mode, ColorMode::HsvBright));
+/// assert!(matches!(mode, ColorMode::Oklab));
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub enum ColorMode {
     /// RGB direct du pixel source.
     Direct,
     /// HSV avec V forcé à 1.0 (char encode la luminance).
-    #[default]
     HsvBright,
     /// Quantifié sur palette réduite.
     Quantized,
     /// Oklab avec L forcé à 1.0 (perceptuellement uniforme).
+    #[default]
     Oklab,
 }
 
 /// Dithering mode for luminance quantization.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum DitherMode {
-    /// Bayer 8×8 ordered dithering (default).
-    #[default]
+    /// Bayer 8×8 ordered dithering.
     Bayer8x8,
     /// Blue noise 16×16 dithering (perceptually superior).
+    #[default]
     #[serde(alias = "BlueNoise64")]
     BlueNoise16,
     /// No dithering.
@@ -289,10 +289,10 @@ pub enum BgStyle {
 impl Default for RenderConfig {
     fn default() -> Self {
         Self {
-            render_mode: RenderMode::Ascii,
+            render_mode: RenderMode::Octant,
             charset: crate::charset::CHARSET_FULL.to_string(),
             charset_index: 0,
-            dither_mode: DitherMode::Bayer8x8,
+            dither_mode: DitherMode::BlueNoise16,
             invert: false,
             color_enabled: true,
             edge_threshold: 0.0,
@@ -300,7 +300,7 @@ impl Default for RenderConfig {
             shape_matching: false,
             aspect_ratio: 2.0,
             density_scale: 1.0,
-            color_mode: ColorMode::HsvBright,
+            color_mode: ColorMode::Oklab,
             saturation: 1.0,
             contrast: 1.0,
             brightness: 0.0,
@@ -360,19 +360,19 @@ impl Default for RenderConfig {
             beat_flash_intensity: 0.0,
             chromatic_offset: 0.0,
             wave_amplitude: 0.0,
-            wave_speed: 2.0,
+            wave_speed: 0.0,
             color_pulse_speed: 0.0,
             scanline_gap: 0,
             scanline_darken: 0.3,
             strobe_decay: 0.85,
-            temporal_stability: 0.0,
+            temporal_stability: 0.3,
             camera_zoom_amplitude: 1.0,
             camera_rotation: 0.0,
             camera_pan_x: 0.0,
             camera_pan_y: 0.0,
-            target_fps: 30,
+            target_fps: 60,
             fullscreen: false,
-            show_spectrum: true,
+            show_spectrum: false,
         }
     }
 }

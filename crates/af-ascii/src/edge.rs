@@ -69,4 +69,3 @@ pub fn ascii_edge_char(angle_rad: f32) -> char {
         '+'
     }
 }
-

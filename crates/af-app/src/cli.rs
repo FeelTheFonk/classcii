@@ -85,19 +85,13 @@ impl Cli {
             + usize::from(self.video.is_some())
             + usize::from(self.batch_folder.is_some());
 
-        if count == 0 {
-            anyhow::bail!(
-                "Aucune source visuelle spécifiée. Utilisez --image, --video, ou --batch-folder."
-            );
-        }
+        // count == 0 is valid: interactive TUI launches with no visual source.
         if count > 1 {
             anyhow::bail!(
                 "Une seule source visuelle à la fois. Spécifiez --image, --video, OU --batch-folder."
             );
         }
 
-        // We no longer require `batch_out` and `audio` to be set explicitly.
-        // They will be auto-discovered/auto-generated in `run_batch_export`.
         Ok(())
     }
 }

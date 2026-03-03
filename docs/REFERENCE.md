@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.1.0.
+All default values are synchronized with `RenderConfig::default()` v1.1.1.
 
 ---
 
@@ -23,7 +23,7 @@ Configuration files have two sections: `[render]` and `[audio]`. All fields are 
 | `color_mode` | String | `"Direct"`, `"HsvBright"`, `"Oklab"`, `"Quantized"` | `"Oklab"` |
 | `fullscreen` | Boolean | — | `false` |
 | `show_spectrum` | Boolean | — | `false` |
-| `target_fps` | Integer | 30, 60 | `60` |
+| `target_fps` | Integer | 15–120 | `60` |
 
 Sub-pixel resolution per cell: Ascii (1x1), HalfBlock (1x2), Braille (2x4), Quadrant (2x2), Sextant (2x3), Octant (2x4).
 
@@ -248,28 +248,31 @@ In batch export, Zalgo diacritics are alpha-blended composited per glyph. In TUI
 
 ### 10 Built-in Charsets
 
-Selected with keys `1`–`0`. Characters ordered from lightest (space) to densest.
+Selected with keys `1`–`0`. Characters ordered lightest (space) to densest.
 
 | Key | Index | Name | Characters | Len | Best For |
 |-----|-------|------|------------|-----|----------|
-| `1` | 0 | Full | `` $@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}?-_+~<>i!lI;:,"^'. `` | 70 | Photos — maximum tonal range |
-| `2` | 1 | Dense | `Ñ@#W$9876543210?!abc;:+=-,._ ` | 29 | Dense imagery |
+| `1` | 0 | Full | `` .'`^",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$ `` | 70 | Photos — maximum tonal range |
+| `2` | 1 | Dense | ` _.,=-+:;cba!?0123456789$W#@Ñ` | 29 | Dense imagery |
 | `3` | 2 | Short 1 | `.:-=+*#%@` | 9 | Quick rendering |
-| `4` | 3 | Short 2 | `@%#*+=-:. ` | 10 | Inverted gradient |
-| `5` | 4 | Binary | ` #` | 2 | 1-bit high contrast |
-| `6` | 5 | Extended | Repeating pattern (70 chars) | 70 | Patterned rendering |
-| `7` | 6 | Discrete | `1234 ` | 5 | Matrix/digital |
+| `4` | 3 | Blocks | ` ░▒▓█` | 5 | Pseudo-pixel, retro |
+| `5` | 4 | Minimal | ` .:░▒▓█` | 7 | High contrast + Unicode |
+| `6` | 5 | Glitch 1 | ` .°*O0@#&%` | 10 | Organic contrast |
+| `7` | 6 | Glitch 2 | ` ▂▃▄▅▆▇█` | 8 | Spectrum bars |
 | `8` | 7 | Edge | `.,*+#@` | 6 | Edge emphasis |
-| `9` | 8 | Blocks | ` ░▒▓█` | 5 | Pseudo-pixel, retro |
-| `0` | 9 | Minimal | ` .:░▒▓█` | 7 | High contrast + Unicode |
+| `9` | 8 | Digital | ` 01` | 3 | Binary/cryptographic |
+| `0` | 9 | Binary | ` #` | 2 | 1-bit high contrast |
 
 ### Additional Charsets (TOML-only)
 
-| Name | Characters | Best For |
-|------|------------|----------|
-| Glitch 1 | ` .°*O0@#&%` | Organic contrast |
-| Glitch 2 | ` ▂▃▄▅▆▇█` | Spectrum bars |
-| Digital | ` 01` | Binary/cryptographic |
+Available via `charset = "..."` in TOML config or batch mode. Not mapped to TUI keys.
+
+| Name | Characters | Len | Best For |
+|------|------------|-----|----------|
+| Short 2 | ` .:-=+*#%@` | 10 | Inverted gradient |
+| Extended | ` .·:;+xX#%@` | 11 | Unicode dots + ASCII |
+| Discrete | ` 1234` | 5 | Matrix/digital |
+| Hires | `` .'`:,;_-~"!\|/(){}[]<>+*=?^#%&@$ `` | 34 | Batch export, large cells |
 
 ### Charset Mechanics
 
@@ -284,7 +287,7 @@ O(1) per pixel, zero allocation. Charsets only apply in **Ascii** render mode. O
 | Mode | Characters | Charset? |
 |------|-----------|----------|
 | Ascii | Charset chars | Yes |
-| HalfBlock | `▄` `▀` with fg/bg colors | No |
+| HalfBlock | `▄` with fg (bottom) / bg (top) colors | No |
 | Braille | U+2800–U+28FF | No |
 | Quadrant | 2x2 block elements | No |
 | Sextant | U+1FB00 (2x3) | No |
@@ -352,7 +355,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.1.0, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.1.1, synchronized with `config/default.toml`:
 
 ```toml
 [render]

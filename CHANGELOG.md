@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-03-03
+
+### Fixed
+- **Octant mode: real Unicode 16.0 characters** — LUT reimplemented from UnicodeData.txt: 230 true octant codepoints (U+1CD00–U+1CDE5) + 18 Block Elements + 6 Braille fallback. Replaces previous 100% Braille degradation that caused "?" on some terminals.
+- **char_density() quadrants** — single quadrants now 0.25, half blocks 0.5, three-quarter blocks 0.75 (was flat 0.25 for all). Fixes temporal stability accuracy.
+- **char_density() sextants** — correct reverse-mapping from codepoint offset (was using raw offset bit count, incorrect due to Unicode gaps at indices 21/42).
+- **char_density() octants** — heuristic density from codepoint range position (was dead code targeting U+1CD00+ which the old LUT never produced).
+- **HalfBlock invert** — `config.invert` now respected in HalfBlock mode (was ignored via `_config` prefix).
+- **Batch mode: Octant in mode cycle** — `RenderMode::Octant` added to batch mutation mode rotation (was missing).
+- **Batch charset_pool alignment** — pool indices 0–9 now match TUI key mapping (was completely different ordering). Indices 10–13 added for TOML/batch-only charsets (Short2, Extended, Discrete, Hires).
+
+### Changed
+- **REFERENCE.md charset table** — corrected indices 3–9 to match actual code (Blocks, Minimal, Glitch1, Glitch2, Edge, Digital, Binary). Previous table showed obsolete mapping (Short2, Binary, Extended, Discrete, Blocks, Minimal).
+- **REFERENCE.md charset display order** — now lightest→densest (was reversed).
+- **REFERENCE.md HalfBlock description** — corrected to "`▄` with fg (bottom) / bg (top) colors" (was "`▄` `▀`").
+- **REFERENCE.md Additional Charsets** — added Short2, Extended, Discrete, Hires as TOML-only charsets with correct character counts.
+- **REFERENCE.md target_fps range** — corrected to 15–120 (was "30, 60", mismatched with `clamp(15, 120)`).
+- **config.rs comments** — RenderMode doc now lists all 6 variants; charset_index doc corrected from "5 presets" to "0–9".
+- **color.rs rustdoc** — escaped `[0,255]` bracket notation in 4 doc comments to eliminate rustdoc warnings.
+
+### Quality
+- 84 tests (25 unit + 59 doctests), 0 clippy warnings, 0 rustdoc warnings.
+- Octant LUT generator script: `scripts/gen_octant_lut.py` (Python/uv, downloads Unicode 16.0 UnicodeData.txt).
+
 ## [1.1.0] — 2026-03-03
 
 ### Added

@@ -1,4 +1,4 @@
-/// Convertit RGB [0,255] → HSV. H ∈ [0.0, 1.0), S ∈ [0.0, 1.0], V ∈ [0.0, 1.0].
+/// Convertit RGB `[0,255]` → HSV. H ∈ [0.0, 1.0), S ∈ [0.0, 1.0], V ∈ [0.0, 1.0].
 ///
 /// # Example
 /// ```
@@ -34,7 +34,7 @@ pub fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
     (h, s, v)
 }
 
-/// Convertit HSV → RGB [0,255]. H ∈ [0.0, 1.0), S ∈ [0.0, 1.0], V ∈ [0.0, 1.0].
+/// Convertit HSV → RGB `[0,255]`. H ∈ [0.0, 1.0), S ∈ [0.0, 1.0], V ∈ [0.0, 1.0].
 ///
 /// # Example
 /// ```
@@ -83,7 +83,7 @@ pub fn apply_hsv_bright(r: u8, g: u8, b: u8, saturation_boost: f32) -> (u8, u8, 
     hsv_to_rgb(h, s, 1.0)
 }
 
-/// Convert sRGB [0,255] to Oklab (L, a, b).
+/// Convert sRGB `[0,255]` to Oklab (L, a, b).
 /// L ∈ [0.0, 1.0], a ∈ ~[-0.23, 0.28], b ∈ ~[-0.31, 0.20].
 /// Björn Ottosson (2020). Perceptually uniform color space.
 #[must_use]
@@ -111,7 +111,7 @@ pub fn rgb_to_oklab(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
     (ok_l, ok_a, ok_b)
 }
 
-/// Convert Oklab (L, a, b) to sRGB [0,255].
+/// Convert Oklab (L, a, b) to sRGB `[0,255]`.
 #[must_use]
 pub fn oklab_to_rgb(l: f32, a: f32, b: f32) -> (u8, u8, u8) {
     // Oklab → LMS^(1/3)

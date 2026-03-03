@@ -17,11 +17,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RenderConfig {
     // === Mode de rendu ===
-    /// "Ascii" | "Braille" | "HalfBlock" | "Quadrant"
+    /// "Ascii" | "Braille" | "HalfBlock" | "Quadrant" | "Sextant" | "Octant"
     pub render_mode: RenderMode,
     /// Charset pour le mode ASCII (du plus clair au plus dense).
     pub charset: String,
-    /// Index du charset actif parmi les 5 presets built-in.
+    /// Index du charset actif (0-9, correspondant aux touches 1-0).
     pub charset_index: usize,
     /// Dithering mode.
     pub dither_mode: DitherMode,

@@ -18,7 +18,7 @@ use rayon::prelude::*;
 /// let config = RenderConfig::default();
 /// process_halfblock(&frame, &config, &mut grid);
 /// ```
-pub fn process_halfblock(frame: &FrameBuffer, _config: &RenderConfig, grid: &mut AsciiGrid) {
+pub fn process_halfblock(frame: &FrameBuffer, config: &RenderConfig, grid: &mut AsciiGrid) {
     let pixel_h = u32::from(grid.height) * 2;
     let pixel_w = u32::from(grid.width);
 
@@ -37,10 +37,17 @@ pub fn process_halfblock(frame: &FrameBuffer, _config: &RenderConfig, grid: &mut
                 let (tr, tg, tb, _) = frame.area_sample(x0, y_top, x1, y_mid);
                 let (br, bg, bb, _) = frame.area_sample(x0, y_mid, x1, y_bot);
 
+                // Invert swaps top/bottom colors
+                let (fg, bg_color) = if config.invert {
+                    ((tr, tg, tb), (br, bg, bb))
+                } else {
+                    ((br, bg, bb), (tr, tg, tb))
+                };
+
                 *cell = AsciiCell {
                     ch: '▄',
-                    fg: (br, bg, bb), // Bottom pixel = fg
-                    bg: (tr, tg, tb), // Top pixel = bg
+                    fg,
+                    bg: bg_color,
                 };
             }
         });

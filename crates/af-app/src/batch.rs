@@ -651,19 +651,23 @@ pub fn run_batch_export(
         let mut color_pulse_phase: f32 = 0.0;
         let mut wave_phase: f32 = 0.0;
 
-        // Pre-allocated charset pool (font-safe for FiraCode export)
-        let charset_pool: [&str; 11] = [
-            af_core::charset::CHARSET_FULL,
-            af_core::charset::CHARSET_DENSE,
-            af_core::charset::CHARSET_SHORT_1,
-            af_core::charset::CHARSET_SHORT_2,
-            af_core::charset::CHARSET_EDGE,
-            af_core::charset::CHARSET_GLITCH_1,
-            af_core::charset::CHARSET_DISCRETE,
-            af_core::charset::CHARSET_DIGITAL,
-            af_core::charset::CHARSET_BINARY,
-            af_core::charset::CHARSET_EXTENDED,
-            af_core::charset::CHARSET_HIRES,
+        // Pre-allocated charset pool — aligned with TUI key mapping (1-0) + export extras.
+        // Indices 0-9 match TUI keys; 10-13 are batch/TOML-only charsets.
+        let charset_pool: [&str; 14] = [
+            af_core::charset::CHARSET_FULL,     // 0 = TUI key 1
+            af_core::charset::CHARSET_DENSE,    // 1 = TUI key 2
+            af_core::charset::CHARSET_SHORT_1,  // 2 = TUI key 3
+            af_core::charset::CHARSET_BLOCKS,   // 3 = TUI key 4
+            af_core::charset::CHARSET_MINIMAL,  // 4 = TUI key 5
+            af_core::charset::CHARSET_GLITCH_1, // 5 = TUI key 6
+            af_core::charset::CHARSET_GLITCH_2, // 6 = TUI key 7
+            af_core::charset::CHARSET_EDGE,     // 7 = TUI key 8
+            af_core::charset::CHARSET_DIGITAL,  // 8 = TUI key 9
+            af_core::charset::CHARSET_BINARY,   // 9 = TUI key 0
+            af_core::charset::CHARSET_SHORT_2,  // 10 = TOML-only
+            af_core::charset::CHARSET_EXTENDED, // 11 = TOML-only
+            af_core::charset::CHARSET_DISCRETE, // 12 = TOML-only
+            af_core::charset::CHARSET_HIRES,    // 13 = export-only
         ];
 
         log::info!("Boucle de Rendu : {total_frames} frames à {target_fps}fps");
@@ -748,6 +752,7 @@ pub fn run_batch_export(
                         af_core::config::RenderMode::Braille,
                         af_core::config::RenderMode::Quadrant,
                         af_core::config::RenderMode::Sextant,
+                        af_core::config::RenderMode::Octant,
                     ];
                     let current = macros.mode.as_ref().unwrap_or(&frame_config.render_mode);
                     let idx = modes.iter().position(|m| m == current).unwrap_or(0);

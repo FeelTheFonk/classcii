@@ -184,9 +184,7 @@ impl Compositor {
                     // B. Edge Blending (proportional: mix × magnitude determines edge visibility)
                     if edge_enabled {
                         let (normalized_mag, angle) = crate::edge::detect_edge(frame, px, py);
-                        if normalized_mag > config.edge_threshold
-                            && normalized_mag * mix > 0.5
-                        {
+                        if normalized_mag > config.edge_threshold && normalized_mag * mix > 0.5 {
                             if is_ascii && !use_shape {
                                 cell.ch = crate::edge::ascii_edge_char(angle);
                             } else {

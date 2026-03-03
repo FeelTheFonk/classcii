@@ -1,8 +1,13 @@
 //! Integration test: preset TOML loading and validation.
 //! Verifies: all 22 presets parse, have valid sources/targets, and produce valid configs.
-#![allow(clippy::expect_used, clippy::float_cmp, clippy::unwrap_used, clippy::needless_borrow)]
+#![allow(
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::unwrap_used,
+    clippy::needless_borrow
+)]
 
-use af_core::config::{load_config, AUDIO_SOURCES, AUDIO_TARGETS};
+use af_core::config::{AUDIO_SOURCES, AUDIO_TARGETS, load_config};
 use std::path::Path;
 
 #[test]
@@ -67,7 +72,11 @@ fn default_config_loads_successfully() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/default.toml");
     let config = load_config(&path).expect("default.toml should parse");
 
-    assert_eq!(config.audio_mappings.len(), 5, "default should have 5 mappings");
+    assert_eq!(
+        config.audio_mappings.len(),
+        5,
+        "default should have 5 mappings"
+    );
     assert!((config.audio_sensitivity - 2.0).abs() < f32::EPSILON);
     assert!((config.audio_smoothing - 0.3).abs() < f32::EPSILON);
 }

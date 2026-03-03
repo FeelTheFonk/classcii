@@ -60,7 +60,7 @@ classcii --image photo.jpg --audio mic
 classcii --video clip.mp4
 
 # Preset
-classcii --image photo.jpg --preset 07_neon_abyss
+classcii --image photo.jpg --preset 01_pure_photo
 
 # Batch export
 classcii --batch-folder ./media/ --audio track.mp3 --preset all
@@ -82,7 +82,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 - Zero panicking unwraps — `?` operator and graceful fallback (R3).
 - Zero unnecessary copies — `Arc<FrameBuffer>`, `arc-swap`, lock-free `triple_buffer` (R4).
 - `cargo clippy --workspace --features full -- -D warnings` passes 0 warnings.
-- 83 tests (unit + doctests). `cargo fmt --check --all` clean.
+- 118 tests (43 unit + 14 integration + 61 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
 - All division operations guarded. All inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

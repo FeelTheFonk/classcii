@@ -1,6 +1,10 @@
 //! Integration test: compositor rendering pipeline.
 //! Verifies: FrameBuffer → Compositor::process → AsciiGrid with valid characters.
-#![allow(clippy::expect_used, clippy::field_reassign_with_default, clippy::needless_borrow)]
+#![allow(
+    clippy::expect_used,
+    clippy::field_reassign_with_default,
+    clippy::needless_borrow
+)]
 
 use af_ascii::compositor::Compositor;
 use af_core::config::{RenderConfig, RenderMode};
@@ -13,7 +17,7 @@ fn gradient_frame(width: u32, height: u32) -> FrameBuffer {
         for x in 0..width {
             let lum = ((x + y) * 255 / (width + height).max(1)) as u8;
             let idx = ((y * width + x) * 4) as usize;
-            fb.data[idx] = lum;     // R
+            fb.data[idx] = lum; // R
             fb.data[idx + 1] = lum; // G
             fb.data[idx + 2] = lum; // B
             fb.data[idx + 3] = 255; // A

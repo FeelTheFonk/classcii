@@ -1,16 +1,13 @@
 #![allow(clippy::field_reassign_with_default, clippy::needless_borrow)]
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use af_audio::fft::FftPipeline;
 use af_audio::features::extract_features;
+use af_audio::fft::FftPipeline;
 use af_audio::smoothing::FeatureSmoother;
 
 fn sine_wave(freq_hz: f32, amplitude: f32, num_samples: usize) -> Vec<f32> {
     (0..num_samples)
-        .map(|i| {
-            amplitude
-                * (2.0 * std::f32::consts::PI * freq_hz * i as f32 / 44100.0).sin()
-        })
+        .map(|i| amplitude * (2.0 * std::f32::consts::PI * freq_hz * i as f32 / 44100.0).sin())
         .collect()
 }
 

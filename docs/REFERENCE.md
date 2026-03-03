@@ -42,7 +42,7 @@ Color modes:
 | Field | Type | Range | Default | Description |
 |-------|------|-------|---------|-------------|
 | `edge_threshold` | Float | 0.0–1.0 | `0.0` | Edge detection sensitivity (0 = disabled) |
-| `edge_mix` | Float | 0.0–1.0 | `0.3` | Edge vs fill blend (1.0 = edges only) |
+| `edge_mix` | Float | 0.0–1.0 | `0.5` | Edge vs fill blend (mix×mag > 0.5 shows edge) |
 | `shape_matching` | Boolean | — | `false` | Shape-aware character matching (~3x slower) |
 | `aspect_ratio` | Float | 0.1–10.0 | `2.0` | Terminal character aspect ratio correction |
 | `density_scale` | Float | 0.25–4.0 | `1.0` | Character resolution multiplier |

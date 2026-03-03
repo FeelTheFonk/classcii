@@ -95,7 +95,7 @@ Each target is a visual parameter in `RenderConfig`. Mappings are additive — d
 | Target | Range | Default | Effect |
 |--------|-------|---------|--------|
 | `edge_threshold` | 0.0–1.0 | 0.0 | Edge detection sensitivity |
-| `edge_mix` | 0.0–1.0 | 0.3 | Edge vs fill blend (1.0 = edges only) |
+| `edge_mix` | 0.0–1.0 | 0.5 | Edge vs fill blend (mix×mag > 0.5 shows edge) |
 | `contrast` | 0.1–3.0 | 1.0 | Luminance contrast multiplier |
 | `brightness` | -1.0–1.0 | 0.0 | Luminance offset |
 | `saturation` | 0.0–3.0 | 1.0 | Color saturation multiplier |

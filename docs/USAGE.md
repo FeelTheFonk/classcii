@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v1.1.0 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.2.0 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Prerequisites
 
@@ -88,6 +88,7 @@ Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 | `1`–`0` | Select built-in charset (see [Reference](REFERENCE.md#charsets)) |
 | `c` | Toggle color output |
 | `i` | Invert luminance |
+| `N` / `M` | Input gain down / up (±0.5, pre-FFT) |
 | `m` | Cycle color mode: Direct / HsvBright / Oklab / Quantized |
 | `b` | Cycle background style: Black / SourceDim / Transparent |
 | `n` | Cycle dither mode: Bayer8x8 / BlueNoise16 / Off |

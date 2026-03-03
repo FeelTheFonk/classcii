@@ -204,7 +204,10 @@ mod tests {
 
         // delta < 0.5 → invert = false (NOT toggle)
         apply_target(&mut config, "invert", 0.2);
-        assert!(!config.invert, "delta 0.2 should set invert=false, not toggle");
+        assert!(
+            !config.invert,
+            "delta 0.2 should set invert=false, not toggle"
+        );
     }
 
     #[test]

@@ -7,14 +7,16 @@
     clippy::field_reassign_with_default
 )]
 
-use af_audio::fft::FftPipeline;
 use af_audio::features::extract_features;
+use af_audio::fft::FftPipeline;
 use af_audio::smoothing::FeatureSmoother;
 
 /// Generate a sine wave at `freq_hz` with given `amplitude` and `sample_rate`.
 fn sine_wave(freq_hz: f32, amplitude: f32, sample_rate: u32, num_samples: usize) -> Vec<f32> {
     (0..num_samples)
-        .map(|i| amplitude * (2.0 * std::f32::consts::PI * freq_hz * i as f32 / sample_rate as f32).sin())
+        .map(|i| {
+            amplitude * (2.0 * std::f32::consts::PI * freq_hz * i as f32 / sample_rate as f32).sin()
+        })
         .collect()
 }
 
@@ -58,9 +60,21 @@ fn silence_produces_near_zero_features() {
     let spectrum = fft.process(&samples);
     let features = extract_features(&samples, &spectrum, 44100);
 
-    assert!(features.rms < 0.001, "silence RMS should be ~0, got {}", features.rms);
-    assert!(features.bass < 0.01, "silence bass should be ~0, got {}", features.bass);
-    assert!(features.peak < 0.001, "silence peak should be ~0, got {}", features.peak);
+    assert!(
+        features.rms < 0.001,
+        "silence RMS should be ~0, got {}",
+        features.rms
+    );
+    assert!(
+        features.bass < 0.01,
+        "silence bass should be ~0, got {}",
+        features.bass
+    );
+    assert!(
+        features.peak < 0.001,
+        "silence peak should be ~0, got {}",
+        features.peak
+    );
 }
 
 #[test]
@@ -76,8 +90,14 @@ fn smoother_preserves_beat_intensity() {
     features.onset_envelope = 0.9;
     let smoothed = smoother.smooth(&features);
 
-    assert_eq!(smoothed.beat_intensity, 1.0, "beat_intensity must bypass smoother");
-    assert_eq!(smoothed.onset_envelope, 0.9, "onset_envelope must bypass smoother");
+    assert_eq!(
+        smoothed.beat_intensity, 1.0,
+        "beat_intensity must bypass smoother"
+    );
+    assert_eq!(
+        smoothed.onset_envelope, 0.9,
+        "onset_envelope must bypass smoother"
+    );
 }
 
 #[test]

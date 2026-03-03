@@ -266,14 +266,11 @@ fn char_density(ch: char) -> f32 {
         '#' | '@' | '%' | '&' | '$' => 0.7,
         '\u{2588}' => 1.0, // Full block
         // Half blocks + diagonal pairs
-        '\u{2580}' | '\u{2584}' | '\u{258C}' | '\u{2590}'
-        | '\u{259A}' | '\u{259E}' => 0.5,
+        '\u{2580}' | '\u{2584}' | '\u{258C}' | '\u{2590}' | '\u{259A}' | '\u{259E}' => 0.5,
         // Single quadrants + quarter blocks
-        '\u{2596}' | '\u{2597}' | '\u{2598}' | '\u{259D}'
-        | '\u{2582}' | '\u{1FB82}' => 0.25,
+        '\u{2596}' | '\u{2597}' | '\u{2598}' | '\u{259D}' | '\u{2582}' | '\u{1FB82}' => 0.25,
         // Three-quarter blocks
-        '\u{2599}' | '\u{259B}' | '\u{259C}' | '\u{259F}'
-        | '\u{2586}' | '\u{1FB85}' => 0.75,
+        '\u{2599}' | '\u{259B}' | '\u{259C}' | '\u{259F}' | '\u{2586}' | '\u{1FB85}' => 0.75,
         '\u{2800}'..='\u{28FF}' => {
             // Braille: count dots
             let dots = (ch as u32 - 0x2800).count_ones();
@@ -416,10 +413,10 @@ mod tests {
         // Single quadrant: 0.25
         assert!((char_density('\u{2598}') - 0.25).abs() < f32::EPSILON); // ▘
         // Half block: 0.5
-        assert!((char_density('\u{2580}') - 0.5).abs() < f32::EPSILON);  // ▀
+        assert!((char_density('\u{2580}') - 0.5).abs() < f32::EPSILON); // ▀
         // Three-quarter: 0.75
         assert!((char_density('\u{259B}') - 0.75).abs() < f32::EPSILON); // ▛
         // Full block: 1.0
-        assert!((char_density('\u{2588}') - 1.0).abs() < f32::EPSILON);  // █
+        assert!((char_density('\u{2588}') - 1.0).abs() < f32::EPSILON); // █
     }
 }

@@ -171,9 +171,9 @@ pub fn separate_file(
             serde_json::from_str::<serde_json::Value>(&content)
                 .ok()
                 .and_then(|v| v["error"].as_str().map(String::from))
-                .unwrap_or_else(|| format!("Separation failed with exit code: {status}"))
+                .unwrap_or_else(|| format!("Separation failed (exit code {status})"))
         } else {
-            format!("Separation failed with exit code: {status}")
+            format!("Separation failed (exit code {status})")
         };
 
         let _ = progress_tx.send(SeparationProgress::Error(error_msg.clone()));

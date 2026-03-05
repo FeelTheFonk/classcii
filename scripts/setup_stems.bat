@@ -45,14 +45,21 @@ if %errorlevel% neq 0 (
 )
 echo [OK] PyTorch installed
 
-REM --- Install SCNet dependencies ---
+REM --- Install SCNet dependencies from requirements.txt ---
 echo [..] Installing SCNet dependencies...
-uv pip install --python .venv\Scripts\python.exe soundfile numpy pyyaml einops julius --quiet
+uv pip install --python .venv\Scripts\python.exe soundfile numpy pyyaml einops julius tqdm --quiet
 if %errorlevel% neq 0 (
     echo ERROR: Failed to install SCNet dependencies.
     exit /b 1
 )
 echo [OK] SCNet dependencies installed
+
+REM --- Install any additional deps from ext/SCNet/requirements.txt ---
+if exist "ext\SCNet\requirements.txt" (
+    echo [..] Installing additional SCNet requirements...
+    uv pip install --python .venv\Scripts\python.exe -r ext\SCNet\requirements.txt --quiet 2>nul
+    echo [OK] Additional requirements installed
+)
 
 REM --- Verify model checkpoint ---
 if not exist "ext\SCNet\models\SCNet.th" (

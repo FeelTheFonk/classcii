@@ -1374,11 +1374,12 @@ impl App {
                 if let Some(ref tx) = self.video_cmd_tx {
                     let _ = tx.send(VideoCommand::Seek(-5.0));
                 }
-                if let Some(ref tx) = self.audio_cmd_tx {
+                if self.stem_stream.is_some() {
+                    if let Some(ref tx) = self.stem_cmd_tx {
+                        let _ = tx.send(StemCommand::Seek(-5.0));
+                    }
+                } else if let Some(ref tx) = self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::Seek(-5.0));
-                }
-                if let Some(ref tx) = self.stem_cmd_tx {
-                    let _ = tx.send(StemCommand::Seek(-5.0));
                 }
             }
             KeyCode::Right => {
@@ -1386,11 +1387,12 @@ impl App {
                 if let Some(ref tx) = self.video_cmd_tx {
                     let _ = tx.send(VideoCommand::Seek(5.0));
                 }
-                if let Some(ref tx) = self.audio_cmd_tx {
+                if self.stem_stream.is_some() {
+                    if let Some(ref tx) = self.stem_cmd_tx {
+                        let _ = tx.send(StemCommand::Seek(5.0));
+                    }
+                } else if let Some(ref tx) = self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::Seek(5.0));
-                }
-                if let Some(ref tx) = self.stem_cmd_tx {
-                    let _ = tx.send(StemCommand::Seek(5.0));
                 }
             }
             _ => {}
@@ -1412,19 +1414,23 @@ impl App {
     }
 
     /// Send play commands to all threads.
+    /// When stem playback is active, the normal audio is kept paused to avoid doublon.
     fn send_play_commands(&self) {
         #[cfg(feature = "video")]
         if let Some(ref tx) = self.video_cmd_tx {
             let _ = tx.send(VideoCommand::Play);
         }
-        if let Some(ref tx) = self.audio_cmd_tx {
+        let stems_active = self.stem_stream.is_some();
+        if stems_active {
+            // Stem mixer replaces normal audio — keep normal audio paused
+            if let Some(ref tx) = self.stem_cmd_tx {
+                let _ = tx.send(StemCommand::Play);
+            }
+            if let Some(ref paused) = self.stem_paused {
+                paused.store(false, std::sync::atomic::Ordering::Relaxed);
+            }
+        } else if let Some(ref tx) = self.audio_cmd_tx {
             let _ = tx.send(AudioCommand::Play);
-        }
-        if let Some(ref tx) = self.stem_cmd_tx {
-            let _ = tx.send(StemCommand::Play);
-        }
-        if let Some(ref paused) = self.stem_paused {
-            paused.store(false, std::sync::atomic::Ordering::Relaxed);
         }
     }
 
@@ -1434,14 +1440,14 @@ impl App {
         if let Some(ref tx) = self.video_cmd_tx {
             let _ = tx.send(VideoCommand::Pause);
         }
-        if let Some(ref tx) = self.audio_cmd_tx {
-            let _ = tx.send(AudioCommand::Pause);
-        }
         if let Some(ref tx) = self.stem_cmd_tx {
             let _ = tx.send(StemCommand::Pause);
         }
         if let Some(ref paused) = self.stem_paused {
             paused.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        if let Some(ref tx) = self.audio_cmd_tx {
+            let _ = tx.send(AudioCommand::Pause);
         }
     }
 
@@ -1531,10 +1537,16 @@ impl App {
     }
 
     /// Start stem playback and analysis after separation is complete.
+    /// Pauses normal audio to avoid playing both simultaneously.
     fn start_stem_playback(&mut self) {
         let Some(ref stem_set) = self.stem_set else {
             return;
         };
+
+        // Pause normal audio — stem mixer takes over
+        if let Some(ref tx) = self.audio_cmd_tx {
+            let _ = tx.send(AudioCommand::Pause);
+        }
 
         // Always create a fresh clock for stem playback to match the stem sample rate.
         let clock = Arc::new(MediaClock::new(stem_set.sample_rate));

@@ -38,8 +38,15 @@ echo "[OK] PyTorch installed"
 
 # --- Install SCNet dependencies ---
 echo "[..] Installing SCNet dependencies..."
-uv pip install --python .venv/bin/python soundfile numpy pyyaml einops julius --quiet
+uv pip install --python .venv/bin/python soundfile numpy pyyaml einops julius tqdm --quiet
 echo "[OK] SCNet dependencies installed"
+
+# --- Install any additional deps from ext/SCNet/requirements.txt ---
+if [ -f "ext/SCNet/requirements.txt" ]; then
+    echo "[..] Installing additional SCNet requirements..."
+    uv pip install --python .venv/bin/python -r ext/SCNet/requirements.txt --quiet 2>/dev/null || true
+    echo "[OK] Additional requirements installed"
+fi
 
 # --- Verify model checkpoint ---
 if [ ! -f "ext/SCNet/models/SCNet.th" ]; then

@@ -6,12 +6,10 @@ render_mode = "Sextant"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
-density_scale = 1.2
+density_scale = 2.5
 contrast = 1.15
 brightness = 0.0
 saturation = 1.1
-edge_threshold = 0.15
-edge_mix = 0.2
 aspect_ratio = 2.0
 bg_style = "Black"
 fade_decay = 0.15
@@ -43,3 +41,10 @@ target = "glow_intensity"
 amount = 0.5
 offset = 0.2
 curve = "Exponential"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.35
+curve = "Smooth"

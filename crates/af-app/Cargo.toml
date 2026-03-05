@@ -18,6 +18,7 @@ af-source = { path = "../af-source" }
 af-ascii = { path = "../af-ascii" }
 af-render = { path = "../af-render" }
 af-export = { path = "../af-export" }
+af-stems = { path = "../af-stems" }
 clap = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
@@ -29,6 +30,7 @@ crossterm = { workspace = true }
 ratatui = { workspace = true }
 notify = { workspace = true }
 rfd = { workspace = true }
+cpal = { workspace = true }
 fastrand = "2"
 
 [features]

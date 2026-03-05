@@ -1,18 +1,15 @@
 # 03_soft_focus — Photographic soft focus with gentle bloom.
-# Shape matching for structural fidelity, HsvBright for vibrant tones.
+# HsvBright for vibrant tones, high-density Octant rendering.
 
 [render]
 render_mode = "Octant"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "BlueNoise16"
-density_scale = 0.9
+density_scale = 3.0
 contrast = 1.1
 brightness = 0.15
 saturation = 1.3
-shape_matching = true
-edge_threshold = 0.2
-edge_mix = 0.4
 aspect_ratio = 2.0
 bg_style = "Black"
 glow_intensity = 0.5
@@ -43,4 +40,11 @@ enabled = true
 source = "rms"
 target = "glow_intensity"
 amount = 0.4
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "fade_decay"
+amount = 0.3
 curve = "Smooth"

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-03-05
+
+### Added
+- **Stem separation** (`af-stems` crate) — Music source separation via SCNet (Python subprocess). 4 stems: drums, bass, other, vocals.
+- **Stem overlay** (`S` key) — TUI overlay for per-stem control: mute, solo, volume, spectrum visualization, beat indicators.
+- **Per-stem audio-reactive pipeline** — 4 independent FFT pipelines with BeatDetector, MFCC, FeatureSmoother. Combined features feed existing mapping pipeline.
+- **Stem playback** — Lock-free cpal mixer with atomic mute/solo/volume. MediaClock sync for seek.
+- **Setup scripts** — `scripts/setup_stems.bat` (Windows) and `scripts/setup_stems.sh` (Unix) for automated Python/uv/SCNet environment setup.
+
+### Fixed
+- **Audio reactivity in all render modes** — Contrast and brightness adjustments now apply to HalfBlock, Braille, Quadrant, Sextant, and Octant modes (previously ASCII-only). All audio mappings targeting contrast/brightness now affect every render mode.
+- **Edge detection confined to ASCII mode** — Edge character replacement no longer overwrites Unicode characters in non-ASCII modes (Braille, Quadrant, Sextant, Octant), preventing visual corruption.
+- **MediaClock recreation per separation** — Fresh clock per stem separation prevents stale sample rate from previous sessions.
+
+### Changed
+- **Linear interpolation resampling** — Playback resampling upgraded from nearest-neighbor to linear interpolation in both `af-stems` and `af-audio` cpal callbacks.
+- **Detail-mode preset density** — All Octant presets bumped to 3.0–3.5, Braille to 2.5–3.0, Sextant to 2.5, Quadrant to 1.8. Matches sub-pixel resolution of each mode.
+- **Preset audio enrichment** — Detail-mode presets gain additional audio mappings (beat flash, glow, chromatic). Removed ineffective ASCII-only parameters (edge_threshold, edge_mix, shape_matching) from non-ASCII presets.
+- Audio file path tracking for stem separation (`loaded_audio_path` in App).
+- Full stem cleanup on audio reload (prevent resource leaks).
+
+### Quality
+- 130 tests (67 unit/integration + 63 doctests), 0 clippy warnings, 0 rustdoc warnings, 3 benchmark suites.
+
 ## [1.2.1] — 2026-03-03
 
 ### Changed

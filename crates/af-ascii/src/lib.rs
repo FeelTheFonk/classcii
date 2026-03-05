@@ -26,6 +26,18 @@ pub fn for_each_row(
     }
 }
 
+/// Apply contrast and brightness adjustment to a luminance value.
+///
+/// Same formula as the ASCII-mode path (compositor.rs), extracted for reuse
+/// by non-ASCII modes (Braille, Quadrant, Sextant, Octant, HalfBlock).
+#[inline(always)]
+#[must_use]
+pub fn adjust_lum(lum: u8, contrast: f32, brightness: f32) -> u8 {
+    let val = f32::from(lum);
+    let adjusted = (val - 128.0) * contrast + 128.0 + brightness * 255.0;
+    adjusted.clamp(0.0, 255.0) as u8
+}
+
 pub mod braille;
 pub mod color_map;
 pub mod compositor;

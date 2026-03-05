@@ -1,4 +1,4 @@
-# 18_interference — Wave interference and moiré patterns.
+# 18_interference — Wave interference and moire patterns.
 # Fast wave speed, bass-driven amplitude, chromatic separation.
 
 [render]
@@ -6,7 +6,7 @@ render_mode = "Braille"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
-density_scale = 1.4
+density_scale = 2.5
 contrast = 1.25
 brightness = 0.0
 saturation = 1.0
@@ -43,3 +43,10 @@ source = "spectral_flux"
 target = "chromatic_offset"
 amount = 0.4
 curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "brightness"
+amount = 0.35
+curve = "Linear"

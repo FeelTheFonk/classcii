@@ -131,7 +131,8 @@ pub fn process_sextant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
                     let py = (base_y + dy * frame.height / pixel_h.max(1))
                         .min(frame.height.saturating_sub(1));
 
-                    let lum = frame.luminance_linear(px, py);
+                    let raw_lum = frame.luminance_linear(px, py);
+                    let lum = crate::adjust_lum(raw_lum, config.contrast, config.brightness);
                     let (r, g, b, _) = frame.pixel(px, py);
                     let idx = (dx * 3 + dy) as usize;
                     lum_values[idx] = lum;

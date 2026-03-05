@@ -1,12 +1,12 @@
 # 01_pure_photo — Maximum fidelity Octant rendering, Oklab perceptual color.
-# Faithful reproduction of the source with near-imperceptible audio breathing.
+# Faithful reproduction of the source with subtle audio breathing.
 
 [render]
 render_mode = "Octant"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
-density_scale = 1.0
+density_scale = 3.5
 contrast = 1.0
 brightness = 0.0
 saturation = 1.0
@@ -32,3 +32,17 @@ source = "spectral_flux"
 target = "contrast"
 amount = 0.4
 curve = "Linear"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "glow_intensity"
+amount = 0.35
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.3
+curve = "Smooth"

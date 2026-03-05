@@ -1,18 +1,16 @@
-# 19_ghost_trail — Spectral phantom. Inverted edges, extreme persistence.
-# Ethereal quality with Oklab desaturated tones and slow color drift.
+# 19_ghost_trail — Spectral phantom. Extreme persistence, ethereal quality.
+# Oklab desaturated tones, slow color drift, onset-reactive glow.
 
 [render]
 render_mode = "Quadrant"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
-density_scale = 1.0
+density_scale = 1.8
 contrast = 1.15
 brightness = 0.1
 saturation = 0.85
 invert = true
-edge_threshold = 0.2
-edge_mix = 0.9
 aspect_ratio = 2.0
 bg_style = "Black"
 fade_decay = 0.9
@@ -31,7 +29,7 @@ smoothing = 0.65
 [[audio.mappings]]
 enabled = true
 source = "spectral_centroid"
-target = "edge_mix"
+target = "chromatic_offset"
 amount = 0.5
 curve = "Smooth"
 

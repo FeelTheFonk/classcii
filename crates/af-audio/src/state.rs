@@ -405,8 +405,11 @@ where
             }
 
             for frame in data.chunks_mut(out_channels) {
-                let pos_usize = (local_pos_f as usize) % total;
-                let sample = playback_samples[pos_usize];
+                let pos_floor = (local_pos_f as usize) % total;
+                let pos_ceil = (pos_floor + 1) % total;
+                let frac = (local_pos_f - local_pos_f.floor()) as f32;
+                let sample = playback_samples[pos_floor]
+                    + (playback_samples[pos_ceil] - playback_samples[pos_floor]) * frac;
 
                 let out_sample = T::from_sample(sample);
                 for out_channel in frame.iter_mut() {

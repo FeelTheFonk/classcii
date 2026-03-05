@@ -1,0 +1,25 @@
+[package]
+name = "af-stems"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "SCNet-based music source separation for classcii"
+
+[lints]
+workspace = true
+
+[dependencies]
+af-core = { path = "../af-core" }
+af-audio = { path = "../af-audio" }
+
+anyhow.workspace = true
+log.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+flume.workspace = true
+triple_buffer.workspace = true
+cpal.workspace = true
+realfft.workspace = true
+rayon.workspace = true
+tempfile = { workspace = true }

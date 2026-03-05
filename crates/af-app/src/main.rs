@@ -130,6 +130,10 @@ fn main() -> Result<()> {
     if let Some(ref audio_arg) = cli.audio {
         let p = std::path::Path::new(audio_arg.as_str());
         app_instance.loaded_audio_name = p.file_name().and_then(|n| n.to_str()).map(String::from);
+        app_instance.loaded_audio_path = Some(p.to_path_buf());
+    } else if let Some(ref video_arg) = cli.video {
+        // Video also provides audio for stem separation
+        app_instance.loaded_audio_path = Some(video_arg.clone());
     }
 
     // 10. Boucle principale

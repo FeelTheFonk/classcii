@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v1.2.0 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.3.0 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Prerequisites
 
@@ -10,6 +10,9 @@ Complete reference for classcii v1.2.0 — real-time audio-reactive ASCII/Unicod
   - Linux: `sudo apt install ffmpeg`
   - macOS: `brew install ffmpeg`
 - **GPU-accelerated terminal** recommended (Alacritty, WezTerm, Kitty)
+- **Python 3.10+** + `uv` (required only for stem separation)
+  - Windows: run `scripts\setup_stems.bat`
+  - Linux/macOS: run `scripts/setup_stems.sh`
 
 ## Installation
 
@@ -145,6 +148,7 @@ Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 |-----|--------|
 | `C` | Open custom charset editor |
 | `K` | Toggle Creation Mode (auto-modulation overlay) |
+| `S` | Toggle Stem Separation overlay |
 | `o` | Open visual file picker (image / video) |
 | `O` | Open audio file picker |
 
@@ -202,6 +206,38 @@ Press `K` to enter Creation Mode — an auto-modulation engine that drives all v
 | `q` | Fully deactivate Creation Mode |
 
 Header shows `[AUTO]` (green) or `[MANUAL]` (red). The sidebar shows `K●` when active, `K○` when inactive.
+
+---
+
+## Stem Separation
+
+Press `S` to open the Stem Separation overlay — a music source separation engine that splits audio into 4 independent stems (Drums, Bass, Other, Vocals) using SCNet. Each stem has independent audio-reactive analysis (FFT, beat detection, MFCC) and per-stem playback control.
+
+### Prerequisites
+
+- Python 3.10+ with `uv` package manager
+- SCNet model checkpoint at `ext/SCNet/models/SCNet.th`
+- Run `scripts/setup_stems.bat` (Windows) or `scripts/setup_stems.sh` (Linux/macOS) to install dependencies
+
+### Controls (while Stem overlay is active)
+
+| Key | Action |
+|-----|--------|
+| `Up` / `Down` | Select stem |
+| `m` | Toggle mute on selected stem |
+| `s` | Toggle solo on selected stem |
+| `Left` / `Right` | Adjust volume (selected stem) |
+| `v` | Toggle spectrum visibility |
+| `c` | Clear all solo |
+| `Enter` | Start separation (requires loaded audio) |
+| `Esc` | Close overlay |
+
+### Notes
+
+- Separation runs on CPU — expect ~30–60s for a 3-minute track (standard model).
+- Progress is displayed in the overlay during separation.
+- Mute/solo/volume changes are lock-free and take effect immediately.
+- Per-stem audio features feed the existing mapping pipeline, so all visual effects react to the active stems.
 
 ---
 
@@ -286,3 +322,5 @@ Sextant (U+1FB00) and Octant (U+1CD00) require fonts with coverage: FiraCode, Je
 | Effects not visible | Color must be enabled (`c`) for chromatic, pulse, glow |
 | Keys not responding | Close any active overlay first (`Esc`) |
 | Creation Mode not modulating | Ensure preset is not Custom; check `K●` in sidebar |
+| Stem separation fails | Run `scripts/setup_stems.bat` (or `.sh`), check `ext/SCNet/models/SCNet.th` exists |
+| "Python not found" | Install Python 3.10+ and run the setup script |

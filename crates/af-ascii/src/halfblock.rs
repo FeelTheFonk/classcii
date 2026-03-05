@@ -32,6 +32,14 @@ pub fn process_halfblock(frame: &FrameBuffer, config: &RenderConfig, grid: &mut 
             let (tr, tg, tb, _) = frame.area_sample(x0, y_top, x1, y_mid);
             let (br, bg, bb, _) = frame.area_sample(x0, y_mid, x1, y_bot);
 
+            // Apply contrast/brightness to both halves
+            let tr = crate::adjust_lum(tr, config.contrast, config.brightness);
+            let tg = crate::adjust_lum(tg, config.contrast, config.brightness);
+            let tb = crate::adjust_lum(tb, config.contrast, config.brightness);
+            let br = crate::adjust_lum(br, config.contrast, config.brightness);
+            let bg = crate::adjust_lum(bg, config.contrast, config.brightness);
+            let bb = crate::adjust_lum(bb, config.contrast, config.brightness);
+
             // Invert swaps top/bottom colors
             let (fg, bg_color) = if config.invert {
                 ((tr, tg, tb), (br, bg, bb))

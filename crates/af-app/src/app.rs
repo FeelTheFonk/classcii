@@ -11,10 +11,14 @@ use af_core::config::{BgStyle, ColorMode, DitherMode, RenderConfig, RenderMode};
 use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
 
 use af_render::fps::FpsCounter;
-use af_render::ui::{DrawContext, RenderState, SIDEBAR_WIDTH, SPECTRUM_HEIGHT};
+use af_render::ui::{
+    DrawContext, RenderState, SIDEBAR_WIDTH, SPECTRUM_HEIGHT, StemDisplayInfo, StemOverlayData,
+};
 use af_source::resize::Resizer;
 #[cfg(feature = "video")]
 use af_source::video::VideoCommand;
+use af_stems::playback::StemCommand;
+use af_stems::stem::{STEM_COUNT, StemFeatures, StemId, StemSet, StemState};
 use anyhow::Result;
 use arc_swap::ArcSwap;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -63,6 +67,8 @@ pub enum AppState {
     CharsetEdit,
     /// Mode création interactif (effets audio-réactifs avec presets).
     CreationMode,
+    /// Mode stem separation (overlay multi-stem audio-réactif).
+    StemMode,
     /// Fermeture de l'application. doit se terminer au prochain tour de boucle.
     Quitting,
 }
@@ -113,6 +119,8 @@ pub struct App {
     pub loaded_visual_name: Option<String>,
     /// Nom du fichier audio chargé.
     pub loaded_audio_name: Option<String>,
+    /// Full path of the loaded audio file (for stem separation).
+    pub loaded_audio_path: Option<std::path::PathBuf>,
     /// Flag: l'utilisateur a demandé l'ouverture du file dialog visuel.
     pub open_visual_requested: bool,
     /// Flag: l'utilisateur a demandé l'ouverture du file dialog audio.
@@ -153,6 +161,28 @@ pub struct App {
     param_flash_frames: u8,
     /// Help overlay scroll offset (lines).
     help_scroll_offset: u16,
+
+    // ── Stem separation state ──
+    /// Loaded stem set (None if no separation has been performed).
+    pub stem_set: Option<StemSet>,
+    /// Per-stem mute/solo/volume/visible state.
+    pub stem_states: [StemState; STEM_COUNT],
+    /// Triple-buffer output for per-stem audio features.
+    pub stem_features_output: Option<triple_buffer::Output<StemFeatures>>,
+    /// Command sender for the stem playback thread.
+    pub stem_cmd_tx: Option<flume::Sender<StemCommand>>,
+    /// Currently selected stem index in the overlay.
+    stem_selected_idx: usize,
+    /// Receiver for separation progress updates.
+    pub separation_progress_rx: Option<flume::Receiver<af_stems::separator::SeparationProgress>>,
+    /// Receiver for the completed StemSet from the separation thread.
+    stem_set_rx: Option<flume::Receiver<StemSet>>,
+    /// Cached separation progress (0.0..1.0), None if not running.
+    separation_progress: Option<f32>,
+    /// Whether the stem playback cpal stream is alive (kept here to prevent drop).
+    stem_stream: Option<cpal::Stream>,
+    /// Shared pause flag for the stem analysis thread.
+    stem_paused: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl App {
@@ -215,6 +245,7 @@ impl App {
             audio_cmd_tx,
             loaded_visual_name: None,
             loaded_audio_name: None,
+            loaded_audio_path: None,
             open_visual_requested: false,
             open_audio_requested: false,
             open_batch_folder_requested: false,
@@ -236,6 +267,17 @@ impl App {
             shape_warn_logged: false,
             param_flash_frames: 0,
             help_scroll_offset: 0,
+
+            stem_set: None,
+            stem_states: std::array::from_fn(|i| StemState::new(StemId::ALL[i])),
+            stem_features_output: None,
+            stem_cmd_tx: None,
+            stem_selected_idx: 0,
+            separation_progress_rx: None,
+            stem_set_rx: None,
+            separation_progress: None,
+            stem_stream: None,
+            stem_paused: None,
         })
     }
 
@@ -290,11 +332,36 @@ impl App {
                 self.open_batch_folder_dialog(&mut terminal);
             }
 
+            // === Poll stem separation progress ===
+            self.poll_separation_progress();
+
             // === Vérifier resize terminal ===
             self.check_resize()?;
 
             // === Lire audio features (non-bloquant) ===
-            let audio_features = self.audio_output.as_mut().map(|out| *out.read());
+            // If stem separation is active, derive combined features from per-stem analysis
+            let audio_features = if let Some(ref mut stem_out) = self.stem_features_output {
+                stem_out.update();
+                let stem_feats = *stem_out.output_buffer_mut();
+                // Compute effective gains from stem states (mute/solo/volume)
+                let gains: [f32; STEM_COUNT] = std::array::from_fn(|i| {
+                    let st = &self.stem_states[i];
+                    if st.muted {
+                        return 0.0;
+                    }
+                    let any_solo = self.stem_states.iter().any(|s| s.solo);
+                    if any_solo && !st.solo {
+                        return 0.0;
+                    }
+                    st.volume
+                });
+                Some(af_stems::analysis::combine_stem_features(
+                    &stem_feats,
+                    &gains,
+                ))
+            } else {
+                self.audio_output.as_mut().map(|out| *out.read())
+            };
 
             // === Lire frame source ===
             if let Some(ref rx) = self.frame_rx
@@ -536,6 +603,43 @@ impl App {
             let base_config = self.config.load();
             let playback_pos_secs = self.media_clock.as_ref().map(|c| c.pos_secs());
             let param_flash = self.param_flash_frames;
+
+            // Build stem overlay data if in stem mode
+            let stem_overlay = if state == RenderState::StemMode {
+                // Read latest stem features
+                let stem_feats = self.stem_features_output.as_mut().map(|o| {
+                    o.update();
+                    *o.output_buffer_mut()
+                });
+
+                let stems_display: [StemDisplayInfo; 4] = std::array::from_fn(|i| {
+                    let sid = StemId::ALL[i];
+                    let st = &self.stem_states[i];
+                    let feats = stem_feats.as_ref().map(|sf| &sf.features[i]);
+                    StemDisplayInfo {
+                        label: sid.label(),
+                        short: sid.short(),
+                        color: sid.color(),
+                        muted: st.muted,
+                        solo: st.solo,
+                        volume: st.volume,
+                        visible: st.visible,
+                        spectrum: feats.map_or([0.0; 32], |f| f.spectrum_bands),
+                        rms: feats.map_or(0.0, |f| f.rms),
+                        onset: feats.is_some_and(|f| f.onset),
+                    }
+                });
+                Some(StemOverlayData {
+                    stems: stems_display,
+                    selected_idx: self.stem_selected_idx,
+                    separation_progress: self.separation_progress,
+                    has_stems: self.stem_set.is_some(),
+                    has_audio: self.loaded_audio_path.is_some(),
+                })
+            } else {
+                None
+            };
+
             terminal.draw(|frame| {
                 let ctx = DrawContext {
                     grid,
@@ -555,6 +659,7 @@ impl App {
                     playback_pos_secs,
                     param_flash,
                     help_scroll: self.help_scroll_offset,
+                    stem: stem_overlay.as_ref(),
                 };
                 af_render::ui::draw(frame, &ctx);
             })?;
@@ -579,6 +684,7 @@ impl App {
             AppState::CharsetEdit => RenderState::CharsetEdit,
 
             AppState::CreationMode => RenderState::CreationMode,
+            AppState::StemMode => RenderState::StemMode,
             AppState::Quitting => RenderState::Quitting,
         }
     }
@@ -613,6 +719,10 @@ impl App {
             }
             if self.state == AppState::CreationMode {
                 self.handle_creation_key(code);
+                return;
+            }
+            if self.state == AppState::StemMode {
+                self.handle_stem_key(code);
                 return;
             }
             if self.state == AppState::Help {
@@ -666,6 +776,7 @@ impl App {
                     | 'P'
                     | 'C'
                     | 'K'
+                    | 'S'
                     | 'n',
                 ) => self.handle_render_key(code),
                 KeyCode::Char(
@@ -872,6 +983,77 @@ impl App {
         });
     }
 
+    /// Stem mode key handler.
+    fn handle_stem_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Enter => {
+                // Launch stem separation on the loaded audio
+                if self.stem_set.is_none()
+                    && self.separation_progress.is_none()
+                    && let Some(ref path) = self.loaded_audio_path
+                {
+                    let p = path.clone();
+                    self.start_stem_separation(&p);
+                }
+            }
+            KeyCode::Up => {
+                if self.stem_selected_idx > 0 {
+                    self.stem_selected_idx -= 1;
+                }
+            }
+            KeyCode::Down => {
+                if self.stem_selected_idx < STEM_COUNT - 1 {
+                    self.stem_selected_idx += 1;
+                }
+            }
+            KeyCode::Right => {
+                let st = &mut self.stem_states[self.stem_selected_idx];
+                st.volume = (st.volume + 0.1).min(2.0);
+                if let Some(tx) = &self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::SetVolume(st.id, st.volume));
+                }
+            }
+            KeyCode::Left => {
+                let st = &mut self.stem_states[self.stem_selected_idx];
+                st.volume = (st.volume - 0.1).max(0.0);
+                if let Some(tx) = &self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::SetVolume(st.id, st.volume));
+                }
+            }
+            KeyCode::Char('m') => {
+                let st = &mut self.stem_states[self.stem_selected_idx];
+                st.muted = !st.muted;
+                if let Some(tx) = &self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::SetMuted(st.id, st.muted));
+                }
+            }
+            KeyCode::Char('s') => {
+                let st = &mut self.stem_states[self.stem_selected_idx];
+                st.solo = !st.solo;
+                if let Some(tx) = &self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::SetSolo(st.id, st.solo));
+                }
+            }
+            KeyCode::Char('v') => {
+                self.stem_states[self.stem_selected_idx].visible =
+                    !self.stem_states[self.stem_selected_idx].visible;
+            }
+            KeyCode::Char('c') => {
+                for st in &mut self.stem_states {
+                    st.solo = false;
+                }
+                if let Some(tx) = &self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::ClearSolo);
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Render parameter keys: mode, charset, density, color, etc.
     #[allow(clippy::too_many_lines)]
     fn handle_render_key(&mut self, code: KeyCode) {
@@ -1006,6 +1188,14 @@ impl App {
                     // Activate creation mode + open overlay
                     self.creation_mode_active = true;
                     self.state = AppState::CreationMode;
+                }
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Char('S') => {
+                if self.state == AppState::StemMode {
+                    self.state = AppState::Running;
+                } else {
+                    self.state = AppState::StemMode;
                 }
                 self.sidebar_dirty = true;
             }
@@ -1187,6 +1377,9 @@ impl App {
                 if let Some(ref tx) = self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::Seek(-5.0));
                 }
+                if let Some(ref tx) = self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::Seek(-5.0));
+                }
             }
             KeyCode::Right => {
                 #[cfg(feature = "video")]
@@ -1195,6 +1388,9 @@ impl App {
                 }
                 if let Some(ref tx) = self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::Seek(5.0));
+                }
+                if let Some(ref tx) = self.stem_cmd_tx {
+                    let _ = tx.send(StemCommand::Seek(5.0));
                 }
             }
             _ => {}
@@ -1210,6 +1406,9 @@ impl App {
         if let Some(ref tx) = self.audio_cmd_tx {
             let _ = tx.send(AudioCommand::Quit);
         }
+        if let Some(ref tx) = self.stem_cmd_tx {
+            let _ = tx.send(StemCommand::Quit);
+        }
     }
 
     /// Send play commands to all threads.
@@ -1221,6 +1420,12 @@ impl App {
         if let Some(ref tx) = self.audio_cmd_tx {
             let _ = tx.send(AudioCommand::Play);
         }
+        if let Some(ref tx) = self.stem_cmd_tx {
+            let _ = tx.send(StemCommand::Play);
+        }
+        if let Some(ref paused) = self.stem_paused {
+            paused.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     /// Send pause commands to all threads.
@@ -1231,6 +1436,147 @@ impl App {
         }
         if let Some(ref tx) = self.audio_cmd_tx {
             let _ = tx.send(AudioCommand::Pause);
+        }
+        if let Some(ref tx) = self.stem_cmd_tx {
+            let _ = tx.send(StemCommand::Pause);
+        }
+        if let Some(ref paused) = self.stem_paused {
+            paused.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Poll for stem separation progress updates and receive completed `StemSet`.
+    fn poll_separation_progress(&mut self) {
+        if let Some(ref rx) = self.separation_progress_rx {
+            while let Ok(msg) = rx.try_recv() {
+                match msg {
+                    af_stems::separator::SeparationProgress::Starting => {
+                        self.separation_progress = Some(0.0);
+                    }
+                    af_stems::separator::SeparationProgress::Progress(p) => {
+                        self.separation_progress = Some(p);
+                    }
+                    af_stems::separator::SeparationProgress::Complete => {
+                        self.separation_progress = None;
+                        self.separation_progress_rx = None;
+                        break;
+                    }
+                    af_stems::separator::SeparationProgress::Error(e) => {
+                        log::error!("Stem separation failed: {e}");
+                        self.separation_progress = None;
+                        self.separation_progress_rx = None;
+                        self.stem_set_rx = None;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Check if the separation thread has delivered a StemSet
+        if let Some(ref rx) = self.stem_set_rx
+            && let Ok(stem_set) = rx.try_recv()
+        {
+            log::info!(
+                "Stem set received: {} stems, {:.1}s @ {}Hz",
+                stem_set.stems.len(),
+                stem_set.duration_secs,
+                stem_set.sample_rate
+            );
+            self.stem_set = Some(stem_set);
+            self.stem_set_rx = None;
+            self.start_stem_playback();
+        }
+    }
+
+    /// Start stem separation in a background thread.
+    fn start_stem_separation(&mut self, audio_path: &std::path::Path) {
+        if self.separation_progress.is_some() {
+            return; // Already running
+        }
+
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let config = af_stems::separator::SeparationConfig::from_project_root(&project_root);
+
+        if let Err(e) = af_stems::separator::preflight_check(&config) {
+            log::error!("Stem separation preflight failed: {e}");
+            return;
+        }
+
+        let (progress_tx, progress_rx) = flume::unbounded();
+        self.separation_progress_rx = Some(progress_rx);
+        self.separation_progress = Some(0.0);
+
+        let audio_path = audio_path.to_path_buf();
+        let (stem_set_tx, stem_set_rx) = flume::bounded(1);
+        self.stem_set_rx = Some(stem_set_rx);
+
+        if let Err(e) = std::thread::Builder::new()
+            .name("af-stem-separate".into())
+            .spawn(move || {
+                match af_stems::separator::separate_file(&audio_path, &config, &progress_tx) {
+                    Ok(stem_set) => {
+                        let _ = stem_set_tx.send(stem_set);
+                    }
+                    Err(e) => {
+                        log::error!("Stem separation error: {e}");
+                    }
+                }
+            })
+        {
+            log::error!("Failed to spawn separation thread: {e}");
+            self.separation_progress = None;
+            self.separation_progress_rx = None;
+            self.stem_set_rx = None;
+        }
+    }
+
+    /// Start stem playback and analysis after separation is complete.
+    fn start_stem_playback(&mut self) {
+        let Some(ref stem_set) = self.stem_set else {
+            return;
+        };
+
+        // Always create a fresh clock for stem playback to match the stem sample rate.
+        let clock = Arc::new(MediaClock::new(stem_set.sample_rate));
+        self.media_clock = Some(Arc::clone(&clock));
+
+        let (cmd_tx, cmd_rx) = flume::unbounded();
+        self.stem_cmd_tx = Some(cmd_tx);
+
+        match af_stems::playback::spawn_stem_playback(
+            stem_set,
+            &self.stem_states,
+            cmd_rx,
+            Arc::clone(&clock),
+        ) {
+            Ok(stream) => {
+                self.stem_stream = Some(stream);
+            }
+            Err(e) => {
+                log::error!("Failed to start stem playback: {e}");
+                return;
+            }
+        }
+
+        // Start analysis thread
+        let is_paused = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.stem_paused = Some(Arc::clone(&is_paused));
+
+        let config = self.config.load();
+        match af_stems::analysis::spawn_stem_analysis_thread(
+            stem_set,
+            Arc::clone(&clock),
+            is_paused,
+            config.target_fps,
+            config.audio_smoothing,
+            config.input_gain,
+        ) {
+            Ok(output) => {
+                self.stem_features_output = Some(output);
+            }
+            Err(e) => {
+                log::error!("Failed to start stem analysis: {e}");
+            }
         }
     }
 
@@ -1410,6 +1756,7 @@ impl App {
             self.shutdown_audio();
             self.start_audio_from_path(&path.to_string_lossy());
             self.loaded_audio_name = path.file_name().and_then(|n| n.to_str()).map(String::from);
+            self.loaded_audio_path = Some(path);
             self.sidebar_dirty = true;
         }
     }
@@ -1471,6 +1818,21 @@ impl App {
         self.audio_cmd_tx = None;
         self.audio_output = None;
         self.media_clock = None;
+
+        // Clean up stem separation state
+        if let Some(ref tx) = self.stem_cmd_tx {
+            let _ = tx.send(StemCommand::Quit);
+        }
+        self.stem_cmd_tx = None;
+        self.stem_stream = None; // Drop cpal stream (stops playback)
+        self.stem_set = None;
+        self.stem_features_output = None;
+        self.stem_paused = None;
+        self.separation_progress = None;
+        self.separation_progress_rx = None;
+        self.stem_set_rx = None;
+        self.stem_states = std::array::from_fn(|i| StemState::new(StemId::ALL[i]));
+        self.stem_selected_idx = 0;
     }
 
     /// Load a visual source (image or video) and update sidebar name.
@@ -1535,6 +1897,7 @@ impl App {
                 self.start_audio_from_path(&path.to_string_lossy());
                 self.loaded_audio_name =
                     path.file_name().and_then(|n| n.to_str()).map(String::from);
+                self.loaded_audio_path = Some(path.to_path_buf());
                 self.start_video(path);
             }
             MediaType::Audio => {} // unreachable in this context
@@ -1577,6 +1940,7 @@ impl App {
                 self.audio_output = Some(output);
                 self.audio_cmd_tx = tx;
                 self.media_clock = Some(clock);
+                self.loaded_audio_path = Some(std::path::PathBuf::from(path_str));
                 log::info!("Audio démarré: {path_str}");
             }
             Err(e) => log::warn!("Audio non disponible: {e}"),

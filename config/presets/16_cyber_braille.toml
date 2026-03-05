@@ -6,7 +6,7 @@ render_mode = "Braille"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "BlueNoise16"
-density_scale = 1.0
+density_scale = 2.5
 contrast = 1.5
 brightness = 0.0
 saturation = 1.7
@@ -44,4 +44,11 @@ enabled = true
 source = "spectral_flux"
 target = "contrast"
 amount = 0.4
+curve = "Smooth"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "chromatic_offset"
+amount = 0.3
 curve = "Smooth"

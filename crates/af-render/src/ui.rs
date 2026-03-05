@@ -49,8 +49,49 @@ pub enum RenderState {
     CharsetEdit,
     /// Creation mode interactive overlay.
     CreationMode,
+    /// Stem separation mode overlay (key S).
+    StemMode,
     /// Quitting (should not reach draw).
     Quitting,
+}
+
+/// Data for the stem separation overlay.
+pub struct StemOverlayData {
+    /// Per-stem display info (4 stems).
+    pub stems: [StemDisplayInfo; 4],
+    /// Currently selected stem index (0-3).
+    pub selected_idx: usize,
+    /// Separation progress (None if not in progress, Some(0.0..1.0) if running).
+    pub separation_progress: Option<f32>,
+    /// Whether stems have been separated and loaded.
+    pub has_stems: bool,
+    /// Whether an audio file is loaded (for separation).
+    pub has_audio: bool,
+}
+
+/// Display info for a single stem in the overlay.
+#[allow(clippy::struct_excessive_bools)]
+pub struct StemDisplayInfo {
+    /// Label (e.g. "Drums").
+    pub label: &'static str,
+    /// Short label (e.g. "DRM").
+    pub short: &'static str,
+    /// Distinctive color (r, g, b).
+    pub color: (u8, u8, u8),
+    /// Muted state.
+    pub muted: bool,
+    /// Solo state.
+    pub solo: bool,
+    /// Volume [0.0, 2.0].
+    pub volume: f32,
+    /// Spectrum visible.
+    pub visible: bool,
+    /// 32 log-frequency spectrum bands [0.0, 1.0].
+    pub spectrum: [f32; 32],
+    /// RMS level.
+    pub rms: f32,
+    /// Onset detected.
+    pub onset: bool,
 }
 
 /// Bundled context for the `draw()` function.
@@ -75,6 +116,8 @@ pub struct DrawContext<'a> {
     pub param_flash: u8,
     /// Help overlay scroll offset.
     pub help_scroll: u16,
+    /// Stem overlay data (None when stem mode is not active / no stem set loaded).
+    pub stem: Option<&'a StemOverlayData>,
 }
 
 // ─── Main draw ─────────────────────────────────────────────────────
@@ -151,6 +194,8 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
         draw_charset_edit_overlay(frame, area, buf, cursor);
     } else if let Some(creation) = ctx.creation {
         draw_creation_overlay(frame, area, creation, ctx.audio);
+    } else if let Some(stem) = ctx.stem {
+        draw_stem_overlay(frame, area, stem);
     }
 }
 
@@ -248,6 +293,7 @@ fn draw_sidebar(
         RenderState::CharsetEdit => "C EDIT",
 
         RenderState::CreationMode => "K CREATE",
+        RenderState::StemMode => "S STEMS",
         RenderState::Quitting => "\u{23f9} QUIT",
     };
 
@@ -568,6 +614,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
         Line::from(" O        Open audio"),
         Line::from(" C        Charset editor"),
         Line::from(" K        Creation (Esc=hide q=off)"),
+        Line::from(" S        Stem separation mode"),
         Line::from(" x        Fullscreen"),
         Line::from(""),
         Line::from(Span::styled(
@@ -812,6 +859,178 @@ fn draw_creation_overlay(
         Block::default()
             .borders(Borders::ALL)
             .title(" CREATION MODE ")
+            .style(Style::default().bg(Color::Black).fg(Color::White)),
+    );
+
+    frame.render_widget(widget, overlay_area);
+}
+
+/// Draw the stem separation mode overlay with per-stem meters, controls, and spectrum.
+#[allow(clippy::too_many_lines)]
+fn draw_stem_overlay(frame: &mut Frame, area: Rect, stem: &StemOverlayData) {
+    let mut lines: Vec<Line<'_>> = Vec::with_capacity(32);
+
+    // Separation in progress — show progress bar
+    if let Some(pct) = stem.separation_progress {
+        lines.push(Line::from(Span::styled(
+            "  Separating stems...",
+            Style::default().fg(Color::Yellow),
+        )));
+        lines.push(Line::from(""));
+        let bar_width = 30usize;
+        let filled = ((pct * bar_width as f32) as usize).min(bar_width);
+        let bar = format!(
+            "  [{}{}]  {:.0}%",
+            "\u{2588}".repeat(filled),
+            " ".repeat(bar_width.saturating_sub(filled)),
+            pct * 100.0
+        );
+        lines.push(Line::from(Span::styled(
+            bar,
+            Style::default().fg(Color::Cyan),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  [Esc] Cancel",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else if !stem.has_stems {
+        // No stems loaded — prompt user
+        if stem.has_audio {
+            lines.push(Line::from(Span::styled(
+                "  Audio loaded. Press [Enter] to",
+                Style::default().fg(Color::Gray),
+            )));
+            lines.push(Line::from(Span::styled(
+                "  separate into stems (SCNet).",
+                Style::default().fg(Color::Gray),
+            )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  [Enter] Separate  [Esc] Close",
+                Style::default().fg(Color::DarkGray),
+            )));
+        } else {
+            lines.push(Line::from(Span::styled(
+                "  No audio loaded.",
+                Style::default().fg(Color::DarkGray),
+            )));
+            lines.push(Line::from(Span::styled(
+                "  Load audio first (O key),",
+                Style::default().fg(Color::DarkGray),
+            )));
+            lines.push(Line::from(Span::styled(
+                "  then open Stem Mode (S key).",
+                Style::default().fg(Color::DarkGray),
+            )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  [Esc] Close",
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+    } else {
+        // Header
+        lines.push(Line::from(Span::styled(
+            "  \u{2500}\u{2500} Stems \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+            Style::default().fg(Color::DarkGray),
+        )));
+
+        // Per-stem rows
+        for (i, s) in stem.stems.iter().enumerate() {
+            let selected = i == stem.selected_idx;
+            let prefix = if selected { " \u{25b8} " } else { "   " };
+
+            let (r, g, b) = s.color;
+            let stem_color = Color::Rgb(r, g, b);
+
+            // Mute/Solo indicators
+            let mute_str = if s.muted { "M" } else { " " };
+            let solo_str = if s.solo { "S" } else { " " };
+            let mute_color = if s.muted { Color::Red } else { Color::DarkGray };
+            let solo_color = if s.solo {
+                Color::Yellow
+            } else {
+                Color::DarkGray
+            };
+
+            // Volume bar
+            let vol_bars = ((s.volume * 5.0) as usize).min(10);
+            let vol_bar: String =
+                "\u{2588}".repeat(vol_bars) + &"\u{2591}".repeat(10usize.saturating_sub(vol_bars));
+
+            // RMS level indicator
+            let rms_bars = ((s.rms * 8.0) as usize).min(8);
+            let rms_bar: String = "\u{2588}".repeat(rms_bars);
+
+            // Beat indicator
+            let beat_char = if s.onset { "\u{25cf}" } else { " " };
+
+            let name_color = if selected { Color::White } else { stem_color };
+
+            lines.push(Line::from(vec![
+                Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{:<6}", s.label), Style::default().fg(name_color)),
+                Span::styled(mute_str, Style::default().fg(mute_color)),
+                Span::styled(solo_str, Style::default().fg(solo_color)),
+                Span::styled(" ", Style::default()),
+                Span::styled(vol_bar, Style::default().fg(stem_color)),
+                Span::styled(
+                    format!(" {:.0}%", s.volume * 100.0),
+                    Style::default().fg(Color::Gray),
+                ),
+                Span::styled(" ", Style::default()),
+                Span::styled(rms_bar, Style::default().fg(Color::Green)),
+                Span::styled(format!(" {beat_char}"), Style::default().fg(Color::Red)),
+            ]));
+
+            // Mini spectrum for selected stem (condensed 32→16 bars)
+            if selected && s.visible {
+                let band_chars = [
+                    "\u{2581}", "\u{2582}", "\u{2583}", "\u{2584}", "\u{2585}", "\u{2586}",
+                    "\u{2587}", "\u{2588}",
+                ];
+                let mut spectrum_spans: Vec<Span<'_>> =
+                    vec![Span::styled("     ", Style::default())];
+                for chunk_idx in 0..16 {
+                    let avg =
+                        f32::midpoint(s.spectrum[chunk_idx * 2], s.spectrum[chunk_idx * 2 + 1]);
+                    let level = (avg * 7.0).clamp(0.0, 7.0) as usize;
+                    spectrum_spans.push(Span::styled(
+                        band_chars[level],
+                        Style::default().fg(stem_color),
+                    ));
+                }
+                lines.push(Line::from(spectrum_spans));
+            }
+        }
+
+        // Footer controls
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  \u{2500}\u{2500} Controls \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+            Style::default().fg(Color::DarkGray),
+        )));
+        lines.push(Line::from(Span::styled(
+            " [\u{2191}\u{2193}]Sel [\u{2190}\u{2192}]Vol [m]Mute [s]Solo",
+            Style::default().fg(Color::DarkGray),
+        )));
+        lines.push(Line::from(Span::styled(
+            " [v]Vis [c]ClearSolo [Esc]Close",
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+
+    let overlay_width = 48u16.min(area.width.saturating_sub(2));
+    let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(2));
+    let x = area.x + area.width.saturating_sub(overlay_width).saturating_sub(1);
+    let y = area.y + 1;
+    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
+
+    let widget = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" STEM MODE ")
             .style(Style::default().bg(Color::Black).fg(Color::White)),
     );
 

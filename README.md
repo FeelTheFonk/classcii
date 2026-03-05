@@ -4,7 +4,7 @@ https://github.com/user-attachments/assets/7bd9091a-01ea-4cdf-a842-218c25aa388b
 
 Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI applications — with an offline generative batch export pipeline to mathematically lossless RGB MP4.
 
-Integrates advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, a zero-alloc virtual camera (zoom, pan, rotation), 8 real-time post-processing effects, and audio-reactive Zalgo glitches — all with zero-allocation hot loops and 100% lock-free safe Rust memory management.
+Integrates advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, music stem separation (SCNet: drums/bass/other/vocals) with per-stem audio-reactive visualization, a zero-alloc virtual camera (zoom, pan, rotation), 8 real-time post-processing effects, and audio-reactive Zalgo glitches — all with zero-allocation hot loops and 100% lock-free safe Rust memory management.
 
 ## Requirements
 
@@ -14,11 +14,12 @@ Integrates advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noi
 
 ## Architecture
 
-Three-thread topology:
+Three-thread topology + optional stem threads:
 
 1. **Source Thread**: I/O and media decoding.
 2. **Audio Thread**: Microphone capture, FFT analysis, feature extraction.
 3. **Main Thread**: State aggregation, rendering, TUI updates.
+4. **Stem Threads** (optional): Per-stem cpal playback + independent FFT analysis (when stem separation is active).
 
 Lock-free synchronization via `triple_buffer` and `flume` channels. A fourth mode — **Batch Export** — runs headless from a pre-analyzed audio `FeatureTimeline`.
 
@@ -32,6 +33,7 @@ Lock-free synchronization via `triple_buffer` and `flume` channels. A fourth mod
 | `af-render` | Display backend (`ratatui`), partial redraws, Zalgo distortions |
 | `af-source` | Input stream decoding (Image, FFmpeg, `FolderBatchSource`) |
 | `af-export` | Offline rasterizer (`ab_glyph`) with alpha-blended Zalgo, lossless MP4 muxer |
+| `af-stems` | Stem separation (SCNet subprocess), per-stem playback, analysis, mixing |
 | `af-app` | Entry point, thread orchestration, generative mapper, batch pipeline |
 
 ## Compilation
@@ -82,7 +84,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 - Zero panicking unwraps — `?` operator and graceful fallback (R3).
 - Zero unnecessary copies — `Arc<FrameBuffer>`, `arc-swap`, lock-free `triple_buffer` (R4).
 - `cargo clippy --workspace --features full -- -D warnings` passes 0 warnings.
-- 118 tests (43 unit + 14 integration + 61 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
+- 130 tests (67 unit/integration + 63 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
 - All division operations guarded. All inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

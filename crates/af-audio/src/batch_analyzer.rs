@@ -225,7 +225,10 @@ impl BatchAnalyzer {
     /// # Panics
     /// Panics if rayon fails to produce exactly 4 timelines (should never happen).
     #[must_use]
-    pub fn analyze_stems(&mut self, stem_samples: &[Vec<f32>; 4]) -> af_core::feature_timeline::StemFeatureTimeline {
+    pub fn analyze_stems(
+        &mut self,
+        stem_samples: &[Vec<f32>; 4],
+    ) -> af_core::feature_timeline::StemFeatureTimeline {
         use rayon::prelude::*;
 
         let fps = self.target_fps;
@@ -240,11 +243,12 @@ impl BatchAnalyzer {
             })
             .collect();
 
-        let timelines: [FeatureTimeline; 4] = results
-            .try_into()
-            .unwrap_or_else(|v: Vec<FeatureTimeline>| {
-                panic!("Expected 4 timelines, got {}", v.len())
-            });
+        let timelines: [FeatureTimeline; 4] =
+            results
+                .try_into()
+                .unwrap_or_else(|v: Vec<FeatureTimeline>| {
+                    panic!("Expected 4 timelines, got {}", v.len())
+                });
 
         af_core::feature_timeline::StemFeatureTimeline { timelines }
     }

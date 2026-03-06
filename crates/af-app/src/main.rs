@@ -43,7 +43,11 @@ fn main() -> Result<()> {
             log::warn!("--load-workflow overrides --preset. Preset will be ignored.");
         }
         let wf = af_core::workflow_io::load_workflow(wf_path)?;
-        log::info!("Workflow loaded: v{} from {}", wf.manifest.version, wf.dir.display());
+        log::info!(
+            "Workflow loaded: v{} from {}",
+            wf.manifest.version,
+            wf.dir.display()
+        );
         Some(wf)
     } else {
         None
@@ -64,7 +68,8 @@ fn main() -> Result<()> {
 
         // Resolve audio: workflow may provide stem WAVs or original audio path
         let audio_arg = cli.audio.clone().or_else(|| {
-            loaded_wf.as_ref()
+            loaded_wf
+                .as_ref()
                 .and_then(|wf| wf.source.audio_path.as_ref())
                 .map(|p| p.to_string_lossy().into_owned())
         });
@@ -249,7 +254,10 @@ fn list_workflows_cli() -> Result<()> {
     let entries = af_core::workflow_io::list_workflows_detailed()?;
     if entries.is_empty() {
         println!("No saved workflows found.");
-        println!("  Save dir: {}", af_core::workflow::workflow_base_dir().display());
+        println!(
+            "  Save dir: {}",
+            af_core::workflow::workflow_base_dir().display()
+        );
         return Ok(());
     }
 
@@ -262,7 +270,10 @@ fn list_workflows_cli() -> Result<()> {
         } else {
             format!(" - {}", e.description)
         };
-        println!("  {}{}{} ({}){}", e.name, stems_tag, tl_tag, e.created_at, desc);
+        println!(
+            "  {}{}{} ({}){}",
+            e.name, stems_tag, tl_tag, e.created_at, desc
+        );
     }
 
     Ok(())

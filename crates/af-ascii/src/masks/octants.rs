@@ -436,10 +436,7 @@ mod tests {
                 continue; // space is fine
             }
             let cp = ch as u32;
-            assert!(
-                cp >= 0x20,
-                "index {i} is control char U+{cp:04X}"
-            );
+            assert!(cp >= 0x20, "index {i} is control char U+{cp:04X}");
             assert!(
                 !(0x7F..=0x9F).contains(&cp),
                 "index {i} is C1 control U+{cp:04X}"

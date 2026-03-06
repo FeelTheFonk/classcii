@@ -446,6 +446,7 @@ impl RenderConfig {
 /// - Bass: edge threshold, camera zoom, glow
 /// - Other: color pulse, saturation, contrast
 /// - Vocals: brightness, fade trails, glow
+#[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn stem_default_mappings() -> Vec<AudioMapping> {
     vec![

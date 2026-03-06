@@ -16,11 +16,13 @@
 //! ```
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
 use crate::config::RenderConfig;
+use crate::feature_timeline::FeatureTimeline;
 use crate::workflow::{
     StemSeparationInfo, StemStatesSnapshot, SourceInfo, WorkflowManifest,
     sanitize_workflow_name, workflow_base_dir,
@@ -34,6 +36,8 @@ pub struct LoadedWorkflow {
     pub source: SourceInfo,
     pub stem_states: Option<StemStatesSnapshot>,
     pub stem_info: Option<StemSeparationInfo>,
+    /// Pre-computed feature timeline (bincode), if saved.
+    pub feature_timeline: Option<FeatureTimeline>,
     /// Path to the workflow directory (for resolving stem WAVs).
     pub dir: PathBuf,
 }
@@ -127,6 +131,97 @@ pub fn save_workflow(
     Ok(dir)
 }
 
+/// Write stem audio samples as mono f32 WAV files into a workflow directory.
+///
+/// `stems` is an array of (samples, sample_rate) for [drums, bass, other, vocals].
+/// Returns the paths to the written WAV files.
+///
+/// # Errors
+/// Returns an error if directory creation or file writing fails.
+pub fn write_stem_wavs(
+    workflow_dir: &Path,
+    stems: &[(&[f32], u32); 4],
+) -> Result<[PathBuf; 4]> {
+    let stems_dir = workflow_dir.join("stems");
+    fs::create_dir_all(&stems_dir).context("Create stems/ dir")?;
+
+    let names = ["drums", "bass", "other", "vocals"];
+    let paths: [PathBuf; 4] = std::array::from_fn(|i| stems_dir.join(format!("{}.wav", names[i])));
+
+    for (i, (samples, sr)) in stems.iter().enumerate() {
+        write_wav_f32(&paths[i], samples, *sr)
+            .with_context(|| format!("Write {}.wav", names[i]))?;
+    }
+
+    Ok(paths)
+}
+
+/// Write mono f32 PCM samples as a WAV file (IEEE float format, no external deps).
+fn write_wav_f32(path: &Path, samples: &[f32], sample_rate: u32) -> Result<()> {
+    let data_len = (samples.len() * 4) as u32;
+    let file_len = 36 + data_len;
+    let mut f = std::io::BufWriter::new(
+        fs::File::create(path).with_context(|| format!("Create WAV: {}", path.display()))?,
+    );
+    f.write_all(b"RIFF")?;
+    f.write_all(&file_len.to_le_bytes())?;
+    f.write_all(b"WAVE")?;
+    // fmt chunk
+    f.write_all(b"fmt ")?;
+    f.write_all(&16u32.to_le_bytes())?; // chunk size
+    f.write_all(&3u16.to_le_bytes())?;  // format: IEEE float
+    f.write_all(&1u16.to_le_bytes())?;  // channels: mono
+    f.write_all(&sample_rate.to_le_bytes())?;
+    f.write_all(&(sample_rate * 4).to_le_bytes())?; // byte rate
+    f.write_all(&4u16.to_le_bytes())?;  // block align
+    f.write_all(&32u16.to_le_bytes())?; // bits per sample
+    // data chunk
+    f.write_all(b"data")?;
+    f.write_all(&data_len.to_le_bytes())?;
+    for &s in samples {
+        f.write_all(&s.to_le_bytes())?;
+    }
+    f.flush()?;
+    Ok(())
+}
+
+/// Save a pre-computed feature timeline as a binary (bincode) file within a workflow.
+/// Also updates the manifest to set `has_feature_timeline = true`.
+///
+/// # Errors
+/// Returns an error if serialization or file writing fails.
+pub fn save_feature_timeline(workflow_dir: &Path, timeline: &FeatureTimeline) -> Result<()> {
+    let encoded = bincode::serialize(timeline).context("Serialize feature timeline")?;
+    let path = workflow_dir.join("timeline.bin");
+    fs::write(&path, &encoded).with_context(|| format!("Write {}", path.display()))?;
+
+    // Update manifest
+    let manifest_path = workflow_dir.join("manifest.toml");
+    if manifest_path.exists() {
+        let manifest_str = fs::read_to_string(&manifest_path).context("Read manifest for timeline update")?;
+        if let Ok(mut manifest) = toml::from_str::<WorkflowManifest>(&manifest_str) {
+            manifest.has_feature_timeline = true;
+            let updated = toml::to_string_pretty(&manifest).context("Re-serialize manifest")?;
+            fs::write(&manifest_path, &updated).context("Update manifest.toml")?;
+        }
+    }
+
+    log::info!("Feature timeline saved: {} frames, {} bytes", timeline.total_frames(), encoded.len());
+    Ok(())
+}
+
+/// Load a pre-computed feature timeline from a workflow directory.
+///
+/// # Errors
+/// Returns an error if the file is missing or deserialization fails.
+pub fn load_feature_timeline(workflow_dir: &Path) -> Result<FeatureTimeline> {
+    let path = workflow_dir.join("timeline.bin");
+    let data = fs::read(&path).with_context(|| format!("Read {}", path.display()))?;
+    let timeline: FeatureTimeline = bincode::deserialize(&data).context("Deserialize feature timeline")?;
+    log::info!("Feature timeline loaded: {} frames", timeline.total_frames());
+    Ok(timeline)
+}
+
 /// Load a workflow from a directory path.
 ///
 /// # Errors
@@ -176,6 +271,19 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
         None
     };
 
+    // Feature timeline (optional bincode file)
+    let feature_timeline = if dir.join("timeline.bin").exists() {
+        match load_feature_timeline(dir) {
+            Ok(tl) => Some(tl),
+            Err(e) => {
+                log::warn!("Could not load feature timeline: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     log::info!("Workflow loaded from {}", dir.display());
     Ok(LoadedWorkflow {
         manifest,
@@ -183,6 +291,7 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
         source,
         stem_states,
         stem_info,
+        feature_timeline,
         dir: dir.to_path_buf(),
     })
 }
@@ -221,6 +330,89 @@ pub fn list_workflows() -> Result<Vec<String>> {
     }
     names.sort();
     Ok(names)
+}
+
+/// Detailed workflow entry for TUI browsing.
+#[derive(Clone, Debug)]
+pub struct WorkflowEntry {
+    pub name: String,
+    pub created_at: String,
+    pub description: String,
+    pub has_stems: bool,
+    pub has_timeline: bool,
+}
+
+/// List all saved workflows with metadata (for TUI browse overlay).
+///
+/// # Errors
+/// Returns an error if the workflows directory cannot be read.
+pub fn list_workflows_detailed() -> Result<Vec<WorkflowEntry>> {
+    let base = workflow_base_dir();
+    if !base.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&base).context("Read workflows dir")? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let manifest_path = entry.path().join("manifest.toml");
+        if !manifest_path.exists() {
+            continue;
+        }
+        let Some(name) = entry.file_name().to_str().map(String::from) else {
+            continue;
+        };
+        let manifest: WorkflowManifest = match fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|s| toml::from_str(&s).ok())
+        {
+            Some(m) => m,
+            None => continue,
+        };
+        entries.push(WorkflowEntry {
+            name,
+            created_at: manifest.created_at,
+            description: manifest.description,
+            has_stems: manifest.has_stems,
+            has_timeline: manifest.has_feature_timeline,
+        });
+    }
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(entries)
+}
+
+/// Update the description field in a workflow's manifest.
+///
+/// Silently ignores errors (best-effort, non-critical).
+pub fn update_workflow_description(workflow_dir: &Path, description: &str) {
+    let manifest_path = workflow_dir.join("manifest.toml");
+    let Ok(s) = fs::read_to_string(&manifest_path) else {
+        return;
+    };
+    let Ok(mut m) = toml::from_str::<WorkflowManifest>(&s) else {
+        return;
+    };
+    m.description = description.to_string();
+    if let Ok(updated) = toml::to_string_pretty(&m) {
+        let _ = fs::write(&manifest_path, updated);
+    }
+}
+
+/// Delete a workflow by name.
+///
+/// # Errors
+/// Returns an error if the workflow doesn't exist or cannot be deleted.
+pub fn delete_workflow(name: &str) -> Result<()> {
+    let safe_name = crate::workflow::sanitize_workflow_name(name);
+    let dir = workflow_base_dir().join(&safe_name);
+    if !dir.exists() {
+        anyhow::bail!("Workflow '{name}' not found");
+    }
+    fs::remove_dir_all(&dir).with_context(|| format!("Delete workflow dir: {}", dir.display()))?;
+    log::info!("Workflow '{name}' deleted");
+    Ok(())
 }
 
 #[cfg(test)]

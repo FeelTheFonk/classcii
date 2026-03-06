@@ -51,6 +51,10 @@ pub enum RenderState {
     CreationMode,
     /// Stem separation mode overlay (key S).
     StemMode,
+    /// Workflow save overlay (Ctrl+S).
+    WorkflowSave,
+    /// Workflow browse/load overlay (Ctrl+W).
+    WorkflowBrowse,
     /// Quitting (should not reach draw).
     Quitting,
 }
@@ -94,6 +98,30 @@ pub struct StemDisplayInfo {
     pub onset: bool,
 }
 
+/// Data for the workflow save overlay.
+pub struct WorkflowSaveData<'a> {
+    pub name: &'a str,
+    pub description: &'a str,
+    pub cursor: usize,
+    /// 0=name, 1=description
+    pub active_field: u8,
+}
+
+/// Data for the workflow browse overlay.
+pub struct WorkflowBrowseData {
+    pub entries: Vec<WorkflowBrowseEntry>,
+    pub selected_idx: usize,
+}
+
+/// Single entry in the workflow browse list.
+pub struct WorkflowBrowseEntry {
+    pub name: String,
+    pub created_at: String,
+    pub description: String,
+    pub has_stems: bool,
+    pub has_timeline: bool,
+}
+
 /// Bundled context for the `draw()` function.
 pub struct DrawContext<'a> {
     pub grid: &'a AsciiGrid,
@@ -118,6 +146,12 @@ pub struct DrawContext<'a> {
     pub help_scroll: u16,
     /// Stem overlay data (None when stem mode is not active / no stem set loaded).
     pub stem: Option<&'a StemOverlayData>,
+    /// Workflow save overlay data.
+    pub workflow_save: Option<&'a WorkflowSaveData<'a>>,
+    /// Workflow browse overlay data.
+    pub workflow_browse: Option<&'a WorkflowBrowseData>,
+    /// Flash message (workflow saved confirmation, etc.).
+    pub flash_msg: Option<&'a str>,
 }
 
 // ─── Main draw ─────────────────────────────────────────────────────
@@ -196,6 +230,30 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
         draw_creation_overlay(frame, area, creation, ctx.audio);
     } else if let Some(stem) = ctx.stem {
         draw_stem_overlay(frame, area, stem);
+    } else if let Some(wf_save) = ctx.workflow_save {
+        dim_overlay_background(frame, area);
+        draw_workflow_save_overlay(frame, area, wf_save);
+    } else if let Some(wf_browse) = ctx.workflow_browse {
+        dim_overlay_background(frame, area);
+        draw_workflow_browse_overlay(frame, area, wf_browse);
+    }
+
+    // Flash message (workflow saved, etc.) — renders on top of everything
+    if let Some(msg) = ctx.flash_msg {
+        let msg_w = msg.len() as u16 + 4;
+        let x = area.width.saturating_sub(msg_w) / 2;
+        let flash_area = Rect::new(x, 1, msg_w, 3);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green))
+            .style(Style::default().bg(Color::Rgb(10, 30, 10)));
+        let p = Paragraph::new(Line::from(Span::styled(
+            msg.to_string(),
+            Style::default().fg(Color::Green),
+        )))
+        .block(block)
+        .alignment(ratatui::layout::Alignment::Center);
+        frame.render_widget(p, flash_area);
     }
 }
 
@@ -294,6 +352,8 @@ fn draw_sidebar(
 
         RenderState::CreationMode => "K CREATE",
         RenderState::StemMode => "S STEMS",
+        RenderState::WorkflowSave => "SAVE WF",
+        RenderState::WorkflowBrowse => "LOAD WF",
         RenderState::Quitting => "\u{23f9} QUIT",
     };
 
@@ -615,6 +675,8 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
         Line::from(" C        Charset editor"),
         Line::from(" K        Creation (Esc=hide q=off)"),
         Line::from(" S        Stem separation mode"),
+        Line::from(" Ctrl+S   Save workflow"),
+        Line::from(" Ctrl+W   Load workflow"),
         Line::from(" x        Fullscreen"),
         Line::from(""),
         Line::from(Span::styled(
@@ -1032,6 +1094,157 @@ fn draw_stem_overlay(frame: &mut Frame, area: Rect, stem: &StemOverlayData) {
             .borders(Borders::ALL)
             .title(" STEM MODE ")
             .style(Style::default().bg(Color::Black).fg(Color::White)),
+    );
+
+    frame.render_widget(widget, overlay_area);
+}
+
+/// Draw the workflow save overlay (name + description input).
+fn draw_workflow_save_overlay(frame: &mut Frame, area: Rect, data: &WorkflowSaveData<'_>) {
+    let mut lines: Vec<Line<'_>> = Vec::with_capacity(16);
+
+    lines.push(Line::from(Span::styled(
+        "  Save Workflow",
+        Style::default().fg(Color::Cyan),
+    )));
+    lines.push(Line::from(""));
+
+    // Name field
+    let name_style = if data.active_field == 0 {
+        Style::default().fg(Color::White)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    lines.push(Line::from(Span::styled("  Name:", name_style)));
+    let name_display = if data.active_field == 0 {
+        let mut s = format!("  {}", data.name);
+        let cursor_pos = data.cursor + 2;
+        if cursor_pos <= s.len() {
+            s.insert(cursor_pos, '\u{2502}');
+        }
+        s
+    } else {
+        format!("  {}", data.name)
+    };
+    lines.push(Line::from(Span::styled(name_display, name_style)));
+    lines.push(Line::from(""));
+
+    // Description field
+    let desc_style = if data.active_field == 1 {
+        Style::default().fg(Color::White)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    lines.push(Line::from(Span::styled("  Description:", desc_style)));
+    let desc_display = if data.active_field == 1 {
+        let mut s = format!("  {}", data.description);
+        let cursor_pos = data.cursor + 2;
+        if cursor_pos <= s.len() {
+            s.insert(cursor_pos, '\u{2502}');
+        }
+        s
+    } else {
+        let d = if data.description.is_empty() {
+            "(optional)"
+        } else {
+            data.description
+        };
+        format!("  {d}")
+    };
+    lines.push(Line::from(Span::styled(desc_display, desc_style)));
+    lines.push(Line::from(""));
+
+    lines.push(Line::from(Span::styled(
+        "  Tab=switch  Enter=save  Esc=cancel",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    let overlay_width = 50u16.min(area.width.saturating_sub(4));
+    let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(4));
+    let x = (area.width.saturating_sub(overlay_width)) / 2;
+    let y = (area.height.saturating_sub(overlay_height)) / 2;
+    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
+
+    let widget = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" SAVE WORKFLOW ")
+            .style(Style::default().bg(Color::Black).fg(Color::Cyan)),
+    );
+
+    frame.render_widget(widget, overlay_area);
+}
+
+/// Draw the workflow browse/load overlay (list of saved workflows).
+fn draw_workflow_browse_overlay(frame: &mut Frame, area: Rect, data: &WorkflowBrowseData) {
+    let mut lines: Vec<Line<'_>> = Vec::with_capacity(32);
+
+    lines.push(Line::from(Span::styled(
+        "  Load Workflow",
+        Style::default().fg(Color::Cyan),
+    )));
+    lines.push(Line::from(""));
+
+    if data.entries.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "  No saved workflows found.",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else {
+        for (i, entry) in data.entries.iter().enumerate() {
+            let is_selected = i == data.selected_idx;
+            let prefix = if is_selected { "> " } else { "  " };
+            let style = if is_selected {
+                Style::default().fg(Color::White)
+            } else {
+                Style::default().fg(Color::Gray)
+            };
+
+            let mut tags = String::new();
+            if entry.has_stems {
+                tags.push_str(" [S]");
+            }
+            if entry.has_timeline {
+                tags.push_str(" [T]");
+            }
+
+            lines.push(Line::from(Span::styled(
+                format!("{prefix}{}{tags}", entry.name),
+                style,
+            )));
+
+            if is_selected {
+                let detail_style = Style::default().fg(Color::DarkGray);
+                lines.push(Line::from(Span::styled(
+                    format!("    {}", entry.created_at),
+                    detail_style,
+                )));
+                if !entry.description.is_empty() {
+                    lines.push(Line::from(Span::styled(
+                        format!("    {}", entry.description),
+                        detail_style,
+                    )));
+                }
+            }
+        }
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  Up/Down=nav  Enter=load  Del=delete  Esc=close",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    let overlay_width = 55u16.min(area.width.saturating_sub(4));
+    let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(4));
+    let x = (area.width.saturating_sub(overlay_width)) / 2;
+    let y = (area.height.saturating_sub(overlay_height)) / 2;
+    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
+
+    let widget = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" BROWSE WORKFLOWS ")
+            .style(Style::default().bg(Color::Black).fg(Color::Cyan)),
     );
 
     frame.render_widget(widget, overlay_area);

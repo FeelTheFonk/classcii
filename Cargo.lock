@@ -26,7 +26,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "af-app"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-ascii",
  "af-audio",
@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "af-ascii"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-core",
  "criterion",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "af-audio"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-core",
  "anyhow",
@@ -71,6 +71,7 @@ dependencies = [
  "criterion",
  "flume",
  "log",
+ "rayon",
  "realfft",
  "rtrb",
  "symphonia",
@@ -79,9 +80,10 @@ dependencies = [
 
 [[package]]
 name = "af-core"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "log",
  "serde",
  "toml 0.8.23",
@@ -89,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "af-export"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "ab_glyph",
  "af-core",
@@ -100,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "af-render"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-core",
  "criterion",
@@ -112,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "af-source"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-core",
  "anyhow",
@@ -125,7 +127,7 @@ dependencies = [
 
 [[package]]
 name = "af-stems"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "af-audio",
  "af-core",
@@ -456,6 +458,15 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bit-set"

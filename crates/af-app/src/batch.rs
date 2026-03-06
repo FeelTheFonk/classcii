@@ -454,6 +454,7 @@ pub fn run_batch_export(
     mutation_intensity: f32,
     stems_enabled: bool,
     stem_model: &str,
+    save_workflow_name: Option<&str>,
 ) -> Result<()> {
     #[cfg(not(feature = "video"))]
     {
@@ -471,6 +472,7 @@ pub fn run_batch_export(
             mutation_intensity,
             stems_enabled,
             stem_model,
+            save_workflow_name,
         );
         anyhow::bail!("L'export par lots requiert la feature 'video' (ffmpeg support).");
     }
@@ -590,6 +592,8 @@ pub fn run_batch_export(
         };
 
         // Initial config: either first preset or provided config
+        // Keep a clone for workflow save (config may be moved below)
+        let config_for_save = config.clone();
         let initial_config = if let Some(ref seq) = preset_seq {
             seq.presets[0].1.clone()
         } else {
@@ -602,6 +606,9 @@ pub fn run_batch_export(
         let timeline = analyzer.analyze_file(audio_path)?;
 
         // === Optional stem separation + per-stem analysis ===
+        // Store stem samples + metadata for workflow save (if requested)
+        let mut stem_samples_for_save: Option<([Vec<f32>; 4], u32, f64, String)> = None;
+
         let stem_timeline = if stems_enabled {
             log::info!("Étape 1b/4 : Séparation stems (modèle: {stem_model})...");
             let model = match stem_model {
@@ -616,6 +623,7 @@ pub fn run_batch_export(
             // Synchronous separation with progress on stderr
             let (progress_tx, progress_rx) = flume::unbounded();
             let audio_p = audio_path.to_path_buf();
+            let sep_start = std::time::Instant::now();
             let sep_handle = std::thread::spawn(move || {
                 af_stems::separator::separate_file(&audio_p, &sep_config, &progress_tx)
             });
@@ -643,6 +651,7 @@ pub fn run_batch_export(
             let stem_set = sep_handle
                 .join()
                 .map_err(|_| anyhow::anyhow!("Stem separation thread panicked"))??;
+            let _sep_elapsed = sep_start.elapsed().as_secs_f64();
 
             log::info!("Étape 1c/4 : Analyse per-stem features...");
             let stem_samples: [Vec<f32>; 4] = std::array::from_fn(|i| {
@@ -650,6 +659,17 @@ pub fn run_batch_export(
             });
             let stem_tl = analyzer.analyze_stems(&stem_samples);
             log::info!("Stem feature timelines: {} frames per stem", stem_tl.timelines[0].total_frames());
+
+            // Store for workflow save
+            if save_workflow_name.is_some() {
+                stem_samples_for_save = Some((
+                    stem_samples.clone(),
+                    stem_set.sample_rate,
+                    stem_set.duration_secs,
+                    stem_model.to_string(),
+                ));
+            }
+
             Some(stem_tl)
         } else {
             None
@@ -1097,6 +1117,57 @@ pub fn run_batch_export(
         let _ = std::fs::remove_file(temp_video);
 
         log::info!("Export réussi vers {}", final_output.display());
+
+        // === Workflow save (if requested) ===
+        if let Some(wf_name) = save_workflow_name {
+            use af_core::workflow;
+            use af_core::workflow_io;
+
+            let source = workflow::SourceInfo {
+                path: folder.to_path_buf(),
+                media_type: workflow::MediaType::Video,
+                audio_path: Some(audio_path.to_path_buf()),
+            };
+
+            // Build stem WAV paths + metadata if stems were separated
+            let (stem_states, stem_info, stem_wav_src) =
+                if let Some((ref samples, sr, dur, ref model)) = stem_samples_for_save {
+                    let stem_info = workflow::StemSeparationInfo {
+                        sample_rate: sr,
+                        channels: 1,
+                        duration_secs: dur,
+                        model: model.clone(),
+                        elapsed_secs: 0.0,
+                    };
+                    // First save the workflow dir, then write WAVs into it
+                    (None, Some(stem_info), Some((samples, sr)))
+                } else {
+                    (None, None, None)
+                };
+
+            // Save base workflow (config + source + metadata)
+            let wf_dir = workflow_io::save_workflow(
+                wf_name, &config_for_save, &source, stem_states.as_ref(), stem_info.as_ref(), None,
+            )?;
+
+            // Write stem WAVs into the workflow directory
+            if let Some((samples, sr)) = stem_wav_src {
+                let stems_arg: [(&[f32], u32); 4] = std::array::from_fn(|i| {
+                    (samples[i].as_slice(), sr)
+                });
+                workflow_io::write_stem_wavs(&wf_dir, &stems_arg)?;
+                log::info!("Stem WAVs written to workflow");
+            }
+
+            // Save feature timeline as binary for deterministic replay
+            let timeline = mapper.get_timeline();
+            if let Err(e) = workflow_io::save_feature_timeline(&wf_dir, timeline) {
+                log::warn!("Could not save feature timeline: {e}");
+            }
+
+            log::info!("Workflow saved as '{wf_name}'");
+        }
+
         Ok(())
     }
 }

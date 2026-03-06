@@ -14,6 +14,7 @@ pub mod generative;
 pub mod hotreload;
 pub mod pipeline;
 
+#[allow(clippy::too_many_lines)]
 fn main() -> Result<()> {
     // 1. Parser CLI
     let cli = cli::Cli::parse();
@@ -26,6 +27,11 @@ fn main() -> Result<()> {
     // 2b. --preset-list : scan & display available presets, then exit
     if cli.preset_list {
         return list_presets();
+    }
+
+    // 2c. --workflow-list : scan & display saved workflows, then exit
+    if cli.workflow_list {
+        return list_workflows_cli();
     }
 
     // 3. Valider la source
@@ -77,20 +83,8 @@ fn main() -> Result<()> {
             cli.mutation_intensity.unwrap_or(1.0),
             cli.stems,
             &cli.stem_model,
+            cli.save_workflow.as_deref(),
         );
-
-        // --save-workflow : persist after successful export
-        if result.is_ok() && let Some(ref wf_name) = cli.save_workflow {
-            let source = af_core::workflow::SourceInfo {
-                path: folder.to_path_buf(),
-                media_type: af_core::workflow::MediaType::Video,
-                audio_path: audio_arg.map(PathBuf::from),
-            };
-            af_core::workflow_io::save_workflow(
-                wf_name, &config, &source, None, None, None,
-            )?;
-            log::info!("Workflow saved as '{wf_name}'");
-        }
 
         return result;
     }
@@ -245,6 +239,30 @@ fn list_presets() -> Result<()> {
     println!("Available presets ({}):", names.len());
     for name in &names {
         println!("  {name}");
+    }
+
+    Ok(())
+}
+
+/// Scan saved workflows, print details, and exit.
+fn list_workflows_cli() -> Result<()> {
+    let entries = af_core::workflow_io::list_workflows_detailed()?;
+    if entries.is_empty() {
+        println!("No saved workflows found.");
+        println!("  Save dir: {}", af_core::workflow::workflow_base_dir().display());
+        return Ok(());
+    }
+
+    println!("Saved workflows ({}):", entries.len());
+    for e in &entries {
+        let stems_tag = if e.has_stems { " [stems]" } else { "" };
+        let tl_tag = if e.has_timeline { " [timeline]" } else { "" };
+        let desc = if e.description.is_empty() {
+            String::new()
+        } else {
+            format!(" - {}", e.description)
+        };
+        println!("  {}{}{} ({}){}", e.name, stems_tag, tl_tag, e.created_at, desc);
     }
 
     Ok(())

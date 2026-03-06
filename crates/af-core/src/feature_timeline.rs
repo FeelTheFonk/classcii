@@ -5,7 +5,7 @@ const STEM_TIMELINE_COUNT: usize = 4;
 
 /// Une timeline complète pré-calculée des features audio d'un morceau.
 /// Utilisée pour le rendu offline (batch export).
-#[derive(Clone)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct FeatureTimeline {
     /// Les features extraites pour chaque frame.
     pub frames: Vec<AudioFeatures>,
@@ -157,7 +157,7 @@ impl FeatureTimeline {
 ///
 /// Contains 4 independent `FeatureTimeline` instances (one per stem: drums, bass, other, vocals),
 /// plus a method to combine them at any time `t` using per-stem gains.
-#[derive(Clone)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct StemFeatureTimeline {
     /// Per-stem timelines (index 0=drums, 1=bass, 2=other, 3=vocals).
     pub timelines: [FeatureTimeline; STEM_TIMELINE_COUNT],

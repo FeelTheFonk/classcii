@@ -292,7 +292,7 @@ impl AsciiGrid {
 /// let f = AudioFeatures::default();
 /// assert!(f.rms.abs() < f32::EPSILON);
 /// ```
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct AudioFeatures {
     // === Amplitude ===
     /// RMS (Root Mean Square) normalisé [0.0, 1.0].

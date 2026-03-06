@@ -5,6 +5,7 @@ use clap::Parser;
 /// clasSCII — Audio-reactive ASCII art engine.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cli {
     /// Source visuelle : chemin vers une image (PNG, JPEG, BMP, GIF).
     #[arg(long)]
@@ -89,6 +90,10 @@ pub struct Cli {
     /// Sauvegarder un workflow après export batch.
     #[arg(long)]
     pub save_workflow: Option<String>,
+
+    /// Lister tous les workflows sauvegardés et quitter.
+    #[arg(long, default_value_t = false)]
+    pub workflow_list: bool,
 }
 
 impl Cli {

@@ -13,6 +13,7 @@ use af_core::frame::{AsciiGrid, AudioFeatures, FrameBuffer};
 use af_render::fps::FpsCounter;
 use af_render::ui::{
     DrawContext, RenderState, SIDEBAR_WIDTH, SPECTRUM_HEIGHT, StemDisplayInfo, StemOverlayData,
+    WorkflowBrowseData, WorkflowBrowseEntry, WorkflowSaveData,
 };
 use af_source::resize::Resizer;
 #[cfg(feature = "video")]
@@ -69,6 +70,10 @@ pub enum AppState {
     CreationMode,
     /// Mode stem separation (overlay multi-stem audio-réactif).
     StemMode,
+    /// Workflow save overlay (name + description input).
+    WorkflowSave,
+    /// Workflow browse/load overlay (list of saved workflows).
+    WorkflowBrowse,
     /// Fermeture de l'application. doit se terminer au prochain tour de boucle.
     Quitting,
 }
@@ -183,6 +188,24 @@ pub struct App {
     stem_stream: Option<cpal::Stream>,
     /// Shared pause flag for the stem analysis thread.
     stem_paused: Option<Arc<std::sync::atomic::AtomicBool>>,
+
+    // ── Workflow save/load state ──
+    /// Name buffer for workflow save overlay.
+    workflow_save_name: String,
+    /// Description buffer for workflow save overlay.
+    workflow_save_desc: String,
+    /// Cursor position in active field.
+    workflow_save_cursor: usize,
+    /// Active field: 0=name, 1=description.
+    workflow_save_field: u8,
+    /// Workflow browse list (cached on entry).
+    workflow_browse_list: Vec<af_core::workflow_io::WorkflowEntry>,
+    /// Selected index in browse list.
+    workflow_browse_idx: usize,
+    /// Flash message after save (displayed for a few frames).
+    workflow_flash_msg: Option<String>,
+    /// Flash countdown.
+    workflow_flash_frames: u8,
 }
 
 impl App {
@@ -278,6 +301,15 @@ impl App {
             separation_progress: None,
             stem_stream: None,
             stem_paused: None,
+
+            workflow_save_name: String::new(),
+            workflow_save_desc: String::new(),
+            workflow_save_cursor: 0,
+            workflow_save_field: 0,
+            workflow_browse_list: Vec::new(),
+            workflow_browse_idx: 0,
+            workflow_flash_msg: None,
+            workflow_flash_frames: 0,
         })
     }
 
@@ -642,6 +674,38 @@ impl App {
                 None
             };
 
+            // Build workflow overlay data
+            let layout_workflow_save = if state == RenderState::WorkflowSave {
+                Some(WorkflowSaveData {
+                    name: &self.workflow_save_name,
+                    description: &self.workflow_save_desc,
+                    cursor: self.workflow_save_cursor,
+                    active_field: self.workflow_save_field,
+                })
+            } else {
+                None
+            };
+
+            let layout_workflow_browse = if state == RenderState::WorkflowBrowse {
+                let entries: Vec<WorkflowBrowseEntry> = self
+                    .workflow_browse_list
+                    .iter()
+                    .map(|e| WorkflowBrowseEntry {
+                        name: e.name.clone(),
+                        created_at: e.created_at.clone(),
+                        description: e.description.clone(),
+                        has_stems: e.has_stems,
+                        has_timeline: e.has_timeline,
+                    })
+                    .collect();
+                Some(WorkflowBrowseData {
+                    entries,
+                    selected_idx: self.workflow_browse_idx,
+                })
+            } else {
+                None
+            };
+
             terminal.draw(|frame| {
                 let ctx = DrawContext {
                     grid,
@@ -662,13 +726,22 @@ impl App {
                     param_flash,
                     help_scroll: self.help_scroll_offset,
                     stem: stem_overlay.as_ref(),
+                    workflow_save: layout_workflow_save.as_ref(),
+                    workflow_browse: layout_workflow_browse.as_ref(),
+                    flash_msg: self.workflow_flash_msg.as_deref(),
                 };
                 af_render::ui::draw(frame, &ctx);
             })?;
             self.sidebar_dirty = false;
 
-            // Decrement param flash counter
+            // Decrement flash counters
             self.param_flash_frames = self.param_flash_frames.saturating_sub(1);
+            if self.workflow_flash_frames > 0 {
+                self.workflow_flash_frames -= 1;
+                if self.workflow_flash_frames == 0 {
+                    self.workflow_flash_msg = None;
+                }
+            }
 
             // Restore scratch (preserves internal Vec/String allocations for next frame)
             self.render_config_scratch = render_config;
@@ -687,11 +760,14 @@ impl App {
 
             AppState::CreationMode => RenderState::CreationMode,
             AppState::StemMode => RenderState::StemMode,
+            AppState::WorkflowSave => RenderState::WorkflowSave,
+            AppState::WorkflowBrowse => RenderState::WorkflowBrowse,
             AppState::Quitting => RenderState::Quitting,
         }
     }
 
     /// Handle a terminal event by dispatching to focused sub-handlers.
+    #[allow(clippy::too_many_lines)]
     fn handle_event(&mut self, event: &Event) {
         if let Event::Key(KeyEvent {
             code,
@@ -710,6 +786,14 @@ impl App {
                         self.open_visual_requested = true;
                         self.sidebar_dirty = true;
                     }
+                    KeyCode::Char('s') => {
+                        self.enter_workflow_save();
+                        return;
+                    }
+                    KeyCode::Char('w') => {
+                        self.enter_workflow_browse();
+                        return;
+                    }
                     _ => {}
                 }
                 return;
@@ -725,6 +809,14 @@ impl App {
             }
             if self.state == AppState::StemMode {
                 self.handle_stem_key(code);
+                return;
+            }
+            if self.state == AppState::WorkflowSave {
+                self.handle_workflow_save_key(code);
+                return;
+            }
+            if self.state == AppState::WorkflowBrowse {
+                self.handle_workflow_browse_key(code);
                 return;
             }
             if self.state == AppState::Help {
@@ -1594,6 +1686,271 @@ impl App {
         }
     }
 
+    // ── Workflow save/load ──
+
+    /// Enter workflow save mode with auto-generated name.
+    fn enter_workflow_save(&mut self) {
+        // Auto-name from loaded audio or "session"
+        let base = self
+            .loaded_audio_name
+            .as_deref()
+            .or(self.loaded_visual_name.as_deref())
+            .unwrap_or("session");
+        // Strip extension
+        let base = base.rsplit_once('.').map_or(base, |(stem, _)| stem);
+        self.workflow_save_name = af_core::workflow::sanitize_workflow_name(base);
+        self.workflow_save_desc.clear();
+        self.workflow_save_cursor = self.workflow_save_name.len();
+        self.workflow_save_field = 0;
+        self.state = AppState::WorkflowSave;
+        self.sidebar_dirty = true;
+    }
+
+    /// Enter workflow browse mode.
+    fn enter_workflow_browse(&mut self) {
+        match af_core::workflow_io::list_workflows_detailed() {
+            Ok(entries) => {
+                self.workflow_browse_list = entries;
+                self.workflow_browse_idx = 0;
+            }
+            Err(e) => {
+                log::warn!("Could not list workflows: {e}");
+                self.workflow_browse_list.clear();
+            }
+        }
+        self.state = AppState::WorkflowBrowse;
+        self.sidebar_dirty = true;
+    }
+
+    /// Handle keys in WorkflowSave overlay.
+    fn handle_workflow_save_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Tab | KeyCode::BackTab => {
+                // Toggle between name (0) and description (1)
+                self.workflow_save_field = 1 - self.workflow_save_field;
+                let field = if self.workflow_save_field == 0 {
+                    &self.workflow_save_name
+                } else {
+                    &self.workflow_save_desc
+                };
+                self.workflow_save_cursor = field.chars().count();
+            }
+            KeyCode::Enter => {
+                if self.workflow_save_name.is_empty() {
+                    return;
+                }
+                self.execute_workflow_save();
+            }
+            KeyCode::Backspace => {
+                let field = if self.workflow_save_field == 0 {
+                    &mut self.workflow_save_name
+                } else {
+                    &mut self.workflow_save_desc
+                };
+                if self.workflow_save_cursor > 0 {
+                    let mut chars: Vec<char> = field.chars().collect();
+                    chars.remove(self.workflow_save_cursor - 1);
+                    *field = chars.into_iter().collect();
+                    self.workflow_save_cursor -= 1;
+                }
+            }
+            KeyCode::Delete => {
+                let field = if self.workflow_save_field == 0 {
+                    &mut self.workflow_save_name
+                } else {
+                    &mut self.workflow_save_desc
+                };
+                let len = field.chars().count();
+                if self.workflow_save_cursor < len {
+                    let mut chars: Vec<char> = field.chars().collect();
+                    chars.remove(self.workflow_save_cursor);
+                    *field = chars.into_iter().collect();
+                }
+            }
+            KeyCode::Left => {
+                if self.workflow_save_cursor > 0 {
+                    self.workflow_save_cursor -= 1;
+                }
+            }
+            KeyCode::Right => {
+                let field = if self.workflow_save_field == 0 {
+                    &self.workflow_save_name
+                } else {
+                    &self.workflow_save_desc
+                };
+                if self.workflow_save_cursor < field.chars().count() {
+                    self.workflow_save_cursor += 1;
+                }
+            }
+            KeyCode::Char(ch) => {
+                let field = if self.workflow_save_field == 0 {
+                    &mut self.workflow_save_name
+                } else {
+                    &mut self.workflow_save_desc
+                };
+                let mut chars: Vec<char> = field.chars().collect();
+                chars.insert(self.workflow_save_cursor, ch);
+                *field = chars.into_iter().collect();
+                self.workflow_save_cursor += 1;
+            }
+            _ => {}
+        }
+    }
+
+    /// Execute workflow save with current name/description.
+    fn execute_workflow_save(&mut self) {
+        let config = self.config.load();
+
+        let source_path = self
+            .loaded_visual_name
+            .as_deref()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default();
+        let media_type = af_core::workflow::MediaType::None;
+        let audio_path = self.loaded_audio_path.clone();
+
+        let source = af_core::workflow::SourceInfo {
+            path: source_path,
+            media_type,
+            audio_path,
+        };
+
+        // Build stem states snapshot if stems are active
+        let stem_states = self.stem_set.as_ref().map(|_| {
+            af_core::workflow::StemStatesSnapshot {
+                states: std::array::from_fn(|i| {
+                    let st = &self.stem_states[i];
+                    af_core::workflow::StemStateEntry {
+                        id: st.id.scnet_name().to_string(),
+                        muted: st.muted,
+                        solo: st.solo,
+                        volume: st.volume,
+                        visible: st.visible,
+                    }
+                }),
+            }
+        });
+
+        match af_core::workflow_io::save_workflow(
+            &self.workflow_save_name,
+            &config,
+            &source,
+            stem_states.as_ref(),
+            None,
+            None,
+        ) {
+            Ok(wf_dir) => {
+                // Update manifest description if provided
+                if !self.workflow_save_desc.is_empty() {
+                    af_core::workflow_io::update_workflow_description(
+                        &wf_dir,
+                        &self.workflow_save_desc,
+                    );
+                }
+                self.workflow_flash_msg = Some(format!("Saved: {}", self.workflow_save_name));
+                self.workflow_flash_frames = 90; // ~1.5s at 60fps
+                log::info!("Workflow saved: {}", self.workflow_save_name);
+            }
+            Err(e) => {
+                self.workflow_flash_msg = Some(format!("Save failed: {e}"));
+                self.workflow_flash_frames = 120;
+                log::error!("Workflow save failed: {e}");
+            }
+        }
+
+        self.state = AppState::Running;
+        self.sidebar_dirty = true;
+    }
+
+    /// Handle keys in WorkflowBrowse overlay.
+    fn handle_workflow_browse_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Esc => {
+                self.state = AppState::Running;
+                self.sidebar_dirty = true;
+            }
+            KeyCode::Up => {
+                if self.workflow_browse_idx > 0 {
+                    self.workflow_browse_idx -= 1;
+                }
+            }
+            KeyCode::Down => {
+                if !self.workflow_browse_list.is_empty()
+                    && self.workflow_browse_idx < self.workflow_browse_list.len() - 1
+                {
+                    self.workflow_browse_idx += 1;
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(entry) = self.workflow_browse_list.get(self.workflow_browse_idx) {
+                    let name = entry.name.clone();
+                    self.execute_workflow_load(&name);
+                }
+            }
+            KeyCode::Delete => {
+                if let Some(entry) = self.workflow_browse_list.get(self.workflow_browse_idx) {
+                    let name = entry.name.clone();
+                    match af_core::workflow_io::delete_workflow(&name) {
+                        Ok(()) => {
+                            self.workflow_browse_list.remove(self.workflow_browse_idx);
+                            if self.workflow_browse_idx > 0
+                                && self.workflow_browse_idx >= self.workflow_browse_list.len()
+                            {
+                                self.workflow_browse_idx -= 1;
+                            }
+                            self.workflow_flash_msg = Some(format!("Deleted: {name}"));
+                            self.workflow_flash_frames = 60;
+                        }
+                        Err(e) => {
+                            log::error!("Delete workflow failed: {e}");
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Load a workflow by name and apply its config.
+    fn execute_workflow_load(&mut self, name: &str) {
+        match af_core::workflow_io::load_workflow_by_name(name) {
+            Ok(wf) => {
+                // Apply config
+                self.config.store(Arc::new(wf.config));
+                self.sidebar_dirty = true;
+                self.terminal_size = (0, 0); // Force resize recalc
+
+                // Restore stem states if available
+                if let Some(ref states) = wf.stem_states {
+                    for (i, entry) in states.states.iter().enumerate() {
+                        if i < STEM_COUNT {
+                            self.stem_states[i].muted = entry.muted;
+                            self.stem_states[i].solo = entry.solo;
+                            self.stem_states[i].volume = entry.volume;
+                            self.stem_states[i].visible = entry.visible;
+                        }
+                    }
+                }
+
+                self.workflow_flash_msg = Some(format!("Loaded: {name}"));
+                self.workflow_flash_frames = 90;
+                log::info!("Workflow loaded: {name}");
+            }
+            Err(e) => {
+                self.workflow_flash_msg = Some(format!("Load failed: {e}"));
+                self.workflow_flash_frames = 120;
+                log::error!("Workflow load failed: {e}");
+            }
+        }
+
+        self.state = AppState::Running;
+        self.sidebar_dirty = true;
+    }
+
     /// Set charset by index.
     fn set_charset(&mut self, index: usize, charset_str: &str) {
         self.toggle_config(|c| {
@@ -1793,7 +2150,7 @@ impl App {
 
             #[cfg(feature = "video")]
             if let Err(e) = crate::batch::run_batch_export(
-                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false, "standard",
+                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false, "standard", None,
             ) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {

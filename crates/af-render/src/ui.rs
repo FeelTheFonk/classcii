@@ -241,8 +241,8 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
     // Flash message (workflow saved, etc.) — renders on top of everything
     if let Some(msg) = ctx.flash_msg {
         let msg_w = msg.len() as u16 + 4;
-        let x = area.width.saturating_sub(msg_w) / 2;
-        let flash_area = Rect::new(x, 1, msg_w, 3);
+        let x = area.x + area.width.saturating_sub(msg_w) / 2;
+        let flash_area = Rect::new(x, area.y + 1, msg_w, 3);
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green))
@@ -1161,8 +1161,8 @@ fn draw_workflow_save_overlay(frame: &mut Frame, area: Rect, data: &WorkflowSave
 
     let overlay_width = 50u16.min(area.width.saturating_sub(4));
     let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(4));
-    let x = (area.width.saturating_sub(overlay_width)) / 2;
-    let y = (area.height.saturating_sub(overlay_height)) / 2;
+    let x = area.x + area.width.saturating_sub(overlay_width) / 2;
+    let y = area.y + area.height.saturating_sub(overlay_height) / 2;
     let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
 
     let widget = Paragraph::new(lines).block(
@@ -1236,8 +1236,8 @@ fn draw_workflow_browse_overlay(frame: &mut Frame, area: Rect, data: &WorkflowBr
 
     let overlay_width = 55u16.min(area.width.saturating_sub(4));
     let overlay_height = (lines.len() as u16 + 2).min(area.height.saturating_sub(4));
-    let x = (area.width.saturating_sub(overlay_width)) / 2;
-    let y = (area.height.saturating_sub(overlay_height)) / 2;
+    let x = area.x + area.width.saturating_sub(overlay_width) / 2;
+    let y = area.y + area.height.saturating_sub(overlay_height) / 2;
     let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
 
     let widget = Paragraph::new(lines).block(

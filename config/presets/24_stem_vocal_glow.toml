@@ -1,0 +1,92 @@
+# 24_stem_vocal_glow — Stem-optimized: vocal-centered ethereal glow.
+# Requires --stems. Vocals drive glow + fade, drums subtle flash, bass drives depth.
+
+[render]
+render_mode = "Braille"
+charset_index = 0
+color_enabled = true
+color_mode = "Oklab"
+dither_mode = "BlueNoise16"
+density_scale = 1.2
+contrast = 1.2
+brightness = 0.05
+saturation = 1.4
+edge_threshold = 0.15
+edge_mix = 0.3
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.55
+glow_intensity = 0.8
+chromatic_offset = 0.4
+wave_amplitude = 0.08
+wave_speed = 1.5
+color_pulse_speed = 0.3
+scanline_gap = 0
+beat_flash_intensity = 0.15
+temporal_stability = 0.4
+zalgo_intensity = 0.0
+target_fps = 60
+
+[audio]
+sensitivity = 1.3
+smoothing = 0.5
+
+# Vocals: RMS drives glow, presence drives fade trails
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "glow_intensity"
+amount = 0.8
+curve = "Smooth"
+stem_source = "vocals"
+
+[[audio.mappings]]
+enabled = true
+source = "presence"
+target = "fade_decay"
+amount = 0.4
+curve = "Linear"
+stem_source = "vocals"
+
+[[audio.mappings]]
+enabled = true
+source = "timbral_brightness"
+target = "brightness"
+amount = 0.5
+curve = "Smooth"
+stem_source = "vocals"
+
+# Drums: subtle beat flash
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "beat_flash_intensity"
+amount = 0.5
+curve = "Threshold"
+stem_source = "drums"
+
+# Bass: sub_bass drives camera zoom for depth
+[[audio.mappings]]
+enabled = true
+source = "sub_bass"
+target = "camera_zoom_amplitude"
+amount = 0.25
+curve = "Exponential"
+stem_source = "bass"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "wave_amplitude"
+amount = 0.2
+curve = "Smooth"
+stem_source = "bass"
+
+# Other: spectral flux drives chromatic
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "chromatic_offset"
+amount = 0.3
+curve = "Linear"
+stem_source = "other"

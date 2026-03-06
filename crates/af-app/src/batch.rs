@@ -452,6 +452,8 @@ pub fn run_batch_export(
     preset_duration_secs: f32,
     crossfade_ms: Option<u32>,
     mutation_intensity: f32,
+    stems_enabled: bool,
+    stem_model: &str,
 ) -> Result<()> {
     #[cfg(not(feature = "video"))]
     {
@@ -467,6 +469,8 @@ pub fn run_batch_export(
             preset_duration_secs,
             crossfade_ms,
             mutation_intensity,
+            stems_enabled,
+            stem_model,
         );
         anyhow::bail!("L'export par lots requiert la feature 'video' (ffmpeg support).");
     }
@@ -597,7 +601,71 @@ pub fn run_batch_export(
         let mut analyzer = BatchAnalyzer::new(target_fps, 44100, 2048);
         let timeline = analyzer.analyze_file(audio_path)?;
 
+        // === Optional stem separation + per-stem analysis ===
+        let stem_timeline = if stems_enabled {
+            log::info!("Étape 1b/4 : Séparation stems (modèle: {stem_model})...");
+            let model = match stem_model {
+                "large" => af_stems::separator::ModelVariant::Large,
+                _ => af_stems::separator::ModelVariant::Standard,
+            };
+            let root = std::env::current_dir()?;
+            let mut sep_config = af_stems::separator::SeparationConfig::from_project_root(&root);
+            sep_config.model = model;
+            af_stems::separator::preflight_check(&sep_config)?;
+
+            // Synchronous separation with progress on stderr
+            let (progress_tx, progress_rx) = flume::unbounded();
+            let audio_p = audio_path.to_path_buf();
+            let sep_handle = std::thread::spawn(move || {
+                af_stems::separator::separate_file(&audio_p, &sep_config, &progress_tx)
+            });
+
+            // Print progress to stderr for batch mode
+            while let Ok(prog) = progress_rx.recv() {
+                match prog {
+                    af_stems::separator::SeparationProgress::Progress(p) => {
+                        eprint!("\r  Separation: {:.0}%", p * 100.0);
+                    }
+                    af_stems::separator::SeparationProgress::Complete => {
+                        eprintln!("\r  Separation: 100% — complete");
+                        break;
+                    }
+                    af_stems::separator::SeparationProgress::Error(e) => {
+                        eprintln!("\r  Separation error: {e}");
+                        break;
+                    }
+                    af_stems::separator::SeparationProgress::Starting => {
+                        eprintln!("  Separation: starting...");
+                    }
+                }
+            }
+
+            let stem_set = sep_handle
+                .join()
+                .map_err(|_| anyhow::anyhow!("Stem separation thread panicked"))??;
+
+            log::info!("Étape 1c/4 : Analyse per-stem features...");
+            let stem_samples: [Vec<f32>; 4] = std::array::from_fn(|i| {
+                (*stem_set.stems[i].samples).clone()
+            });
+            let stem_tl = analyzer.analyze_stems(&stem_samples);
+            log::info!("Stem feature timelines: {} frames per stem", stem_tl.timelines[0].total_frames());
+            Some(stem_tl)
+        } else {
+            None
+        };
+
         let mut mapper = AutoGenerativeMapper::new(initial_config, timeline);
+
+        // Inject stem timeline into mapper for per-stem audio mappings
+        if let Some(stl) = stem_timeline {
+            // When stems are active, also inject stem-default mappings if user config has none
+            if mapper.base_config_mappings_have_no_stems() {
+                log::info!("Injecting stem-default audio mappings");
+                mapper.inject_stem_mappings();
+            }
+            mapper.set_stem_timeline(stl);
+        }
 
         // === Étape 2 : Initialisation de la source dossier ===
         log::info!(

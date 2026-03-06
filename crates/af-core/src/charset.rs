@@ -109,6 +109,23 @@ impl LuminanceLut {
 mod tests {
     use super::*;
 
+    const ALL_CHARSETS: &[(&str, &str)] = &[
+        ("FULL", CHARSET_FULL),
+        ("DENSE", CHARSET_DENSE),
+        ("SHORT_1", CHARSET_SHORT_1),
+        ("SHORT_2", CHARSET_SHORT_2),
+        ("BINARY", CHARSET_BINARY),
+        ("EXTENDED", CHARSET_EXTENDED),
+        ("DISCRETE", CHARSET_DISCRETE),
+        ("EDGE", CHARSET_EDGE),
+        ("BLOCKS", CHARSET_BLOCKS),
+        ("MINIMAL", CHARSET_MINIMAL),
+        ("GLITCH_1", CHARSET_GLITCH_1),
+        ("GLITCH_2", CHARSET_GLITCH_2),
+        ("DIGITAL", CHARSET_DIGITAL),
+        ("HIRES", CHARSET_HIRES),
+    ];
+
     #[test]
     fn luminance_lut_maps_extremes() {
         let lut = LuminanceLut::new(" .:#@");
@@ -139,6 +156,111 @@ mod tests {
             let idx = chars.iter().position(|&c| c == ch).unwrap_or(0);
             assert!(idx >= prev_idx, "HIRES LUT non monotone à luminance {i}");
             prev_idx = idx;
+        }
+    }
+
+    #[test]
+    fn all_charsets_minimum_length() {
+        for (name, cs) in ALL_CHARSETS {
+            let len = cs.chars().count();
+            assert!(
+                len >= 2,
+                "CHARSET_{name} has only {len} chars (minimum 2 required)"
+            );
+        }
+    }
+
+    #[test]
+    fn all_charsets_no_replacement_character() {
+        for (name, cs) in ALL_CHARSETS {
+            for (i, ch) in cs.chars().enumerate() {
+                assert!(
+                    ch != '\u{FFFD}',
+                    "CHARSET_{name}[{i}] is U+FFFD REPLACEMENT CHARACTER"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_charsets_no_null() {
+        for (name, cs) in ALL_CHARSETS {
+            for (i, ch) in cs.chars().enumerate() {
+                assert!(
+                    ch != '\0',
+                    "CHARSET_{name}[{i}] is null character"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_charsets_no_control_chars() {
+        for (name, cs) in ALL_CHARSETS {
+            for (i, ch) in cs.chars().enumerate() {
+                let cp = ch as u32;
+                // Allow space (0x20), reject all other C0/C1 controls
+                if cp == 0x20 {
+                    continue;
+                }
+                assert!(
+                    cp >= 0x20 && !(0x7F..=0x9F).contains(&cp),
+                    "CHARSET_{name}[{i}] is control char U+{cp:04X}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_charsets_no_zero_width() {
+        let zero_width = [
+            0x200B, // ZERO WIDTH SPACE
+            0x200C, // ZERO WIDTH NON-JOINER
+            0x200D, // ZERO WIDTH JOINER
+            0x200E, // LEFT-TO-RIGHT MARK
+            0x200F, // RIGHT-TO-LEFT MARK
+            0xFEFF, // ZERO WIDTH NO-BREAK SPACE (BOM)
+        ];
+        for (name, cs) in ALL_CHARSETS {
+            for (i, ch) in cs.chars().enumerate() {
+                let cp = ch as u32;
+                assert!(
+                    !zero_width.contains(&cp),
+                    "CHARSET_{name}[{i}] is zero-width char U+{cp:04X}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_charsets_no_duplicates() {
+        for (name, cs) in ALL_CHARSETS {
+            let chars: Vec<char> = cs.chars().collect();
+            for (i, &ch) in chars.iter().enumerate() {
+                for (j, &ch2) in chars.iter().enumerate().skip(i + 1) {
+                    assert!(
+                        ch != ch2,
+                        "CHARSET_{name} has duplicate '{ch}' at indices {i} and {j}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn all_charsets_build_valid_lut() {
+        for (name, cs) in ALL_CHARSETS {
+            let lut = LuminanceLut::new(cs);
+            // Verify no panic and extremes are correct
+            let chars: Vec<char> = cs.chars().collect();
+            assert_eq!(
+                lut.map(0), chars[0],
+                "CHARSET_{name} LUT[0] should be first char"
+            );
+            assert_eq!(
+                lut.map(255), *chars.last().expect("non-empty"),
+                "CHARSET_{name} LUT[255] should be last char"
+            );
         }
     }
 }

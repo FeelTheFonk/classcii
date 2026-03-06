@@ -1,14 +1,18 @@
 use af_core::config::{MappingCurve, RenderConfig};
-use af_core::feature_timeline::FeatureTimeline;
+use af_core::feature_timeline::{FeatureTimeline, StemFeatureTimeline};
 use af_core::frame::AudioFeatures;
 
 /// Moteur génératif offline adaptant config + audio feature timeline.
 ///
 /// Applique les audio mappings avec MappingCurve et EMA smoothing,
 /// en parité complète avec le pipeline interactif (`pipeline::apply_audio_mappings`).
+///
+/// When `stem_timeline` is set, mappings with `stem_source` resolve features
+/// from the corresponding stem instead of the combined mix.
 pub struct AutoGenerativeMapper {
     base_config: RenderConfig,
     timeline: FeatureTimeline,
+    stem_timeline: Option<StemFeatureTimeline>,
     smooth_state: Vec<f32>,
 }
 
@@ -19,8 +23,14 @@ impl AutoGenerativeMapper {
         Self {
             base_config,
             timeline,
+            stem_timeline: None,
             smooth_state: vec![0.0; n],
         }
+    }
+
+    /// Attach per-stem feature timelines for stem-aware audio mappings.
+    pub fn set_stem_timeline(&mut self, stem_tl: StemFeatureTimeline) {
+        self.stem_timeline = Some(stem_tl);
     }
 
     /// Applique les mappings audio sur `out`, en le réinitialisant depuis `base_config`.
@@ -40,12 +50,35 @@ impl AutoGenerativeMapper {
                 .resize(self.base_config.audio_mappings.len(), 0.0);
         }
 
+        // Pre-fetch per-stem features if stem_timeline is available
+        let stem_features: Option<[AudioFeatures; 4]> = self
+            .stem_timeline
+            .as_ref()
+            .map(|stl| stl.get_stem_features_at_time(timestamp_secs));
+
         for (i, mapping) in self.base_config.audio_mappings.iter().enumerate() {
             if !mapping.enabled {
                 continue;
             }
 
-            let source_val = resolve_source(&features, mapping.source.as_str(), onset_envelope);
+            // Resolve from per-stem features if mapping has stem_source, else combined mix
+            let source_val = match (&mapping.stem_source, &stem_features) {
+                (Some(stem_name), Some(sf)) => {
+                    let stem_idx = match stem_name.as_str() {
+                        "drums" => 0usize,
+                        "bass" => 1,
+                        "other" => 2,
+                        "vocals" => 3,
+                        _ => usize::MAX, // fallback to combined
+                    };
+                    if stem_idx < 4 {
+                        resolve_source(&sf[stem_idx], mapping.source.as_str(), onset_envelope)
+                    } else {
+                        resolve_source(&features, mapping.source.as_str(), onset_envelope)
+                    }
+                }
+                _ => resolve_source(&features, mapping.source.as_str(), onset_envelope),
+            };
 
             // Apply response curve (parité avec pipeline.rs)
             let shaped = apply_curve(&mapping.curve, source_val);
@@ -75,6 +108,32 @@ impl AutoGenerativeMapper {
     /// Remplace la config de base (utilisé par le preset sequencer en mode --preset all).
     pub fn set_base_config(&mut self, config: RenderConfig) {
         self.base_config = config;
+    }
+
+    /// Returns true if the current base config has no stem-aware mappings.
+    #[must_use]
+    pub fn base_config_mappings_have_no_stems(&self) -> bool {
+        !self
+            .base_config
+            .audio_mappings
+            .iter()
+            .any(|m| m.stem_source.is_some())
+    }
+
+    /// Append the stem-default mappings to the base config.
+    pub fn inject_stem_mappings(&mut self) {
+        let stem_mappings = af_core::config::stem_default_mappings();
+        let old_len = self.base_config.audio_mappings.len();
+        self.base_config
+            .audio_mappings
+            .extend(stem_mappings);
+        self.smooth_state
+            .resize(self.base_config.audio_mappings.len(), 0.0);
+        log::info!(
+            "Stem mappings injected: {} → {} total",
+            old_len,
+            self.base_config.audio_mappings.len()
+        );
     }
 }
 

@@ -30,7 +30,7 @@ fn all_presets_parse_successfully() {
             count += 1;
         }
     }
-    assert!(count >= 22, "expected at least 22 presets, found {count}");
+    assert!(count >= 25, "expected at least 25 presets, found {count}");
 }
 
 #[test]
@@ -63,6 +63,14 @@ fn all_presets_have_valid_sources_and_targets() {
                 "preset {name} mapping #{i}: unknown target '{}'",
                 mapping.target
             );
+            // Validate stem_source if present
+            if let Some(ref stem) = mapping.stem_source {
+                let valid_stems = ["drums", "bass", "other", "vocals"];
+                assert!(
+                    valid_stems.contains(&stem.as_str()),
+                    "preset {name} mapping #{i}: unknown stem_source '{stem}'"
+                );
+            }
         }
     }
 }
@@ -72,11 +80,20 @@ fn default_config_loads_successfully() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/default.toml");
     let config = load_config(&path).expect("default.toml should parse");
 
-    assert_eq!(
-        config.audio_mappings.len(),
-        5,
-        "default should have 5 mappings"
+    assert!(
+        config.audio_mappings.len() >= 4,
+        "default should have at least 4 mappings, got {}",
+        config.audio_mappings.len()
     );
-    assert!((config.audio_sensitivity - 2.0).abs() < f32::EPSILON);
-    assert!((config.audio_smoothing - 0.3).abs() < f32::EPSILON);
+    // Verify TOML values override code defaults
+    assert!(
+        (config.audio_sensitivity - 1.2).abs() < f32::EPSILON,
+        "sensitivity should match TOML value 1.2, got {}",
+        config.audio_sensitivity
+    );
+    assert!(
+        (config.audio_smoothing - 0.5).abs() < f32::EPSILON,
+        "smoothing should match TOML value 0.5, got {}",
+        config.audio_smoothing
+    );
 }

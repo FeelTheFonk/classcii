@@ -22,7 +22,7 @@ fn default_mappings_produce_visible_deltas() {
     features.spectral_centroid = 0.4;
 
     let mut smooth = vec![];
-    apply_audio_mappings(&mut config, &features, 0.7, &mut smooth, 60);
+    apply_audio_mappings(&mut config, &features, None, 0.7, &mut smooth, 60);
 
     // bass → edge_threshold (Smooth curve, amount=0.7, sensitivity=2.0)
     assert!(
@@ -69,7 +69,7 @@ fn zero_features_produce_zero_deltas() {
     let original_contrast = config.contrast;
     let original_brightness = config.brightness;
 
-    apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+    apply_audio_mappings(&mut config, &features, None, 0.0, &mut smooth, 60);
 
     assert!(
         (config.contrast - original_contrast).abs() < 0.01,
@@ -94,7 +94,7 @@ fn disabled_mapping_has_no_effect() {
     features.rms = 1.0;
     let mut smooth = vec![];
 
-    apply_audio_mappings(&mut config, &features, 1.0, &mut smooth, 60);
+    apply_audio_mappings(&mut config, &features, None, 1.0, &mut smooth, 60);
 
     assert!(
         config.edge_threshold < 0.01,

@@ -142,12 +142,13 @@ pub fn start_source(
 /// let mut config = RenderConfig::default();
 /// let features = AudioFeatures::default();
 /// let mut smooth = vec![];
-/// apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+/// apply_audio_mappings(&mut config, &features, None, 0.0, &mut smooth, 60);
 /// ```
 #[allow(clippy::too_many_lines)]
 pub fn apply_audio_mappings(
     config: &mut RenderConfig,
     features: &AudioFeatures,
+    stem_features: Option<&af_stems::stem::StemFeatures>,
     onset_envelope: f32,
     smooth_state: &mut Vec<f32>,
     target_fps: u32,
@@ -166,34 +167,53 @@ pub fn apply_audio_mappings(
             continue;
         }
 
+        // Resolve features from per-stem data if mapping has stem_source
+        let effective_features = match (&mapping.stem_source, stem_features) {
+            (Some(stem_name), Some(sf)) => {
+                let stem_idx = match stem_name.as_str() {
+                    "drums" => 0usize,
+                    "bass" => 1,
+                    "other" => 2,
+                    "vocals" => 3,
+                    _ => usize::MAX,
+                };
+                if stem_idx < 4 {
+                    &sf.features[stem_idx]
+                } else {
+                    features
+                }
+            }
+            _ => features,
+        };
+
         let source_value = match mapping.source.as_str() {
-            "rms" => features.rms,
-            "peak" => features.peak,
-            "sub_bass" => features.sub_bass,
-            "bass" => features.bass,
-            "low_mid" => features.low_mid,
-            "mid" => features.mid,
-            "high_mid" => features.high_mid,
-            "presence" => features.presence,
-            "brilliance" => features.brilliance,
-            "spectral_centroid" => features.spectral_centroid,
-            "spectral_flux" => features.spectral_flux,
-            "spectral_flatness" => features.spectral_flatness,
-            "beat_intensity" => features.beat_intensity,
+            "rms" => effective_features.rms,
+            "peak" => effective_features.peak,
+            "sub_bass" => effective_features.sub_bass,
+            "bass" => effective_features.bass,
+            "low_mid" => effective_features.low_mid,
+            "mid" => effective_features.mid,
+            "high_mid" => effective_features.high_mid,
+            "presence" => effective_features.presence,
+            "brilliance" => effective_features.brilliance,
+            "spectral_centroid" => effective_features.spectral_centroid,
+            "spectral_flux" => effective_features.spectral_flux,
+            "spectral_flatness" => effective_features.spectral_flatness,
+            "beat_intensity" => effective_features.beat_intensity,
             "onset" => {
-                if features.onset {
+                if effective_features.onset {
                     1.0
                 } else {
                     0.0
                 }
             }
-            "beat_phase" => features.beat_phase,
-            "bpm" => features.bpm / 300.0,
-            "timbral_brightness" => features.timbral_brightness,
-            "timbral_roughness" => features.timbral_roughness,
+            "beat_phase" => effective_features.beat_phase,
+            "bpm" => effective_features.bpm / 300.0,
+            "timbral_brightness" => effective_features.timbral_brightness,
+            "timbral_roughness" => effective_features.timbral_roughness,
             "onset_envelope" => onset_envelope,
-            "spectral_rolloff" => features.spectral_rolloff,
-            "zero_crossing_rate" => features.zero_crossing_rate,
+            "spectral_rolloff" => effective_features.spectral_rolloff,
+            "zero_crossing_rate" => effective_features.zero_crossing_rate,
             _ => 0.0,
         };
 
@@ -309,7 +329,7 @@ mod tests {
         features.bass = 0.5;
         let mut smooth = vec![];
 
-        apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+        apply_audio_mappings(&mut config, &features, None, 0.0, &mut smooth, 60);
 
         // With Smooth curve on bass=0.5: shaped = 3*(0.25) - 2*(0.125) = 0.5
         // delta = 0.5 * 0.7 * 2.0 = 0.7 — direct passthrough (no per-mapping EMA)
@@ -331,13 +351,14 @@ mod tests {
             offset: 0.0,
             curve: MappingCurve::Linear,
             smoothing: Some(0.3), // Explicit per-mapping smoothing
+            stem_source: None,
         }];
         let mut features = AudioFeatures::default();
         features.rms = 1.0;
         let mut smooth = vec![];
 
         // First frame: EMA with alpha=0.3 → 0.3 * raw_delta + 0.7 * 0
-        apply_audio_mappings(&mut config, &features, 0.0, &mut smooth, 60);
+        apply_audio_mappings(&mut config, &features, None, 0.0, &mut smooth, 60);
         let first = config.brightness;
 
         // With smoothing, first frame should be substantially less than raw delta
@@ -359,15 +380,78 @@ mod tests {
             offset: 0.0,
             curve: MappingCurve::Linear,
             smoothing: None,
+            stem_source: None,
         }];
         let features = AudioFeatures::default();
         let mut smooth = vec![];
 
-        apply_audio_mappings(&mut config, &features, 0.75, &mut smooth, 60);
+        apply_audio_mappings(&mut config, &features, None, 0.75, &mut smooth, 60);
         // delta = 0.75 * 1.0 * 2.0 = 1.5, clamped brightness to 1.0
         assert!(
             config.brightness > 0.5,
             "onset_envelope should pass through directly, got {}",
+            config.brightness
+        );
+    }
+
+    #[test]
+    fn stem_source_resolves_per_stem_features() {
+        use af_stems::stem::StemFeatures;
+
+        let mut config = RenderConfig::default();
+        config.audio_mappings = vec![AudioMapping {
+            enabled: true,
+            source: "bass".into(),
+            target: "brightness".into(),
+            amount: 1.0,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("drums".into()), // stem index 0
+        }];
+
+        // Combined features have bass=0.0 (should NOT be used)
+        let combined = AudioFeatures::default();
+
+        // Stem features: drums (index 0) has bass=0.8
+        let mut stem_feats = StemFeatures::default();
+        stem_feats.features[0].bass = 0.8;
+
+        let mut smooth = vec![];
+        apply_audio_mappings(&mut config, &combined, Some(&stem_feats), 0.0, &mut smooth, 60);
+
+        // Should use drums bass=0.8, not combined bass=0.0
+        assert!(
+            config.brightness > 0.3,
+            "stem_source='drums' should resolve from stem features, got brightness={}",
+            config.brightness
+        );
+    }
+
+    #[test]
+    fn stem_source_falls_back_without_stem_features() {
+        let mut config = RenderConfig::default();
+        config.audio_mappings = vec![AudioMapping {
+            enabled: true,
+            source: "bass".into(),
+            target: "brightness".into(),
+            amount: 1.0,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("drums".into()),
+        }];
+
+        let mut combined = AudioFeatures::default();
+        combined.bass = 0.5;
+
+        let mut smooth = vec![];
+        // Pass None for stem_features → should fall back to combined
+        apply_audio_mappings(&mut config, &combined, None, 0.0, &mut smooth, 60);
+
+        assert!(
+            config.brightness > 0.2,
+            "without stem features, should fall back to combined, got brightness={}",
             config.brightness
         );
     }

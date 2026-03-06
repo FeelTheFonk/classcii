@@ -1,0 +1,132 @@
+# 25_stem_full_spectrum — Stem-optimized: all 4 stems driving distinct visual channels.
+# Requires --stems. Maximum stem-aware separation for complex, layered audio-reactivity.
+
+[render]
+render_mode = "Sextant"
+charset_index = 0
+color_enabled = true
+color_mode = "Direct"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+contrast = 1.5
+brightness = 0.0
+saturation = 1.2
+edge_threshold = 0.2
+edge_mix = 0.45
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.3
+glow_intensity = 0.6
+chromatic_offset = 0.6
+wave_amplitude = 0.12
+wave_speed = 2.5
+color_pulse_speed = 0.5
+scanline_gap = 0
+beat_flash_intensity = 0.4
+temporal_stability = 0.3
+zalgo_intensity = 0.1
+target_fps = 60
+
+[audio]
+sensitivity = 1.4
+smoothing = 0.4
+
+# === Drums: rhythm & impact ===
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "beat_flash_intensity"
+amount = 1.2
+curve = "Linear"
+stem_source = "drums"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "wave_amplitude"
+amount = 0.4
+curve = "Exponential"
+stem_source = "drums"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_intensity"
+target = "chromatic_offset"
+amount = 0.5
+curve = "Threshold"
+stem_source = "drums"
+
+# === Bass: depth & warmth ===
+[[audio.mappings]]
+enabled = true
+source = "sub_bass"
+target = "glow_intensity"
+amount = 0.5
+curve = "Exponential"
+stem_source = "bass"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "edge_threshold"
+amount = 0.6
+curve = "Smooth"
+stem_source = "bass"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "camera_zoom_amplitude"
+amount = 0.2
+curve = "Smooth"
+stem_source = "bass"
+
+# === Other (synths/instruments): texture & movement ===
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "color_pulse_speed"
+amount = 0.6
+curve = "Linear"
+stem_source = "other"
+
+[[audio.mappings]]
+enabled = true
+source = "mid"
+target = "saturation"
+amount = 0.4
+curve = "Smooth"
+stem_source = "other"
+
+[[audio.mappings]]
+enabled = true
+source = "spectral_flux"
+target = "contrast"
+amount = 0.3
+curve = "Linear"
+stem_source = "other"
+
+# === Vocals: presence & clarity ===
+[[audio.mappings]]
+enabled = true
+source = "timbral_brightness"
+target = "brightness"
+amount = 0.5
+curve = "Smooth"
+stem_source = "vocals"
+
+[[audio.mappings]]
+enabled = true
+source = "presence"
+target = "fade_decay"
+amount = 0.35
+curve = "Linear"
+stem_source = "vocals"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "zalgo_intensity"
+amount = 0.3
+curve = "Threshold"
+stem_source = "vocals"

@@ -204,4 +204,31 @@ impl BatchAnalyzer {
         self.sample_rate = actual_sr;
         Ok(self.analyze_all(&samples))
     }
+
+    /// Analyze 4 stems and produce a `StemFeatureTimeline`.
+    ///
+    /// Each stem's samples are analyzed independently, producing 4 parallel timelines.
+    /// The stems array must contain samples for [drums, bass, other, vocals] in order.
+    ///
+    /// # Example
+    /// ```
+    /// use af_audio::batch_analyzer::BatchAnalyzer;
+    /// let mut analyzer = BatchAnalyzer::new(60, 44100, 2048);
+    /// let stems = [
+    ///     vec![0.0f32; 44100],
+    ///     vec![0.0f32; 44100],
+    ///     vec![0.0f32; 44100],
+    ///     vec![0.0f32; 44100],
+    /// ];
+    /// let timeline = analyzer.analyze_stems(&stems);
+    /// ```
+    #[must_use]
+    pub fn analyze_stems(&mut self, stem_samples: &[Vec<f32>; 4]) -> af_core::feature_timeline::StemFeatureTimeline {
+        let timelines: [FeatureTimeline; 4] = std::array::from_fn(|i| {
+            // Create a fresh analyzer per stem to avoid state pollution
+            let mut analyzer = BatchAnalyzer::new(self.target_fps, self.sample_rate, self.fft.fft_size());
+            analyzer.analyze_all(&stem_samples[i])
+        });
+        af_core::feature_timeline::StemFeatureTimeline { timelines }
+    }
 }

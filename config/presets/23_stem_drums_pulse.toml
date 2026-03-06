@@ -1,0 +1,100 @@
+# 23_stem_drums_pulse — Stem-optimized: drum-driven visual punch.
+# Requires --stems. Drums drive beat flash + wave, bass drives glow, vocals drive brightness.
+
+[render]
+render_mode = "HalfBlock"
+charset_index = 1
+color_enabled = true
+color_mode = "HsvBright"
+dither_mode = "BlueNoise16"
+density_scale = 1.0
+contrast = 1.6
+brightness = -0.1
+saturation = 1.3
+edge_threshold = 0.3
+edge_mix = 0.5
+aspect_ratio = 2.0
+bg_style = "Black"
+fade_decay = 0.25
+glow_intensity = 0.5
+chromatic_offset = 0.8
+wave_amplitude = 0.15
+wave_speed = 3.0
+color_pulse_speed = 0.0
+scanline_gap = 0
+beat_flash_intensity = 0.6
+temporal_stability = 0.25
+zalgo_intensity = 0.0
+target_fps = 60
+
+[audio]
+sensitivity = 1.5
+smoothing = 0.35
+
+# Drums: onset drives strobe, bass band drives wave
+[[audio.mappings]]
+enabled = true
+source = "onset"
+target = "beat_flash_intensity"
+amount = 1.5
+curve = "Linear"
+stem_source = "drums"
+
+[[audio.mappings]]
+enabled = true
+source = "bass"
+target = "wave_amplitude"
+amount = 0.5
+curve = "Exponential"
+stem_source = "drums"
+
+[[audio.mappings]]
+enabled = true
+source = "beat_intensity"
+target = "chromatic_offset"
+amount = 0.7
+curve = "Threshold"
+stem_source = "drums"
+
+# Bass: sub_bass drives glow
+[[audio.mappings]]
+enabled = true
+source = "sub_bass"
+target = "glow_intensity"
+amount = 0.6
+curve = "Exponential"
+stem_source = "bass"
+
+[[audio.mappings]]
+enabled = true
+source = "rms"
+target = "edge_threshold"
+amount = 0.4
+curve = "Smooth"
+stem_source = "bass"
+
+# Vocals: presence drives brightness, timbral drives saturation
+[[audio.mappings]]
+enabled = true
+source = "presence"
+target = "brightness"
+amount = 0.4
+curve = "Smooth"
+stem_source = "vocals"
+
+[[audio.mappings]]
+enabled = true
+source = "timbral_brightness"
+target = "saturation"
+amount = 0.3
+curve = "Linear"
+stem_source = "vocals"
+
+# Other: spectral centroid drives color pulse
+[[audio.mappings]]
+enabled = true
+source = "spectral_centroid"
+target = "color_pulse_speed"
+amount = 0.5
+curve = "Linear"
+stem_source = "other"

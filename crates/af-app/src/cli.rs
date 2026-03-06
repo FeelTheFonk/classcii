@@ -73,6 +73,22 @@ pub struct Cli {
     /// Multiplicateur d'intensité des mutations batch (0=aucune, 1=défaut, 2=aggressif).
     #[arg(long)]
     pub mutation_intensity: Option<f32>,
+
+    /// Activer la séparation de stems en mode batch (requiert --audio).
+    #[arg(long, default_value_t = false)]
+    pub stems: bool,
+
+    /// Modèle SCNet pour la séparation : "standard" (41MB) ou "large" (162MB).
+    #[arg(long, default_value = "standard")]
+    pub stem_model: String,
+
+    /// Charger un workflow sauvegardé (remplace --config/--preset/--audio).
+    #[arg(long)]
+    pub load_workflow: Option<PathBuf>,
+
+    /// Sauvegarder un workflow après export batch.
+    #[arg(long)]
+    pub save_workflow: Option<String>,
 }
 
 impl Cli {

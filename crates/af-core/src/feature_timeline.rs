@@ -1,5 +1,8 @@
 use crate::frame::AudioFeatures;
 
+/// Number of stems (duplicated here to avoid circular dep with af-stems).
+const STEM_TIMELINE_COUNT: usize = 4;
+
 /// Une timeline complète pré-calculée des features audio d'un morceau.
 /// Utilisée pour le rendu offline (batch export).
 #[derive(Clone)]
@@ -147,6 +150,92 @@ impl FeatureTimeline {
                 }
             })
             .collect();
+    }
+}
+
+/// Per-stem feature timelines for offline batch rendering with stem separation.
+///
+/// Contains 4 independent `FeatureTimeline` instances (one per stem: drums, bass, other, vocals),
+/// plus a method to combine them at any time `t` using per-stem gains.
+#[derive(Clone)]
+pub struct StemFeatureTimeline {
+    /// Per-stem timelines (index 0=drums, 1=bass, 2=other, 3=vocals).
+    pub timelines: [FeatureTimeline; STEM_TIMELINE_COUNT],
+}
+
+impl StemFeatureTimeline {
+    /// Get combined AudioFeatures at time `t`, weighted by per-stem gains.
+    ///
+    /// `gains[i]` = 0.0 for muted stems, volume otherwise.
+    /// Uses the same weighted-average logic as `af_stems::analysis::combine_stem_features`.
+    #[must_use]
+    pub fn get_at_time(&self, time: f64, gains: &[f32; STEM_TIMELINE_COUNT]) -> AudioFeatures {
+        let mut combined = AudioFeatures::default();
+        let mut weight_sum = 0.0f32;
+
+        for (i, gain) in gains.iter().enumerate() {
+            if *gain <= 0.0 {
+                continue;
+            }
+            let f = self.timelines[i].get_at_time(time);
+            let w = *gain;
+
+            combined.rms += f.rms * w;
+            combined.peak = combined.peak.max(f.peak * w);
+            combined.sub_bass += f.sub_bass * w;
+            combined.bass += f.bass * w;
+            combined.low_mid += f.low_mid * w;
+            combined.mid += f.mid * w;
+            combined.high_mid += f.high_mid * w;
+            combined.presence += f.presence * w;
+            combined.brilliance += f.brilliance * w;
+            combined.spectral_centroid += f.spectral_centroid * w;
+            combined.spectral_flux += f.spectral_flux * w;
+            combined.spectral_flatness += f.spectral_flatness * w;
+            combined.beat_intensity = combined.beat_intensity.max(f.beat_intensity);
+            combined.bpm = combined.bpm.max(f.bpm);
+            combined.timbral_brightness += f.timbral_brightness * w;
+            combined.timbral_roughness += f.timbral_roughness * w;
+            combined.spectral_rolloff += f.spectral_rolloff * w;
+            combined.zero_crossing_rate += f.zero_crossing_rate * w;
+            if f.onset {
+                combined.onset = true;
+            }
+            for (j, band) in f.spectrum_bands.iter().enumerate() {
+                combined.spectrum_bands[j] += band * w;
+            }
+            weight_sum += w;
+        }
+
+        if weight_sum > 0.0 {
+            let inv = 1.0 / weight_sum;
+            combined.rms *= inv;
+            combined.sub_bass *= inv;
+            combined.bass *= inv;
+            combined.low_mid *= inv;
+            combined.mid *= inv;
+            combined.high_mid *= inv;
+            combined.presence *= inv;
+            combined.brilliance *= inv;
+            combined.spectral_centroid *= inv;
+            combined.spectral_flux *= inv;
+            combined.spectral_flatness *= inv;
+            combined.timbral_brightness *= inv;
+            combined.timbral_roughness *= inv;
+            combined.spectral_rolloff *= inv;
+            combined.zero_crossing_rate *= inv;
+            for band in &mut combined.spectrum_bands {
+                *band *= inv;
+            }
+        }
+
+        combined
+    }
+
+    /// Get per-stem features at time `t` (for stem-aware mappings).
+    #[must_use]
+    pub fn get_stem_features_at_time(&self, time: f64) -> [AudioFeatures; STEM_TIMELINE_COUNT] {
+        std::array::from_fn(|i| self.timelines[i].get_at_time(time))
     }
 }
 

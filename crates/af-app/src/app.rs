@@ -340,7 +340,7 @@ impl App {
 
             // === Lire audio features (non-bloquant) ===
             // If stem separation is active, derive combined features from per-stem analysis
-            let audio_features = if let Some(ref mut stem_out) = self.stem_features_output {
+            let (audio_features, live_stem_feats) = if let Some(ref mut stem_out) = self.stem_features_output {
                 stem_out.update();
                 let stem_feats = *stem_out.output_buffer_mut();
                 // Compute effective gains from stem states (mute/solo/volume)
@@ -355,12 +355,13 @@ impl App {
                     }
                     st.volume
                 });
-                Some(af_stems::analysis::combine_stem_features(
+                let combined = af_stems::analysis::combine_stem_features(
                     &stem_feats,
                     &gains,
-                ))
+                );
+                (Some(combined), Some(stem_feats))
             } else {
-                self.audio_output.as_mut().map(|out| *out.read())
+                (self.audio_output.as_mut().map(|out| *out.read()), None)
             };
 
             // === Lire frame source ===
@@ -391,6 +392,7 @@ impl App {
                 pipeline::apply_audio_mappings(
                     &mut render_config,
                     features,
+                    live_stem_feats.as_ref(),
                     self.onset_envelope,
                     &mut self.mapping_smooth_state,
                     fps,
@@ -1791,7 +1793,7 @@ impl App {
 
             #[cfg(feature = "video")]
             if let Err(e) = crate::batch::run_batch_export(
-                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0,
+                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false, "standard",
             ) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {

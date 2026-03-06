@@ -193,7 +193,7 @@ pub enum MappingCurve {
 /// # Example
 /// ```
 /// use af_core::config::AudioMapping;
-/// let m = AudioMapping { enabled: true, source: "bass".into(), target: "contrast".into(), amount: 0.5, offset: 0.0, curve: Default::default(), smoothing: None };
+/// let m = AudioMapping { enabled: true, source: "bass".into(), target: "contrast".into(), amount: 0.5, offset: 0.0, curve: Default::default(), smoothing: None, stem_source: None };
 /// assert_eq!(m.source, "bass");
 /// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -216,6 +216,11 @@ pub struct AudioMapping {
     /// Per-mapping smoothing override. None = use global audio_smoothing.
     #[serde(default)]
     pub smoothing: Option<f32>,
+    /// Stem source: None = combined audio, Some("drums"|"bass"|"other"|"vocals") = per-stem.
+    /// When set, the mapping reads features from the specified stem instead of the combined mix.
+    /// Backward-compatible: absent in TOML = None (existing configs work unchanged).
+    #[serde(default)]
+    pub stem_source: Option<String>,
 }
 
 /// Render mode enumeration.
@@ -324,6 +329,7 @@ impl Default for RenderConfig {
                     offset: 0.0,
                     curve: MappingCurve::Smooth,
                     smoothing: None,
+                    stem_source: None,
                 },
                 AudioMapping {
                     enabled: true,
@@ -333,6 +339,7 @@ impl Default for RenderConfig {
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
+                    stem_source: None,
                 },
                 AudioMapping {
                     enabled: true,
@@ -342,6 +349,7 @@ impl Default for RenderConfig {
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
+                    stem_source: None,
                 },
                 AudioMapping {
                     enabled: true,
@@ -351,6 +359,7 @@ impl Default for RenderConfig {
                     offset: 0.0,
                     curve: MappingCurve::Smooth,
                     smoothing: None,
+                    stem_source: None,
                 },
                 AudioMapping {
                     enabled: true,
@@ -360,6 +369,7 @@ impl Default for RenderConfig {
                     offset: 0.0,
                     curve: MappingCurve::Linear,
                     smoothing: None,
+                    stem_source: None,
                 },
             ],
             audio_smoothing: 0.3,
@@ -427,6 +437,143 @@ impl RenderConfig {
             }
         }
     }
+}
+
+/// Generate stem-aware default mappings for when stems are active.
+///
+/// Each stem drives distinct visual effects, creating a rich audio-visual synergy.
+/// - Drums: beat flash, wave, chromatic on onset
+/// - Bass: edge threshold, camera zoom, glow
+/// - Other: color pulse, saturation, contrast
+/// - Vocals: brightness, fade trails, glow
+#[must_use]
+pub fn stem_default_mappings() -> Vec<AudioMapping> {
+    vec![
+        // === Drums ===
+        AudioMapping {
+            enabled: true,
+            source: "onset".into(),
+            target: "beat_flash_intensity".into(),
+            amount: 1.5,
+            offset: 0.0,
+            curve: MappingCurve::Smooth,
+            smoothing: None,
+            stem_source: Some("drums".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "bass".into(),
+            target: "wave_amplitude".into(),
+            amount: 0.4,
+            offset: 0.0,
+            curve: MappingCurve::Smooth,
+            smoothing: None,
+            stem_source: Some("drums".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "beat_intensity".into(),
+            target: "chromatic_offset".into(),
+            amount: 0.6,
+            offset: 0.0,
+            curve: MappingCurve::Threshold,
+            smoothing: None,
+            stem_source: Some("drums".into()),
+        },
+        // === Bass ===
+        AudioMapping {
+            enabled: true,
+            source: "bass".into(),
+            target: "edge_threshold".into(),
+            amount: 0.8,
+            offset: 0.0,
+            curve: MappingCurve::Smooth,
+            smoothing: None,
+            stem_source: Some("bass".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "sub_bass".into(),
+            target: "camera_zoom_amplitude".into(),
+            amount: 0.3,
+            offset: 0.0,
+            curve: MappingCurve::Exponential,
+            smoothing: Some(0.4),
+            stem_source: Some("bass".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "rms".into(),
+            target: "glow_intensity".into(),
+            amount: 0.5,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("bass".into()),
+        },
+        // === Other (instruments, synths) ===
+        AudioMapping {
+            enabled: true,
+            source: "spectral_centroid".into(),
+            target: "color_pulse_speed".into(),
+            amount: 0.6,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("other".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "mid".into(),
+            target: "saturation".into(),
+            amount: 0.5,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("other".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "spectral_flux".into(),
+            target: "contrast".into(),
+            amount: 0.4,
+            offset: 0.0,
+            curve: MappingCurve::Smooth,
+            smoothing: None,
+            stem_source: Some("other".into()),
+        },
+        // === Vocals ===
+        AudioMapping {
+            enabled: true,
+            source: "timbral_brightness".into(),
+            target: "brightness".into(),
+            amount: 0.5,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("vocals".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "presence".into(),
+            target: "fade_decay".into(),
+            amount: 0.3,
+            offset: 0.0,
+            curve: MappingCurve::Smooth,
+            smoothing: Some(0.5),
+            stem_source: Some("vocals".into()),
+        },
+        AudioMapping {
+            enabled: true,
+            source: "rms".into(),
+            target: "glow_intensity".into(),
+            amount: 0.4,
+            offset: 0.0,
+            curve: MappingCurve::Linear,
+            smoothing: None,
+            stem_source: Some("vocals".into()),
+        },
+    ]
 }
 
 /// Structure TOML intermédiaire pour désérialisation avec valeurs optionnelles.

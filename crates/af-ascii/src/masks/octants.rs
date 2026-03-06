@@ -418,4 +418,69 @@ mod tests {
             assert!(ch != '\0', "index {i} must not be null char");
         }
     }
+
+    #[test]
+    fn lut_no_replacement_character() {
+        for (i, &ch) in OCTANT_LUT.iter().enumerate() {
+            assert!(
+                ch != '\u{FFFD}',
+                "index {i} must not be U+FFFD REPLACEMENT CHARACTER"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_no_control_characters() {
+        for (i, &ch) in OCTANT_LUT.iter().enumerate() {
+            if i == 0 {
+                continue; // space is fine
+            }
+            let cp = ch as u32;
+            assert!(
+                cp >= 0x20,
+                "index {i} is control char U+{cp:04X}"
+            );
+            assert!(
+                !(0x7F..=0x9F).contains(&cp),
+                "index {i} is C1 control U+{cp:04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_exhaustive_coverage() {
+        // Every index must map to exactly one of: space, block element, braille, octant, or legacy computing
+        for (i, &ch) in OCTANT_LUT.iter().enumerate() {
+            let cp = ch as u32;
+            let valid = cp == 0x20 // space
+                || (0x2580..=0x259F).contains(&cp) // Block Elements
+                || (0x2800..=0x28FF).contains(&cp) // Braille
+                || (0x1CD00..=0x1CDE5).contains(&cp) // Octants (Unicode 16.0)
+                || (0x1FB00..=0x1FB3B).contains(&cp) // Legacy Computing Supplement
+                || (0x1FB80..=0x1FB8F).contains(&cp) // Legacy Computing (upper/lower fractions)
+                || cp == 0x2588; // Full block
+            assert!(
+                valid,
+                "index {i} (U+{cp:04X} '{ch}') is outside expected Unicode ranges"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_unique_except_braille_fallbacks() {
+        // All non-fallback entries must be unique (braille fallbacks may overlap with actual braille patterns)
+        let mut seen = std::collections::HashMap::new();
+        let braille_indices = [1, 6, 8, 16, 96, 128];
+        for (i, &ch) in OCTANT_LUT.iter().enumerate() {
+            if i == 0 || braille_indices.contains(&i) {
+                continue;
+            }
+            if let Some(prev) = seen.insert(ch, i) {
+                panic!(
+                    "duplicate char '{ch}' (U+{:04X}) at indices {prev} and {i}",
+                    ch as u32
+                );
+            }
+        }
+    }
 }

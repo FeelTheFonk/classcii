@@ -1,91 +1,53 @@
 # config/default.toml — Configuration clasSCII par défaut (SOTA Fidelity).
 
 [render]
-render_mode = "Octant"
+render_mode = "Ascii"
 charset_index = 0
-charset = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
-density_scale = 1.0
-invert = false
 color_enabled = true
-color_mode = "Oklab"                 # Direct, HsvBright, Oklab, Quantized
-dither_mode = "BlueNoise16"          # Bayer8x8, BlueNoise16, None
-edge_threshold = 0.0
-edge_mix = 0.5                       # Proportional blend: mix×magnitude > 0.5 shows edge
-shape_matching = false
-aspect_ratio = 2.0
-saturation = 1.0
-contrast = 1.0
-brightness = 0.0
-bg_style = "Black"                   # Black, SourceDim, Transparent
-
-# Virtual Camera
-camera_zoom_amplitude = 1.0
-camera_rotation = 0.0
-camera_pan_x = 0.0
-camera_pan_y = 0.0
-
-# Post-processing effects
-fade_decay = 0.0
-glow_intensity = 0.0
-beat_flash_intensity = 0.0         # Strobe envelope intensity
-chromatic_offset = 0.0             # R/B channel offset (0 = off)
-wave_amplitude = 0.0               # Sinusoidal row shift (0 = off)
-wave_speed = 0.0                   # Wave oscillation speed (active when amplitude > 0)
-color_pulse_speed = 0.0            # HSV hue rotation speed (0 = off)
-scanline_gap = 0                   # Darken every Nth row (0 = off)
-scanline_darken = 0.3
-strobe_decay = 0.85                # Strobe decay rate per frame
-temporal_stability = 0.3           # Anti-flicker strength (0 = off)
-zalgo_intensity = 0.0              # Zalgo diacritics intensity (0 = off)
-
-# Display
+color_mode = "HsvBright"
+dither_mode = "BlueNoise16"
+density_scale = 4.0
+contrast = 1.3
+brightness = 0.3
+saturation = 1.3
+edge_threshold = 0.3
+edge_mix = 0.6
+aspect_ratio = 2.5
+bg_style = "SourceDim"
+fade_decay = 0.03
+glow_intensity = 0.2
+beat_flash_intensity = 0.2
+temporal_stability = 0.3
 target_fps = 60
-fullscreen = false
-show_spectrum = false
 
 [audio]
-smoothing = 0.3                    # FeatureSmoother alpha (feature-level EMA)
-sensitivity = 2.0                  # Global multiplier for all mapping deltas
-input_gain = 1.0                   # Pre-FFT sample gain [0.1, 10.0] (increase for quiet mic)
-
-# Audio-reactive mappings
+sensitivity = 1.2
+smoothing = 0.5
 
 [[audio.mappings]]
 enabled = true
 source = "bass"
 target = "edge_threshold"
-amount = 0.7
-offset = 0.0
-curve = "Smooth"                   # Hermite smoothstep — softer gate than Exponential
+amount = 0.4
+curve = "Exponential"
 
 [[audio.mappings]]
 enabled = true
 source = "spectral_flux"
 target = "contrast"
-amount = 0.8
-offset = 0.0
-curve = "Linear"
+amount = 0.4
+curve = "Smooth"
 
 [[audio.mappings]]
 enabled = true
 source = "rms"
 target = "brightness"
-amount = 0.4
-offset = 0.0
+amount = 0.2
 curve = "Linear"
 
 [[audio.mappings]]
 enabled = true
-source = "beat_intensity"
+source = "onset_envelope"
 target = "beat_flash_intensity"
-amount = 1.2
-offset = 0.0
+amount = 0.5
 curve = "Smooth"
-
-[[audio.mappings]]
-enabled = true
-source = "spectral_centroid"
-target = "glow_intensity"
-amount = 0.7
-offset = 0.0
-curve = "Linear"

@@ -9,6 +9,8 @@ pub mod config;
 pub mod feature_timeline;
 pub mod frame;
 pub mod traits;
+pub mod workflow;
+pub mod workflow_io;
 
 pub use charset::LuminanceLut;
 pub use config::RenderConfig;

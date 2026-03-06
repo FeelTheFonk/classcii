@@ -31,21 +31,43 @@ fn main() -> Result<()> {
     // 3. Valider la source
     cli.validate_source()?;
 
+    // 3b. --load-workflow : override config and source from saved workflow
+    let loaded_wf = if let Some(ref wf_path) = cli.load_workflow {
+        if cli.preset.is_some() {
+            log::warn!("--load-workflow overrides --preset. Preset will be ignored.");
+        }
+        let wf = af_core::workflow_io::load_workflow(wf_path)?;
+        log::info!("Workflow loaded: v{} from {}", wf.manifest.version, wf.dir.display());
+        Some(wf)
+    } else {
+        None
+    };
+
     // Export Par lots
     if let Some(folder) = cli.batch_folder.as_deref() {
         log::info!("Lancement du traitement par lots offline...");
         let preset_all = cli.preset.as_deref() == Some("all");
-        let config = if preset_all {
+        let config = if let Some(ref wf) = loaded_wf {
+            wf.config.clone()
+        } else if preset_all {
             // --preset all : start from default config, presets are loaded internally
             af_core::config::RenderConfig::default()
         } else {
             resolve_config(&cli)?
         };
-        return batch::run_batch_export(
+
+        // Resolve audio: workflow may provide stem WAVs or original audio path
+        let audio_arg = cli.audio.clone().or_else(|| {
+            loaded_wf.as_ref()
+                .and_then(|wf| wf.source.audio_path.as_ref())
+                .map(|p| p.to_string_lossy().into_owned())
+        });
+
+        let result = batch::run_batch_export(
             folder,
-            cli.audio.as_ref(),
+            audio_arg.as_ref(),
             cli.batch_out.as_deref(),
-            config,
+            config.clone(),
             cli.fps.unwrap_or(30),
             cli.export_scale,
             preset_all,
@@ -53,11 +75,32 @@ fn main() -> Result<()> {
             cli.preset_duration.unwrap_or(15.0),
             cli.crossfade_ms,
             cli.mutation_intensity.unwrap_or(1.0),
+            cli.stems,
+            &cli.stem_model,
         );
+
+        // --save-workflow : persist after successful export
+        if result.is_ok() && let Some(ref wf_name) = cli.save_workflow {
+            let source = af_core::workflow::SourceInfo {
+                path: folder.to_path_buf(),
+                media_type: af_core::workflow::MediaType::Video,
+                audio_path: audio_arg.map(PathBuf::from),
+            };
+            af_core::workflow_io::save_workflow(
+                wf_name, &config, &source, None, None, None,
+            )?;
+            log::info!("Workflow saved as '{wf_name}'");
+        }
+
+        return result;
     }
 
     // 4. Charger la config
-    let mut config = resolve_config(&cli)?;
+    let mut config = if let Some(ref wf) = loaded_wf {
+        wf.config.clone()
+    } else {
+        resolve_config(&cli)?
+    };
 
     // 4b. Appliquer les overrides CLI
     if let Some(ref mode) = cli.mode {

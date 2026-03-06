@@ -5,7 +5,7 @@
 render_mode = "HalfBlock"
 color_enabled = false
 dither_mode = "None"
-density_scale = 1.0
+density_scale = 4.0
 contrast = 2.0
 brightness = -0.1
 saturation = 0.0
@@ -17,7 +17,7 @@ bg_style = "Black"
 fade_decay = 0.7
 glow_intensity = 0.3
 temporal_stability = 0.4
-target_fps = 30
+target_fps = 60
 show_spectrum = false
 
 [audio]

@@ -6,7 +6,7 @@ render_mode = "Ascii"
 charset = " .:░▒"
 color_enabled = false
 dither_mode = "None"
-density_scale = 1.0
+density_scale = 4.0
 contrast = 1.0
 brightness = 0.0
 saturation = 0.0
@@ -15,7 +15,7 @@ bg_style = "Black"
 fade_decay = 0.85
 temporal_stability = 0.7
 strobe_decay = 0.95
-target_fps = 30
+target_fps = 60
 fullscreen = true
 show_spectrum = false
 

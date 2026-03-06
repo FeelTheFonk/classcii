@@ -2,7 +2,7 @@
 # Requires --stems. Drums drive beat flash + wave, bass drives glow, vocals drive brightness.
 
 [render]
-render_mode = "HalfBlock"
+render_mode = "Octant"
 charset_index = 1
 color_enabled = true
 color_mode = "HsvBright"

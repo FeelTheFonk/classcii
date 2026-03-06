@@ -2,11 +2,11 @@
 # Faithful reproduction of the source with subtle audio breathing.
 
 [render]
-render_mode = "Octant"
-color_enabled = true
+render_mode = "Braille"
+color_enabled = false
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
-density_scale = 3.5
+density_scale = 4.0
 contrast = 1.0
 brightness = 0.0
 saturation = 1.0

@@ -2,7 +2,7 @@
 # Oklab perceptual color, subtle fade and temporal stability, gentle reactivity.
 
 [render]
-render_mode = "Sextant"
+render_mode = "Ascii"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"

@@ -3,7 +3,7 @@
 # presence->glow, brilliance->color_pulse.
 
 [render]
-render_mode = "Quadrant"
+render_mode = "Braille"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "Bayer8x8"

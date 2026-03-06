@@ -2,7 +2,7 @@
 # HsvBright for vibrant tones, high-density Octant rendering.
 
 [render]
-render_mode = "Octant"
+render_mode = "Braille"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "BlueNoise16"

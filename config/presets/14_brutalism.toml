@@ -2,7 +2,7 @@
 # Fullscreen, beat-driven density modulation, onset→invert for impact.
 
 [render]
-render_mode = "HalfBlock"
+render_mode = "Ascii"
 color_enabled = false
 dither_mode = "Bayer8x8"
 density_scale = 2.0

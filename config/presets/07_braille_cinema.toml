@@ -2,7 +2,7 @@
 # Oklab perceptual color, filmic glow, bass-reactive zoom.
 
 [render]
-render_mode = "Sextant"
+render_mode = "Braille"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"
@@ -39,7 +39,7 @@ curve = "Linear"
 [[audio.mappings]]
 enabled = true
 source = "bass"
-target = "camera_zoom_amplitude"
+target = "beat_flash_intensity"
 amount = 0.5
 curve = "Smooth"
 

@@ -2,7 +2,7 @@
 # Oklab desaturated tones, slow color drift, onset-reactive glow.
 
 [render]
-render_mode = "Quadrant"
+render_mode = "Ascii"
 color_enabled = true
 color_mode = "Oklab"
 dither_mode = "BlueNoise16"

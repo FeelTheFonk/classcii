@@ -124,9 +124,7 @@ impl AutoGenerativeMapper {
     pub fn inject_stem_mappings(&mut self) {
         let stem_mappings = af_core::config::stem_default_mappings();
         let old_len = self.base_config.audio_mappings.len();
-        self.base_config
-            .audio_mappings
-            .extend(stem_mappings);
+        self.base_config.audio_mappings.extend(stem_mappings);
         self.smooth_state
             .resize(self.base_config.audio_mappings.len(), 0.0);
         log::info!(

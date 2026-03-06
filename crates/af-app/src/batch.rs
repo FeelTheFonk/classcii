@@ -654,11 +654,13 @@ pub fn run_batch_export(
             let _sep_elapsed = sep_start.elapsed().as_secs_f64();
 
             log::info!("Étape 1c/4 : Analyse per-stem features...");
-            let stem_samples: [Vec<f32>; 4] = std::array::from_fn(|i| {
-                (*stem_set.stems[i].samples).clone()
-            });
+            let stem_samples: [Vec<f32>; 4] =
+                std::array::from_fn(|i| (*stem_set.stems[i].samples).clone());
             let stem_tl = analyzer.analyze_stems(&stem_samples);
-            log::info!("Stem feature timelines: {} frames per stem", stem_tl.timelines[0].total_frames());
+            log::info!(
+                "Stem feature timelines: {} frames per stem",
+                stem_tl.timelines[0].total_frames()
+            );
 
             // Store for workflow save
             if save_workflow_name.is_some() {
@@ -1147,14 +1149,18 @@ pub fn run_batch_export(
 
             // Save base workflow (config + source + metadata)
             let wf_dir = workflow_io::save_workflow(
-                wf_name, &config_for_save, &source, stem_states.as_ref(), stem_info.as_ref(), None,
+                wf_name,
+                &config_for_save,
+                &source,
+                stem_states.as_ref(),
+                stem_info.as_ref(),
+                None,
             )?;
 
             // Write stem WAVs into the workflow directory
             if let Some((samples, sr)) = stem_wav_src {
-                let stems_arg: [(&[f32], u32); 4] = std::array::from_fn(|i| {
-                    (samples[i].as_slice(), sr)
-                });
+                let stems_arg: [(&[f32], u32); 4] =
+                    std::array::from_fn(|i| (samples[i].as_slice(), sr));
                 workflow_io::write_stem_wavs(&wf_dir, &stems_arg)?;
                 log::info!("Stem WAVs written to workflow");
             }

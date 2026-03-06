@@ -105,83 +105,6 @@ const SEXTANT_LUT: [char; 64] = [
     '\u{2588}',  // 63: Full Block
 ];
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn lut_boundaries() {
-        assert_eq!(SEXTANT_LUT[0], ' ', "index 0 must be space");
-        assert_eq!(SEXTANT_LUT[63], '\u{2588}', "index 63 must be full block");
-    }
-
-    #[test]
-    fn lut_no_null_chars() {
-        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
-            assert!(ch != '\0', "index {i} must not be null char");
-        }
-    }
-
-    #[test]
-    fn lut_no_replacement_character() {
-        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
-            assert!(
-                ch != '\u{FFFD}',
-                "index {i} must not be U+FFFD REPLACEMENT CHARACTER"
-            );
-        }
-    }
-
-    #[test]
-    fn lut_no_control_characters() {
-        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
-            if i == 0 {
-                continue; // space is fine
-            }
-            let cp = ch as u32;
-            assert!(cp >= 0x20, "index {i} is control char U+{cp:04X}");
-            assert!(
-                !(0x7F..=0x9F).contains(&cp),
-                "index {i} is C1 control U+{cp:04X}"
-            );
-        }
-    }
-
-    #[test]
-    fn lut_exhaustive_coverage() {
-        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
-            let cp = ch as u32;
-            let valid = cp == 0x20 // space
-                || (0x1FB00..=0x1FB3B).contains(&cp) // Sextants (Unicode 13.0)
-                || cp == 0x2592 // Medium shade fallback
-                || cp == 0x2588; // Full block
-            assert!(
-                valid,
-                "index {i} (U+{cp:04X} '{ch}') is outside expected Unicode ranges"
-            );
-        }
-    }
-
-    #[test]
-    fn lut_fallback_indices_correct() {
-        // Indices 21 and 42 are the two checkerboard patterns missing from Unicode
-        assert_eq!(SEXTANT_LUT[21], '\u{2592}', "index 21 must be medium shade fallback");
-        assert_eq!(SEXTANT_LUT[42], '\u{2592}', "index 42 must be medium shade fallback");
-    }
-
-    #[test]
-    fn get_sextant_char_matches_lut() {
-        for i in 0..64u8 {
-            let from_fn = get_sextant_char(i);
-            let from_lut = SEXTANT_LUT[i as usize];
-            assert_eq!(
-                from_fn, from_lut,
-                "get_sextant_char({i}) = '{from_fn}' but LUT[{i}] = '{from_lut}'"
-            );
-        }
-    }
-}
-
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiCell, AsciiGrid, FrameBuffer};
 
@@ -245,4 +168,87 @@ pub fn process_sextant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut As
             };
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lut_boundaries() {
+        assert_eq!(SEXTANT_LUT[0], ' ', "index 0 must be space");
+        assert_eq!(SEXTANT_LUT[63], '\u{2588}', "index 63 must be full block");
+    }
+
+    #[test]
+    fn lut_no_null_chars() {
+        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
+            assert!(ch != '\0', "index {i} must not be null char");
+        }
+    }
+
+    #[test]
+    fn lut_no_replacement_character() {
+        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
+            assert!(
+                ch != '\u{FFFD}',
+                "index {i} must not be U+FFFD REPLACEMENT CHARACTER"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_no_control_characters() {
+        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
+            if i == 0 {
+                continue; // space is fine
+            }
+            let cp = ch as u32;
+            assert!(cp >= 0x20, "index {i} is control char U+{cp:04X}");
+            assert!(
+                !(0x7F..=0x9F).contains(&cp),
+                "index {i} is C1 control U+{cp:04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_exhaustive_coverage() {
+        for (i, &ch) in SEXTANT_LUT.iter().enumerate() {
+            let cp = ch as u32;
+            let valid = cp == 0x20 // space
+                || (0x1FB00..=0x1FB3B).contains(&cp) // Sextants (Unicode 13.0)
+                || cp == 0x2592 // Medium shade fallback
+                || cp == 0x2588; // Full block
+            assert!(
+                valid,
+                "index {i} (U+{cp:04X} '{ch}') is outside expected Unicode ranges"
+            );
+        }
+    }
+
+    #[test]
+    fn lut_fallback_indices_correct() {
+        // Indices 21 and 42 are the two checkerboard patterns missing from Unicode
+        assert_eq!(
+            SEXTANT_LUT[21], '\u{2592}',
+            "index 21 must be medium shade fallback"
+        );
+        assert_eq!(
+            SEXTANT_LUT[42], '\u{2592}',
+            "index 42 must be medium shade fallback"
+        );
+    }
+
+    #[test]
+    fn get_sextant_char_matches_lut() {
+        for i in 0..64u8 {
+            let from_fn = get_sextant_char(i);
+            let from_lut = SEXTANT_LUT[i as usize];
+            assert_eq!(
+                from_fn, from_lut,
+                "get_sextant_char({i}) = '{from_fn}' but LUT[{i}] = '{from_lut}'"
+            );
+        }
+    }
 }

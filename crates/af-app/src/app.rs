@@ -372,29 +372,27 @@ impl App {
 
             // === Lire audio features (non-bloquant) ===
             // If stem separation is active, derive combined features from per-stem analysis
-            let (audio_features, live_stem_feats) = if let Some(ref mut stem_out) = self.stem_features_output {
-                stem_out.update();
-                let stem_feats = *stem_out.output_buffer_mut();
-                // Compute effective gains from stem states (mute/solo/volume)
-                let gains: [f32; STEM_COUNT] = std::array::from_fn(|i| {
-                    let st = &self.stem_states[i];
-                    if st.muted {
-                        return 0.0;
-                    }
-                    let any_solo = self.stem_states.iter().any(|s| s.solo);
-                    if any_solo && !st.solo {
-                        return 0.0;
-                    }
-                    st.volume
-                });
-                let combined = af_stems::analysis::combine_stem_features(
-                    &stem_feats,
-                    &gains,
-                );
-                (Some(combined), Some(stem_feats))
-            } else {
-                (self.audio_output.as_mut().map(|out| *out.read()), None)
-            };
+            let (audio_features, live_stem_feats) =
+                if let Some(ref mut stem_out) = self.stem_features_output {
+                    stem_out.update();
+                    let stem_feats = *stem_out.output_buffer_mut();
+                    // Compute effective gains from stem states (mute/solo/volume)
+                    let gains: [f32; STEM_COUNT] = std::array::from_fn(|i| {
+                        let st = &self.stem_states[i];
+                        if st.muted {
+                            return 0.0;
+                        }
+                        let any_solo = self.stem_states.iter().any(|s| s.solo);
+                        if any_solo && !st.solo {
+                            return 0.0;
+                        }
+                        st.volume
+                    });
+                    let combined = af_stems::analysis::combine_stem_features(&stem_feats, &gains);
+                    (Some(combined), Some(stem_feats))
+                } else {
+                    (self.audio_output.as_mut().map(|out| *out.read()), None)
+                };
 
             // === Lire frame source ===
             if let Some(ref rx) = self.frame_rx
@@ -1820,8 +1818,10 @@ impl App {
         };
 
         // Build stem states snapshot if stems are active
-        let stem_states = self.stem_set.as_ref().map(|_| {
-            af_core::workflow::StemStatesSnapshot {
+        let stem_states = self
+            .stem_set
+            .as_ref()
+            .map(|_| af_core::workflow::StemStatesSnapshot {
                 states: std::array::from_fn(|i| {
                     let st = &self.stem_states[i];
                     af_core::workflow::StemStateEntry {
@@ -1832,8 +1832,7 @@ impl App {
                         visible: st.visible,
                     }
                 }),
-            }
-        });
+            });
 
         match af_core::workflow_io::save_workflow(
             &self.workflow_save_name,
@@ -2150,7 +2149,8 @@ impl App {
 
             #[cfg(feature = "video")]
             if let Err(e) = crate::batch::run_batch_export(
-                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false, "standard", None,
+                &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false,
+                "standard", None,
             ) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {

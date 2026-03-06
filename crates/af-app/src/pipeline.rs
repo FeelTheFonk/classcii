@@ -418,7 +418,14 @@ mod tests {
         stem_feats.features[0].bass = 0.8;
 
         let mut smooth = vec![];
-        apply_audio_mappings(&mut config, &combined, Some(&stem_feats), 0.0, &mut smooth, 60);
+        apply_audio_mappings(
+            &mut config,
+            &combined,
+            Some(&stem_feats),
+            0.0,
+            &mut smooth,
+            60,
+        );
 
         // Should use drums bass=0.8, not combined bass=0.0
         assert!(

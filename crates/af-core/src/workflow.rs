@@ -120,9 +120,7 @@ pub fn workflow_base_dir() -> PathBuf {
     let base = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| {
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-        });
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     base.join("workflows")
 }
 
@@ -180,7 +178,16 @@ fn days_to_date(mut days: u64) -> (u64, u64, u64) {
     let month_days: [u64; 12] = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut month = 1;
     for &md in &month_days {
@@ -198,6 +205,7 @@ fn is_leap(y: u64) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -230,10 +238,34 @@ mod tests {
     fn stem_states_roundtrip_toml() {
         let snap = StemStatesSnapshot {
             states: [
-                StemStateEntry { id: "drums".into(), muted: false, solo: false, volume: 1.0, visible: true },
-                StemStateEntry { id: "bass".into(), muted: true, solo: false, volume: 0.8, visible: true },
-                StemStateEntry { id: "other".into(), muted: false, solo: true, volume: 1.0, visible: false },
-                StemStateEntry { id: "vocals".into(), muted: false, solo: false, volume: 0.6, visible: true },
+                StemStateEntry {
+                    id: "drums".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 1.0,
+                    visible: true,
+                },
+                StemStateEntry {
+                    id: "bass".into(),
+                    muted: true,
+                    solo: false,
+                    volume: 0.8,
+                    visible: true,
+                },
+                StemStateEntry {
+                    id: "other".into(),
+                    muted: false,
+                    solo: true,
+                    volume: 1.0,
+                    visible: false,
+                },
+                StemStateEntry {
+                    id: "vocals".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 0.6,
+                    visible: true,
+                },
             ],
         };
         let toml_str = toml::to_string_pretty(&snap).expect("serialize");

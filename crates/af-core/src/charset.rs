@@ -106,6 +106,7 @@ impl LuminanceLut {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -186,10 +187,7 @@ mod tests {
     fn all_charsets_no_null() {
         for (name, cs) in ALL_CHARSETS {
             for (i, ch) in cs.chars().enumerate() {
-                assert!(
-                    ch != '\0',
-                    "CHARSET_{name}[{i}] is null character"
-                );
+                assert!(ch != '\0', "CHARSET_{name}[{i}] is null character");
             }
         }
     }
@@ -254,11 +252,13 @@ mod tests {
             // Verify no panic and extremes are correct
             let chars: Vec<char> = cs.chars().collect();
             assert_eq!(
-                lut.map(0), chars[0],
+                lut.map(0),
+                chars[0],
                 "CHARSET_{name} LUT[0] should be first char"
             );
             assert_eq!(
-                lut.map(255), *chars.last().expect("non-empty"),
+                lut.map(255),
+                *chars.last().expect("non-empty"),
                 "CHARSET_{name} LUT[255] should be last char"
             );
         }

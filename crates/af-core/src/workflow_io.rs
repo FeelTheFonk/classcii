@@ -24,8 +24,8 @@ use anyhow::{Context, Result};
 use crate::config::RenderConfig;
 use crate::feature_timeline::FeatureTimeline;
 use crate::workflow::{
-    StemSeparationInfo, StemStatesSnapshot, SourceInfo, WorkflowManifest,
-    sanitize_workflow_name, workflow_base_dir,
+    SourceInfo, StemSeparationInfo, StemStatesSnapshot, WorkflowManifest, sanitize_workflow_name,
+    workflow_base_dir,
 };
 
 /// A fully loaded workflow ready for replay.
@@ -82,28 +82,21 @@ pub fn save_workflow(
     manifest.has_stems = stem_wav_sources.is_some();
     manifest.description = format!("Workflow: {safe_name}");
 
-    let manifest_toml = toml::to_string_pretty(&manifest)
-        .context("Serialize manifest")?;
-    fs::write(dir.join("manifest.toml"), &manifest_toml)
-        .context("Write manifest.toml")?;
+    let manifest_toml = toml::to_string_pretty(&manifest).context("Serialize manifest")?;
+    fs::write(dir.join("manifest.toml"), &manifest_toml).context("Write manifest.toml")?;
 
     // Config
-    let config_toml = toml::to_string_pretty(config)
-        .context("Serialize config")?;
-    fs::write(dir.join("config.toml"), &config_toml)
-        .context("Write config.toml")?;
+    let config_toml = toml::to_string_pretty(config).context("Serialize config")?;
+    fs::write(dir.join("config.toml"), &config_toml).context("Write config.toml")?;
 
     // Source info
-    let source_toml = toml::to_string_pretty(source)
-        .context("Serialize source")?;
-    fs::write(dir.join("source.toml"), &source_toml)
-        .context("Write source.toml")?;
+    let source_toml = toml::to_string_pretty(source).context("Serialize source")?;
+    fs::write(dir.join("source.toml"), &source_toml).context("Write source.toml")?;
 
     // Stems (optional)
     if let Some(wav_paths) = stem_wav_sources {
         let stems_dir = dir.join("stems");
-        fs::create_dir_all(&stems_dir)
-            .context("Create stems/ dir")?;
+        fs::create_dir_all(&stems_dir).context("Create stems/ dir")?;
 
         let stem_names = ["drums", "bass", "other", "vocals"];
         for (i, src_path) in wav_paths.iter().enumerate() {
@@ -113,15 +106,13 @@ pub fn save_workflow(
         }
 
         if let Some(states) = stem_states {
-            let states_toml = toml::to_string_pretty(states)
-                .context("Serialize stem states")?;
+            let states_toml = toml::to_string_pretty(states).context("Serialize stem states")?;
             fs::write(stems_dir.join("states.toml"), &states_toml)
                 .context("Write stems/states.toml")?;
         }
 
         if let Some(info) = stem_info {
-            let info_toml = toml::to_string_pretty(info)
-                .context("Serialize stem info")?;
+            let info_toml = toml::to_string_pretty(info).context("Serialize stem info")?;
             fs::write(stems_dir.join("metadata.toml"), &info_toml)
                 .context("Write stems/metadata.toml")?;
         }
@@ -138,10 +129,7 @@ pub fn save_workflow(
 ///
 /// # Errors
 /// Returns an error if directory creation or file writing fails.
-pub fn write_stem_wavs(
-    workflow_dir: &Path,
-    stems: &[(&[f32], u32); 4],
-) -> Result<[PathBuf; 4]> {
+pub fn write_stem_wavs(workflow_dir: &Path, stems: &[(&[f32], u32); 4]) -> Result<[PathBuf; 4]> {
     let stems_dir = workflow_dir.join("stems");
     fs::create_dir_all(&stems_dir).context("Create stems/ dir")?;
 
@@ -169,11 +157,11 @@ fn write_wav_f32(path: &Path, samples: &[f32], sample_rate: u32) -> Result<()> {
     // fmt chunk
     f.write_all(b"fmt ")?;
     f.write_all(&16u32.to_le_bytes())?; // chunk size
-    f.write_all(&3u16.to_le_bytes())?;  // format: IEEE float
-    f.write_all(&1u16.to_le_bytes())?;  // channels: mono
+    f.write_all(&3u16.to_le_bytes())?; // format: IEEE float
+    f.write_all(&1u16.to_le_bytes())?; // channels: mono
     f.write_all(&sample_rate.to_le_bytes())?;
     f.write_all(&(sample_rate * 4).to_le_bytes())?; // byte rate
-    f.write_all(&4u16.to_le_bytes())?;  // block align
+    f.write_all(&4u16.to_le_bytes())?; // block align
     f.write_all(&32u16.to_le_bytes())?; // bits per sample
     // data chunk
     f.write_all(b"data")?;
@@ -198,7 +186,8 @@ pub fn save_feature_timeline(workflow_dir: &Path, timeline: &FeatureTimeline) ->
     // Update manifest
     let manifest_path = workflow_dir.join("manifest.toml");
     if manifest_path.exists() {
-        let manifest_str = fs::read_to_string(&manifest_path).context("Read manifest for timeline update")?;
+        let manifest_str =
+            fs::read_to_string(&manifest_path).context("Read manifest for timeline update")?;
         if let Ok(mut manifest) = toml::from_str::<WorkflowManifest>(&manifest_str) {
             manifest.has_feature_timeline = true;
             let updated = toml::to_string_pretty(&manifest).context("Re-serialize manifest")?;
@@ -206,7 +195,11 @@ pub fn save_feature_timeline(workflow_dir: &Path, timeline: &FeatureTimeline) ->
         }
     }
 
-    log::info!("Feature timeline saved: {} frames, {} bytes", timeline.total_frames(), encoded.len());
+    log::info!(
+        "Feature timeline saved: {} frames, {} bytes",
+        timeline.total_frames(),
+        encoded.len()
+    );
     Ok(())
 }
 
@@ -217,8 +210,12 @@ pub fn save_feature_timeline(workflow_dir: &Path, timeline: &FeatureTimeline) ->
 pub fn load_feature_timeline(workflow_dir: &Path) -> Result<FeatureTimeline> {
     let path = workflow_dir.join("timeline.bin");
     let data = fs::read(&path).with_context(|| format!("Read {}", path.display()))?;
-    let timeline: FeatureTimeline = bincode::deserialize(&data).context("Deserialize feature timeline")?;
-    log::info!("Feature timeline loaded: {} frames", timeline.total_frames());
+    let timeline: FeatureTimeline =
+        bincode::deserialize(&data).context("Deserialize feature timeline")?;
+    log::info!(
+        "Feature timeline loaded: {} frames",
+        timeline.total_frames()
+    );
     Ok(timeline)
 }
 
@@ -230,8 +227,8 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
     // Manifest
     let manifest_str = fs::read_to_string(dir.join("manifest.toml"))
         .with_context(|| format!("Read manifest.toml in {}", dir.display()))?;
-    let manifest: WorkflowManifest = toml::from_str(&manifest_str)
-        .context("Parse manifest.toml")?;
+    let manifest: WorkflowManifest =
+        toml::from_str(&manifest_str).context("Parse manifest.toml")?;
 
     if !manifest.is_compatible() {
         anyhow::bail!(
@@ -242,22 +239,18 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
     }
 
     // Config
-    let config_str = fs::read_to_string(dir.join("config.toml"))
-        .context("Read config.toml")?;
-    let config: RenderConfig = toml::from_str(&config_str)
-        .context("Parse config.toml")?;
+    let config_str = fs::read_to_string(dir.join("config.toml")).context("Read config.toml")?;
+    let config: RenderConfig = toml::from_str(&config_str).context("Parse config.toml")?;
 
     // Source
-    let source_str = fs::read_to_string(dir.join("source.toml"))
-        .context("Read source.toml")?;
-    let source: SourceInfo = toml::from_str(&source_str)
-        .context("Parse source.toml")?;
+    let source_str = fs::read_to_string(dir.join("source.toml")).context("Read source.toml")?;
+    let source: SourceInfo = toml::from_str(&source_str).context("Parse source.toml")?;
 
     // Stems (optional)
     let stems_dir = dir.join("stems");
     let stem_states = if stems_dir.join("states.toml").exists() {
-        let s = fs::read_to_string(stems_dir.join("states.toml"))
-            .context("Read stems/states.toml")?;
+        let s =
+            fs::read_to_string(stems_dir.join("states.toml")).context("Read stems/states.toml")?;
         Some(toml::from_str::<StemStatesSnapshot>(&s).context("Parse stems/states.toml")?)
     } else {
         None
@@ -416,6 +409,7 @@ pub fn delete_workflow(name: &str) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::workflow::{MediaType, StemStateEntry};
@@ -435,10 +429,34 @@ mod tests {
     fn test_stem_states() -> StemStatesSnapshot {
         StemStatesSnapshot {
             states: [
-                StemStateEntry { id: "drums".into(), muted: false, solo: false, volume: 1.0, visible: true },
-                StemStateEntry { id: "bass".into(), muted: false, solo: false, volume: 1.0, visible: true },
-                StemStateEntry { id: "other".into(), muted: false, solo: false, volume: 1.0, visible: true },
-                StemStateEntry { id: "vocals".into(), muted: false, solo: false, volume: 1.0, visible: true },
+                StemStateEntry {
+                    id: "drums".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 1.0,
+                    visible: true,
+                },
+                StemStateEntry {
+                    id: "bass".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 1.0,
+                    visible: true,
+                },
+                StemStateEntry {
+                    id: "other".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 1.0,
+                    visible: true,
+                },
+                StemStateEntry {
+                    id: "vocals".into(),
+                    muted: false,
+                    solo: false,
+                    volume: 1.0,
+                    visible: true,
+                },
             ],
         }
     }
@@ -457,15 +475,18 @@ mod tests {
         fs::write(
             dir.join("manifest.toml"),
             toml::to_string_pretty(&manifest).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.join("config.toml"),
             toml::to_string_pretty(&test_config()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.join("source.toml"),
             toml::to_string_pretty(&test_source()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let loaded = load_workflow(&dir).unwrap();
         assert!(loaded.manifest.is_compatible());
@@ -489,19 +510,23 @@ mod tests {
         fs::write(
             dir.join("manifest.toml"),
             toml::to_string_pretty(&manifest).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.join("config.toml"),
             toml::to_string_pretty(&test_config()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.join("source.toml"),
             toml::to_string_pretty(&test_source()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.join("stems").join("states.toml"),
             toml::to_string_pretty(&test_stem_states()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let info = StemSeparationInfo {
             sample_rate: 44100,
@@ -513,7 +538,8 @@ mod tests {
         fs::write(
             dir.join("stems").join("metadata.toml"),
             toml::to_string_pretty(&info).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let loaded = load_workflow(&dir).unwrap();
         assert!(loaded.manifest.has_stems);
@@ -545,9 +571,18 @@ mod tests {
         fs::write(
             dir.join("manifest.toml"),
             toml::to_string_pretty(&manifest).unwrap(),
-        ).unwrap();
-        fs::write(dir.join("config.toml"), toml::to_string_pretty(&test_config()).unwrap()).unwrap();
-        fs::write(dir.join("source.toml"), toml::to_string_pretty(&test_source()).unwrap()).unwrap();
+        )
+        .unwrap();
+        fs::write(
+            dir.join("config.toml"),
+            toml::to_string_pretty(&test_config()).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            dir.join("source.toml"),
+            toml::to_string_pretty(&test_source()).unwrap(),
+        )
+        .unwrap();
 
         let result = load_workflow(&dir);
         assert!(result.is_err());

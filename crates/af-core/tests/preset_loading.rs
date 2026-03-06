@@ -7,7 +7,8 @@
     clippy::needless_borrow
 )]
 
-use af_core::config::{AUDIO_SOURCES, AUDIO_TARGETS, load_config};
+use af_core::config::{AUDIO_SOURCES, AUDIO_TARGETS, load_config, load_config_from_str};
+use af_core::embedded;
 use std::path::Path;
 
 #[test]
@@ -96,4 +97,60 @@ fn default_config_loads_successfully() {
         "smoothing should match TOML value 0.5, got {}",
         config.audio_smoothing
     );
+}
+
+#[test]
+fn embedded_default_config_parses() {
+    let config =
+        load_config_from_str(embedded::DEFAULT_CONFIG).expect("embedded default.toml should parse");
+    assert!(
+        config.audio_mappings.len() >= 4,
+        "embedded default should have at least 4 mappings, got {}",
+        config.audio_mappings.len()
+    );
+}
+
+#[test]
+fn all_embedded_presets_parse() {
+    assert!(
+        embedded::EMBEDDED_PRESETS.len() >= 25,
+        "expected at least 25 embedded presets, found {}",
+        embedded::EMBEDDED_PRESETS.len()
+    );
+    for (name, content) in embedded::EMBEDDED_PRESETS {
+        let config = load_config_from_str(content);
+        assert!(
+            config.is_ok(),
+            "embedded preset '{name}' failed to parse: {:?}",
+            config.err()
+        );
+    }
+}
+
+#[test]
+fn embedded_preset_lookup_works() {
+    assert!(embedded::find_preset("01_pure_photo").is_some());
+    assert!(embedded::find_preset("nonexistent_preset").is_none());
+    let names = embedded::preset_names();
+    assert!(names.len() >= 25);
+    assert!(names.contains(&"01_pure_photo"));
+}
+
+#[test]
+fn embedded_matches_disk_presets() {
+    // Verify that every disk preset has an embedded equivalent with matching parse result
+    let preset_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/presets");
+    for entry in std::fs::read_dir(preset_dir).expect("cannot read presets dir") {
+        let entry = entry.expect("cannot read entry");
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+            continue;
+        }
+        let name = path.file_stem().unwrap().to_str().unwrap();
+        let embedded_content = embedded::find_preset(name);
+        assert!(
+            embedded_content.is_some(),
+            "disk preset '{name}' has no embedded equivalent"
+        );
+    }
 }

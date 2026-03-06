@@ -22,7 +22,10 @@ use af_stems::playback::StemCommand;
 use af_stems::stem::{STEM_COUNT, StemFeatures, StemId, StemSet, StemState};
 use anyhow::Result;
 use arc_swap::ArcSwap;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+    MouseEventKind,
+};
 use ratatui::DefaultTerminal;
 
 use crate::pipeline;
@@ -45,6 +48,30 @@ fn classify_media(path: &Path) -> Option<MediaType> {
         }
         "wav" | "mp3" | "flac" | "ogg" | "aac" | "m4a" | "wma" | "opus" => Some(MediaType::Audio),
         _ => None,
+    }
+}
+
+/// Accumulated mouse camera deltas, flushed once per frame to avoid per-event config cloning.
+#[derive(Default)]
+struct MouseCameraDelta {
+    rotation: f32,
+    tilt: f32,
+    pan_x: f32,
+    pan_y: f32,
+    zoom: f32,
+}
+
+impl MouseCameraDelta {
+    fn is_zero(&self) -> bool {
+        self.rotation == 0.0
+            && self.tilt == 0.0
+            && self.pan_x == 0.0
+            && self.pan_y == 0.0
+            && self.zoom == 0.0
+    }
+
+    fn reset(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -111,8 +138,8 @@ pub struct App {
     pub prev_grid: AsciiGrid,
     /// Pre-allocated brightness buffer for glow effect (avoids per-frame alloc).
     pub glow_brightness_buf: Vec<u8>,
-    /// Live preset engine : liste des chemins .toml disponibles.
-    pub presets: Vec<std::path::PathBuf>,
+    /// Live preset engine : noms des presets disponibles (disk + embedded).
+    pub presets: Vec<String>,
     /// Index courant dans `presets`.
     pub current_preset_idx: usize,
     /// Channel pour les commandes vidéo (Play, Pause, Seek).
@@ -206,6 +233,19 @@ pub struct App {
     workflow_flash_msg: Option<String>,
     /// Flash countdown.
     workflow_flash_frames: u8,
+
+    // ── Mouse state ──
+    /// Origin of current mouse drag (column, row).
+    mouse_drag_origin: Option<(u16, u16)>,
+    /// Which button started the drag.
+    mouse_drag_button: Option<MouseButton>,
+    /// Last known mouse position.
+    mouse_last_pos: (u16, u16),
+    /// Accumulated mouse-driven camera deltas (applied once per frame).
+    mouse_cam_delta: MouseCameraDelta,
+
+    /// Centralized runtime paths (config, presets, workflows, bundle).
+    pub paths: Arc<af_core::paths::AppPaths>,
 }
 
 impl App {
@@ -219,6 +259,7 @@ impl App {
         frame_rx: Option<flume::Receiver<Arc<FrameBuffer>>>,
         #[cfg(feature = "video")] video_cmd_tx: Option<flume::Sender<VideoCommand>>,
         audio_cmd_tx: Option<flume::Sender<AudioCommand>>,
+        paths: Arc<af_core::paths::AppPaths>,
     ) -> Result<Self> {
         let terminal_size = crossterm::terminal::size()?;
         let canvas_width = terminal_size.0.saturating_sub(SIDEBAR_WIDTH);
@@ -230,18 +271,25 @@ impl App {
         let canvas_height = terminal_size.1.saturating_sub(spectrum_h);
         let initial_charset = config.load().charset.clone();
 
-        let mut presets = Vec::new();
-        if let Ok(entries) = std::fs::read_dir("config/presets") {
+        // Collect presets: disk (from AppPaths) + embedded, deduped, sorted
+        let mut preset_set = std::collections::BTreeSet::new();
+        if paths.presets_dir.is_dir()
+            && let Ok(entries) = std::fs::read_dir(&paths.presets_dir)
+        {
             for entry in entries.flatten() {
                 if let Ok(ft) = entry.file_type()
                     && ft.is_file()
                     && entry.path().extension().is_some_and(|e| e == "toml")
+                    && let Some(stem) = entry.path().file_stem().and_then(|s| s.to_str())
                 {
-                    presets.push(entry.path());
+                    preset_set.insert(stem.to_string());
                 }
             }
         }
-        presets.sort(); // Predictable iteration order
+        for name in af_core::embedded::preset_names() {
+            preset_set.insert(name.to_string());
+        }
+        let presets: Vec<String> = preset_set.into_iter().collect();
 
         Ok(Self {
             state: AppState::Running,
@@ -310,6 +358,12 @@ impl App {
             workflow_browse_idx: 0,
             workflow_flash_msg: None,
             workflow_flash_frames: 0,
+
+            mouse_drag_origin: None,
+            mouse_drag_button: None,
+            mouse_last_pos: (0, 0),
+            mouse_cam_delta: MouseCameraDelta::default(),
+            paths,
         })
     }
 
@@ -340,6 +394,10 @@ impl App {
                 let remaining = frame_duration.saturating_sub(elapsed);
                 if event::poll(remaining)? {
                     self.handle_event(&event::read()?);
+                    // Drain any additional queued events (simultaneous key/mouse presses)
+                    while event::poll(Duration::ZERO)? {
+                        self.handle_event(&event::read()?);
+                    }
                 }
                 continue;
             }
@@ -349,6 +407,9 @@ impl App {
             while event::poll(Duration::ZERO)? {
                 self.handle_event(&event::read()?);
             }
+
+            // === Flush accumulated mouse camera deltas (one config write per frame) ===
+            self.flush_mouse_camera();
 
             // === File dialogs si demandés ===
             if self.open_visual_requested {
@@ -592,9 +653,7 @@ impl App {
             let preset_name = if self.presets.is_empty() {
                 None
             } else {
-                self.presets[self.current_preset_idx]
-                    .file_stem()
-                    .and_then(|s| s.to_str())
+                Some(self.presets[self.current_preset_idx].as_str())
             };
 
             let loaded_visual = self.loaded_visual_name.as_deref();
@@ -767,6 +826,12 @@ impl App {
     /// Handle a terminal event by dispatching to focused sub-handlers.
     #[allow(clippy::too_many_lines)]
     fn handle_event(&mut self, event: &Event) {
+        // ── Mouse events ──
+        if let Event::Mouse(mouse) = *event {
+            self.handle_mouse_event(mouse);
+            return;
+        }
+
         if let Event::Key(KeyEvent {
             code,
             modifiers,
@@ -824,7 +889,7 @@ impl App {
                         return;
                     }
                     KeyCode::Down => {
-                        self.help_scroll_offset = self.help_scroll_offset.saturating_add(1).min(40);
+                        self.help_scroll_offset = self.help_scroll_offset.saturating_add(1).min(80);
                         return;
                     }
                     KeyCode::Char('?') | KeyCode::Esc => {
@@ -833,6 +898,34 @@ impl App {
                         return;
                     }
                     _ => return,
+                }
+            }
+
+            // ── Shift+Arrow: audio sensitivity / seek ──
+            let has_shift = modifiers.contains(KeyModifiers::SHIFT);
+            if has_shift {
+                match code {
+                    KeyCode::Up => {
+                        self.toggle_config(|c| {
+                            c.audio_sensitivity = (c.audio_sensitivity + 0.1).min(5.0);
+                        });
+                        return;
+                    }
+                    KeyCode::Down => {
+                        self.toggle_config(|c| {
+                            c.audio_sensitivity = (c.audio_sensitivity - 0.1).max(0.0);
+                        });
+                        return;
+                    }
+                    KeyCode::Left => {
+                        self.handle_seek(-5.0);
+                        return;
+                    }
+                    KeyCode::Right => {
+                        self.handle_seek(5.0);
+                        return;
+                    }
+                    _ => {}
                 }
             }
 
@@ -873,18 +966,137 @@ impl App {
                 ) => self.handle_render_key(code),
                 KeyCode::Char(
                     'f' | 'F' | 'g' | 'G' | 'r' | 'R' | 'w' | 'W' | 'h' | 'H' | 'l' | 'L' | 't'
-                    | 'T' | 'z' | 'Z' | 'y' | 'Y' | 'j' | 'J' | 'u' | 'U' | '<' | '>' | ',' | '.'
-                    | ';' | '\'' | ':' | '"',
+                    | 'T' | 'z' | 'Z' | 'y' | 'Y' | 'j' | 'J' | 'u' | 'U' | 'N' | 'M' | '<' | '>'
+                    | ',' | '.' | ';' | '\'' | ':' | '"',
                 ) => self.handle_effect_key(code),
-                KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
-                    self.handle_playback_key(code);
+                // Arrow keys = camera pan (no shift)
+                KeyCode::Up => {
+                    self.toggle_config(|c| c.camera_pan_y = (c.camera_pan_y - 0.02).max(-2.0));
+                }
+                KeyCode::Down => {
+                    self.toggle_config(|c| c.camera_pan_y = (c.camera_pan_y + 0.02).min(2.0));
+                }
+                KeyCode::Left => {
+                    self.toggle_config(|c| c.camera_pan_x = (c.camera_pan_x - 0.02).max(-2.0));
+                }
+                KeyCode::Right => {
+                    self.toggle_config(|c| c.camera_pan_x = (c.camera_pan_x + 0.02).min(2.0));
                 }
                 KeyCode::Backspace => {
-                    self.reset_params_to_default();
+                    if has_shift {
+                        self.reset_params_to_default();
+                    } else {
+                        self.reset_camera_to_default();
+                    }
                 }
                 _ => {}
             }
         }
+    }
+
+    /// Seek audio/video by the given delta seconds.
+    fn handle_seek(&mut self, delta: f64) {
+        #[cfg(feature = "video")]
+        if let Some(ref tx) = self.video_cmd_tx {
+            let _ = tx.send(VideoCommand::Seek(delta));
+        }
+        if self.stem_stream.is_some() {
+            if let Some(ref tx) = self.stem_cmd_tx {
+                let _ = tx.send(StemCommand::Seek(delta));
+            }
+        } else if let Some(ref tx) = self.audio_cmd_tx {
+            let _ = tx.send(AudioCommand::Seek(delta));
+        }
+    }
+
+    /// Handle mouse events: accumulate camera deltas (flushed once per frame).
+    fn handle_mouse_event(&mut self, mouse: MouseEvent) {
+        let shift = mouse.modifiers.contains(KeyModifiers::SHIFT);
+        match mouse.kind {
+            MouseEventKind::ScrollUp => {
+                if self.state == AppState::Help {
+                    self.help_scroll_offset = self.help_scroll_offset.saturating_sub(3);
+                } else if self.state == AppState::WorkflowBrowse {
+                    if self.workflow_browse_idx > 0 {
+                        self.workflow_browse_idx -= 1;
+                    }
+                } else if shift {
+                    self.mouse_cam_delta.rotation -= 0.05;
+                } else {
+                    self.mouse_cam_delta.zoom += 0.1;
+                }
+            }
+            MouseEventKind::ScrollDown => {
+                if self.state == AppState::Help {
+                    self.help_scroll_offset = self.help_scroll_offset.saturating_add(3).min(80);
+                } else if self.state == AppState::WorkflowBrowse {
+                    if self.workflow_browse_idx < self.workflow_browse_list.len().saturating_sub(1)
+                    {
+                        self.workflow_browse_idx += 1;
+                    }
+                } else if shift {
+                    self.mouse_cam_delta.rotation += 0.05;
+                } else {
+                    self.mouse_cam_delta.zoom -= 0.1;
+                }
+            }
+            MouseEventKind::Down(button @ (MouseButton::Left | MouseButton::Right)) => {
+                if matches!(self.state, AppState::Running | AppState::Paused) {
+                    self.mouse_drag_origin = Some((mouse.column, mouse.row));
+                    self.mouse_drag_button = Some(button);
+                    self.mouse_last_pos = (mouse.column, mouse.row);
+                }
+            }
+            MouseEventKind::Drag(MouseButton::Left) => {
+                if self.mouse_drag_origin.is_some() {
+                    let (lx, ly) = self.mouse_last_pos;
+                    let dx = f32::from(mouse.column) - f32::from(lx);
+                    let dy = f32::from(mouse.row) - f32::from(ly);
+                    self.mouse_last_pos = (mouse.column, mouse.row);
+                    self.mouse_cam_delta.pan_x += dx * 0.005;
+                    self.mouse_cam_delta.pan_y += dy * 0.005;
+                }
+            }
+            MouseEventKind::Drag(MouseButton::Right) => {
+                if self.mouse_drag_origin.is_some() {
+                    let (lx, ly) = self.mouse_last_pos;
+                    let dx = f32::from(mouse.column) - f32::from(lx);
+                    let dy = f32::from(mouse.row) - f32::from(ly);
+                    self.mouse_last_pos = (mouse.column, mouse.row);
+                    self.mouse_cam_delta.rotation += dx * 0.01;
+                    self.mouse_cam_delta.tilt += dy * 0.005;
+                }
+            }
+            MouseEventKind::Up(_) => {
+                self.mouse_drag_origin = None;
+                self.mouse_drag_button = None;
+            }
+            _ => {}
+        }
+    }
+
+    /// Apply accumulated mouse camera deltas to config (called once per frame).
+    /// Does not trigger param flash (continuous mouse input shouldn't blink sidebar).
+    fn flush_mouse_camera(&mut self) {
+        if self.mouse_cam_delta.is_zero() {
+            return;
+        }
+        let d_rot = self.mouse_cam_delta.rotation;
+        let d_tilt = self.mouse_cam_delta.tilt;
+        let d_px = self.mouse_cam_delta.pan_x;
+        let d_py = self.mouse_cam_delta.pan_y;
+        let d_zoom = self.mouse_cam_delta.zoom;
+        self.mouse_cam_delta.reset();
+        // Direct config update — no param_flash (mouse is continuous, not discrete)
+        let config = self.config.load();
+        let mut new = (**config).clone();
+        new.camera_rotation += d_rot;
+        new.camera_tilt_x = (new.camera_tilt_x + d_tilt).clamp(-1.0, 1.0);
+        new.camera_pan_x = (new.camera_pan_x + d_px).clamp(-2.0, 2.0);
+        new.camera_pan_y = (new.camera_pan_y + d_py).clamp(-2.0, 2.0);
+        new.camera_zoom_amplitude = (new.camera_zoom_amplitude + d_zoom).clamp(0.1, 10.0);
+        self.config.store(Arc::new(new));
+        self.sidebar_dirty = true;
     }
 
     /// Charset Editor logic
@@ -1452,45 +1664,6 @@ impl App {
         }
     }
 
-    /// Playback / audio keys: sensitivity, seek.
-    fn handle_playback_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Up => {
-                self.toggle_config(|c| c.audio_sensitivity = (c.audio_sensitivity + 0.1).min(5.0));
-            }
-            KeyCode::Down => {
-                self.toggle_config(|c| c.audio_sensitivity = (c.audio_sensitivity - 0.1).max(0.0));
-            }
-            KeyCode::Left => {
-                #[cfg(feature = "video")]
-                if let Some(ref tx) = self.video_cmd_tx {
-                    let _ = tx.send(VideoCommand::Seek(-5.0));
-                }
-                if self.stem_stream.is_some() {
-                    if let Some(ref tx) = self.stem_cmd_tx {
-                        let _ = tx.send(StemCommand::Seek(-5.0));
-                    }
-                } else if let Some(ref tx) = self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::Seek(-5.0));
-                }
-            }
-            KeyCode::Right => {
-                #[cfg(feature = "video")]
-                if let Some(ref tx) = self.video_cmd_tx {
-                    let _ = tx.send(VideoCommand::Seek(5.0));
-                }
-                if self.stem_stream.is_some() {
-                    if let Some(ref tx) = self.stem_cmd_tx {
-                        let _ = tx.send(StemCommand::Seek(5.0));
-                    }
-                } else if let Some(ref tx) = self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::Seek(5.0));
-                }
-            }
-            _ => {}
-        }
-    }
-
     /// Send quit commands to all threads.
     fn send_quit_commands(&self) {
         #[cfg(feature = "video")]
@@ -1592,8 +1765,11 @@ impl App {
             return; // Already running
         }
 
-        let project_root = std::env::current_dir().unwrap_or_default();
-        let config = af_stems::separator::SeparationConfig::from_project_root(&project_root);
+        let config = af_stems::separator::SeparationConfig {
+            model: af_stems::separator::ModelVariant::Standard,
+            python_bin: self.paths.python_bin(),
+            scnet_dir: self.paths.scnet_dir(),
+        };
 
         if let Err(e) = af_stems::separator::preflight_check(&config) {
             log::error!("Stem separation preflight failed: {e}");
@@ -1706,7 +1882,8 @@ impl App {
 
     /// Enter workflow browse mode.
     fn enter_workflow_browse(&mut self) {
-        match af_core::workflow_io::list_workflows_detailed() {
+        let wf_dir = self.paths.workflows_dir.clone();
+        match af_core::workflow_io::list_workflows_detailed_in(&wf_dir) {
             Ok(entries) => {
                 self.workflow_browse_list = entries;
                 self.workflow_browse_idx = 0;
@@ -1841,6 +2018,7 @@ impl App {
             stem_states.as_ref(),
             None,
             None,
+            &self.paths.workflows_dir,
         ) {
             Ok(wf_dir) => {
                 // Update manifest description if provided
@@ -1893,7 +2071,7 @@ impl App {
             KeyCode::Delete => {
                 if let Some(entry) = self.workflow_browse_list.get(self.workflow_browse_idx) {
                     let name = entry.name.clone();
-                    match af_core::workflow_io::delete_workflow(&name) {
+                    match af_core::workflow_io::delete_workflow(&name, &self.paths.workflows_dir) {
                         Ok(()) => {
                             self.workflow_browse_list.remove(self.workflow_browse_idx);
                             if self.workflow_browse_idx > 0
@@ -1916,7 +2094,7 @@ impl App {
 
     /// Load a workflow by name and apply its config.
     fn execute_workflow_load(&mut self, name: &str) {
-        match af_core::workflow_io::load_workflow_by_name(name) {
+        match af_core::workflow_io::load_workflow_by_name(name, &self.paths.workflows_dir) {
             Ok(wf) => {
                 // Apply config
                 self.config.store(Arc::new(wf.config));
@@ -1966,6 +2144,19 @@ impl App {
         self.config.store(Arc::new(new));
         self.sidebar_dirty = true;
         self.param_flash_frames = 3;
+    }
+
+    /// Reset camera parameters only (zoom, rotation, pan, tilt).
+    fn reset_camera_to_default(&mut self) {
+        self.toggle_config(|c| {
+            c.camera_zoom_amplitude = 1.0;
+            c.camera_rotation = 0.0;
+            c.camera_pan_x = 0.0;
+            c.camera_pan_y = 0.0;
+            c.camera_tilt_x = 0.0;
+        });
+        self.param_flash_frames = 4;
+        log::info!("Camera reset to defaults");
     }
 
     /// Reset all render parameters to defaults, preserving runtime state
@@ -2063,7 +2254,12 @@ impl App {
         filters: &[(&str, &[&str])],
     ) -> Option<std::path::PathBuf> {
         crossterm::terminal::disable_raw_mode().ok();
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen).ok();
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::event::DisableMouseCapture,
+            crossterm::terminal::LeaveAlternateScreen
+        )
+        .ok();
 
         let mut dialog = rfd::FileDialog::new().set_title(title);
         for &(name, exts) in filters {
@@ -2072,7 +2268,12 @@ impl App {
         let picked = dialog.pick_file();
 
         crossterm::terminal::enable_raw_mode().ok();
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::EnterAlternateScreen,
+            crossterm::event::EnableMouseCapture
+        )
+        .ok();
         terminal.clear().ok();
 
         picked
@@ -2134,7 +2335,12 @@ impl App {
     /// Open batch folder dialog and run headless batch export.
     fn open_batch_folder_dialog(&mut self, terminal: &mut DefaultTerminal) {
         crossterm::terminal::disable_raw_mode().ok();
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen).ok();
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::event::DisableMouseCapture,
+            crossterm::terminal::LeaveAlternateScreen
+        )
+        .ok();
 
         let dialog = rfd::FileDialog::new().set_title("Select Batch Folder \u{2014} clasSCII");
         let picked = dialog.pick_folder();
@@ -2148,9 +2354,11 @@ impl App {
             let config = (**self.config.load()).clone();
 
             #[cfg(feature = "video")]
+            let paths_ref = &self.paths;
+            #[cfg(feature = "video")]
             if let Err(e) = crate::batch::run_batch_export(
                 &folder, None, None, config, 30, None, false, None, 15.0, None, 1.0, false,
-                "standard", None,
+                "standard", None, paths_ref,
             ) {
                 println!("\n[ERROR] Batch export failed: {e}");
             } else {
@@ -2163,7 +2371,12 @@ impl App {
         }
 
         crossterm::terminal::enable_raw_mode().ok();
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::EnterAlternateScreen,
+            crossterm::event::EnableMouseCapture
+        )
+        .ok();
         terminal.clear().ok();
         self.terminal_size = (0, 0);
     }
@@ -2333,8 +2546,18 @@ impl App {
             self.current_preset_idx -= 1;
         }
 
-        let path = &self.presets[self.current_preset_idx];
-        match af_core::config::load_config(path) {
+        let name = &self.presets[self.current_preset_idx];
+
+        // Try disk first (via AppPaths), then embedded
+        let load_result = if let Some(path) = self.paths.preset_path(name) {
+            af_core::config::load_config(&path)
+        } else if let Some(content) = af_core::embedded::find_preset(name) {
+            af_core::config::load_config_from_str(content)
+        } else {
+            Err(anyhow::anyhow!("Preset introuvable : {name}"))
+        };
+
+        match load_result {
             Ok(mut new_cfg) => {
                 // Conserver l'état de l'interface qui n'est pas censé sauter avec le preset visuel.
                 let old_cfg = self.config.load();
@@ -2352,10 +2575,10 @@ impl App {
                 if needs_resize {
                     self.terminal_size = (0, 0);
                 }
-                log::info!("Preset chargé à vif : {}", path.display());
+                log::info!("Preset chargé à vif : {name}");
             }
             Err(e) => {
-                log::error!("Erreur de chargement du glitch preset : {e}");
+                log::error!("Erreur de chargement du preset : {e}");
             }
         }
     }

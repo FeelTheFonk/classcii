@@ -177,7 +177,7 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
 fn decode_via_ffmpeg(path: &Path) -> Result<(Vec<f32>, u32)> {
     let path_str = path.to_str().context("Chemin audio invalide (non-UTF8)")?;
 
-    let mut child = Command::new("ffmpeg")
+    let mut child = Command::new(af_core::paths::ffmpeg_bin())
         .args([
             "-i",
             path_str,

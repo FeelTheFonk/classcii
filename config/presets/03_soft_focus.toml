@@ -2,11 +2,11 @@
 # HsvBright for vibrant tones, high-density Octant rendering.
 
 [render]
-render_mode = "Braille"
+render_mode = "Ascii"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "BlueNoise16"
-density_scale = 3.0
+density_scale = 4.0
 contrast = 1.1
 brightness = 0.15
 saturation = 1.3

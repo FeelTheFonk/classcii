@@ -25,7 +25,6 @@ use crate::config::RenderConfig;
 use crate::feature_timeline::FeatureTimeline;
 use crate::workflow::{
     SourceInfo, StemSeparationInfo, StemStatesSnapshot, WorkflowManifest, sanitize_workflow_name,
-    workflow_base_dir,
 };
 
 /// A fully loaded workflow ready for replay.
@@ -69,9 +68,10 @@ pub fn save_workflow(
     stem_states: Option<&StemStatesSnapshot>,
     stem_info: Option<&StemSeparationInfo>,
     stem_wav_sources: Option<&[PathBuf; 4]>,
+    workflows_dir: &Path,
 ) -> Result<PathBuf> {
     let safe_name = sanitize_workflow_name(name);
-    let dir = workflow_base_dir().join(&safe_name);
+    let dir = workflows_dir.join(&safe_name);
 
     // Create directory tree
     fs::create_dir_all(&dir)
@@ -289,13 +289,13 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
     })
 }
 
-/// Load a workflow by name (looks up in `workflow_base_dir()`).
+/// Load a workflow by name (looks up in `workflows_dir`).
 ///
 /// # Errors
 /// Returns an error if the workflow directory doesn't exist.
-pub fn load_workflow_by_name(name: &str) -> Result<LoadedWorkflow> {
+pub fn load_workflow_by_name(name: &str, workflows_dir: &Path) -> Result<LoadedWorkflow> {
     let safe_name = sanitize_workflow_name(name);
-    let dir = workflow_base_dir().join(&safe_name);
+    let dir = workflows_dir.join(&safe_name);
     if !dir.exists() {
         anyhow::bail!("Workflow '{}' not found at {}", name, dir.display());
     }
@@ -306,8 +306,8 @@ pub fn load_workflow_by_name(name: &str) -> Result<LoadedWorkflow> {
 ///
 /// # Errors
 /// Returns an error if the workflows directory cannot be read.
-pub fn list_workflows() -> Result<Vec<String>> {
-    let base = workflow_base_dir();
+pub fn list_workflows(workflows_dir: &Path) -> Result<Vec<String>> {
+    let base = workflows_dir.to_path_buf();
     if !base.exists() {
         return Ok(Vec::new());
     }
@@ -337,15 +337,24 @@ pub struct WorkflowEntry {
 
 /// List all saved workflows with metadata (for TUI browse overlay).
 ///
+/// Convenience wrapper for [`list_workflows_detailed_in`].
+///
 /// # Errors
 /// Returns an error if the workflows directory cannot be read.
-pub fn list_workflows_detailed() -> Result<Vec<WorkflowEntry>> {
-    let base = workflow_base_dir();
+pub fn list_workflows_detailed(workflows_dir: &Path) -> Result<Vec<WorkflowEntry>> {
+    list_workflows_detailed_in(workflows_dir)
+}
+
+/// List all saved workflows in a specific directory.
+///
+/// # Errors
+/// Returns an error if the directory cannot be read.
+pub fn list_workflows_detailed_in(base: &Path) -> Result<Vec<WorkflowEntry>> {
     if !base.exists() {
         return Ok(Vec::new());
     }
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&base).context("Read workflows dir")? {
+    for entry in fs::read_dir(base).context("Read workflows dir")? {
         let entry = entry?;
         if !entry.file_type()?.is_dir() {
             continue;
@@ -397,9 +406,9 @@ pub fn update_workflow_description(workflow_dir: &Path, description: &str) {
 ///
 /// # Errors
 /// Returns an error if the workflow doesn't exist or cannot be deleted.
-pub fn delete_workflow(name: &str) -> Result<()> {
+pub fn delete_workflow(name: &str, workflows_dir: &Path) -> Result<()> {
     let safe_name = crate::workflow::sanitize_workflow_name(name);
-    let dir = workflow_base_dir().join(&safe_name);
+    let dir = workflows_dir.join(&safe_name);
     if !dir.exists() {
         anyhow::bail!("Workflow '{name}' not found");
     }
@@ -555,7 +564,8 @@ mod tests {
     #[test]
     fn list_workflows_empty() {
         // Just ensure it doesn't panic on a missing dir
-        let result = list_workflows();
+        let nonexistent = std::env::temp_dir().join("classcii_test_wf_noexist_xyz");
+        let result = list_workflows(&nonexistent);
         assert!(result.is_ok());
     }
 

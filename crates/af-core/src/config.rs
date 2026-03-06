@@ -102,6 +102,9 @@ pub struct RenderConfig {
     pub camera_pan_x: f32,
     /// Décalage vertical (Pan Y) normalisé par rapport à la hauteur.
     pub camera_pan_y: f32,
+    /// Perspective tilt X (vertical axis, simulates 3D pitch) [-1.0, 1.0].
+    #[serde(default)]
+    pub camera_tilt_x: f32,
 
     // === Performance ===
     /// FPS cible. 30 ou 60.
@@ -157,6 +160,7 @@ pub const AUDIO_TARGETS: &[&str] = &[
     "camera_rotation",
     "camera_pan_x",
     "camera_pan_y",
+    "camera_tilt_x",
 ];
 
 #[must_use]
@@ -391,6 +395,7 @@ impl Default for RenderConfig {
             camera_rotation: 0.0,
             camera_pan_x: 0.0,
             camera_pan_y: 0.0,
+            camera_tilt_x: 0.0,
             target_fps: 60,
             fullscreen: false,
             show_spectrum: false,
@@ -422,6 +427,7 @@ impl RenderConfig {
         self.camera_zoom_amplitude = self.camera_zoom_amplitude.clamp(0.1, 10.0);
         self.camera_pan_x = self.camera_pan_x.clamp(-2.0, 2.0);
         self.camera_pan_y = self.camera_pan_y.clamp(-2.0, 2.0);
+        self.camera_tilt_x = self.camera_tilt_x.clamp(-1.0, 1.0);
         self.scanline_gap = self.scanline_gap.min(8);
         self.scanline_darken = self.scanline_darken.clamp(0.0, 1.0);
         self.target_fps = self.target_fps.clamp(15, 120);
@@ -620,6 +626,7 @@ struct RenderSection {
     camera_rotation: Option<f32>,
     camera_pan_x: Option<f32>,
     camera_pan_y: Option<f32>,
+    camera_tilt_x: Option<f32>,
     target_fps: Option<u32>,
     fullscreen: Option<bool>,
     show_spectrum: Option<bool>,
@@ -645,13 +652,24 @@ struct AudioSection {
 /// use std::path::Path;
 /// let config = load_config(Path::new("config/default.toml")).unwrap();
 /// ```
-#[allow(clippy::too_many_lines)]
 pub fn load_config(path: &Path) -> Result<RenderConfig> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Impossible de lire {}", path.display()))?;
 
-    let file: ConfigFile = toml::from_str(&content)
-        .with_context(|| format!("Erreur de parsing TOML dans {}", path.display()))?;
+    load_config_from_str(&content)
+        .with_context(|| format!("Erreur de parsing TOML dans {}", path.display()))
+}
+
+/// Parse une chaîne TOML et fusionne avec les valeurs par défaut.
+///
+/// Identique à [`load_config`] mais prend le contenu TOML directement.
+/// Utilisé pour les configs embarquées dans le binaire.
+///
+/// # Errors
+/// Returns an error if the TOML content is invalid.
+#[allow(clippy::too_many_lines)]
+pub fn load_config_from_str(content: &str) -> Result<RenderConfig> {
+    let file: ConfigFile = toml::from_str(content).context("Erreur de parsing TOML")?;
 
     let mut config = RenderConfig::default();
 
@@ -757,6 +775,9 @@ pub fn load_config(path: &Path) -> Result<RenderConfig> {
     }
     if let Some(v) = r.camera_pan_y {
         config.camera_pan_y = v;
+    }
+    if let Some(v) = r.camera_tilt_x {
+        config.camera_tilt_x = v;
     }
     if let Some(v) = r.target_fps {
         config.target_fps = v;

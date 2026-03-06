@@ -6,11 +6,23 @@ Real-time audio-reactive ASCII/Unicode rendering engine for terminal-based TUI a
 
 Integrates advanced topologies (Braille, Quadrants, Sextants, Octants), Blue Noise and Bayer dithering, perceptual Oklab color space, MFCC timbral analysis, music stem separation (SCNet: drums/bass/other/vocals) with per-stem audio-reactive visualization, a zero-alloc virtual camera (zoom, pan, rotation), 8 real-time post-processing effects, and audio-reactive Zalgo glitches — all with zero-allocation hot loops and 100% lock-free safe Rust memory management.
 
+## Deployment
+
+The standalone exe works out of the box — 25 presets and default config are embedded in the binary. No external files needed.
+
+| Tier | What you need | External deps |
+|------|--------------|---------------|
+| **0 — Standalone** | Exe only | ffmpeg in PATH |
+| **1 — Customizable** | Exe + `classcii --init` | ffmpeg in PATH |
+| **2 — Full Bundle** | Exe + `config/` + `bundle/` | None |
+
+Set `CLASSCII_HOME` to control the base directory. See [Usage Guide](docs/USAGE.md) for details.
+
 ## Requirements
 
 - **Terminal**: GPU-accelerated (Alacritty, Kitty, WezTerm) for real-time mode.
-- **FFmpeg + FFprobe**: Required in `PATH` for video source decoding and lossless RGB batch exports (`libx264rgb`).
-- **Rust 1.88+**: Edition 2024.
+- **FFmpeg + FFprobe**: In `PATH` or provided via `bundle/` directory.
+- **Rust 1.88+**: Edition 2024 (build from source only).
 
 ## Architecture
 
@@ -84,7 +96,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 - Zero panicking unwraps — `?` operator and graceful fallback (R3).
 - Zero unnecessary copies — `Arc<FrameBuffer>`, `arc-swap`, lock-free `triple_buffer` (R4).
 - `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings.
-- 158 tests (95 unit/integration + 63 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
+- 165 tests (102 unit/integration + 63 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
 - All division operations guarded. All inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

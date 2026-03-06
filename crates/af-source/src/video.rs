@@ -120,7 +120,7 @@ impl VideoState {
 pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     let path_str = path.to_str().context("Chemin vidéo invalide (non-UTF8)")?;
 
-    let output = Command::new("ffprobe")
+    let output = Command::new(af_core::paths::ffprobe_bin())
         .args([
             "-v",
             "quiet",
@@ -216,7 +216,7 @@ pub fn spawn_ffmpeg_pipe(
     let fps_str = target_fps.to_string();
     let pos_str = format!("{pos_secs:.3}");
 
-    match Command::new("ffmpeg")
+    match Command::new(af_core::paths::ffmpeg_bin())
         .args([
             "-ss",
             &pos_str, // seek rapide avant -i (keyframe-based)

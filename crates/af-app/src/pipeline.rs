@@ -310,6 +310,9 @@ pub fn apply_audio_mappings(
                 // Audio delta for panning (wiggling) on Y axis
                 config.camera_pan_y = (config.camera_pan_y + delta * 0.5).clamp(-2.0, 2.0);
             }
+            "camera_tilt_x" => {
+                config.camera_tilt_x = (config.camera_tilt_x + delta * 0.3).clamp(-1.0, 1.0);
+            }
             _ => {}
         }
     }

@@ -4,7 +4,7 @@
 //! creation mode, and optionally pre-computed feature timelines for reproducible replay.
 
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Current workflow format version. Bumped on breaking changes.
 pub const WORKFLOW_VERSION: u32 = 1;
@@ -109,19 +109,6 @@ pub struct StemSeparationInfo {
     pub duration_secs: f64,
     pub model: String,
     pub elapsed_secs: f64,
-}
-
-/// Resolve the base directory for workflow storage.
-///
-/// Returns `<exe_dir>/workflows/` if the exe directory is writable,
-/// otherwise falls back to `<cwd>/workflows/`.
-#[must_use]
-pub fn workflow_base_dir() -> PathBuf {
-    let base = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-    base.join("workflows")
 }
 
 /// Sanitize a workflow name for use as a directory name.
@@ -284,12 +271,6 @@ mod tests {
         let toml_str = toml::to_string_pretty(&info).expect("serialize");
         let info2: SourceInfo = toml::from_str(&toml_str).expect("deserialize");
         assert_eq!(info2.path, PathBuf::from("/tmp/test.mp4"));
-    }
-
-    #[test]
-    fn workflow_base_dir_ends_with_workflows() {
-        let dir = workflow_base_dir();
-        assert!(dir.ends_with("workflows"));
     }
 
     #[test]

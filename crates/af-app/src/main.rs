@@ -1,7 +1,7 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use af_core::clock::MediaClock;
+use af_core::paths::AppPaths;
 use anyhow::Result;
 use arc_swap::ArcSwap;
 use clap::Parser;
@@ -24,14 +24,25 @@ fn main() -> Result<()> {
         .filter_level(cli.log_level.parse().unwrap_or(log::LevelFilter::Warn))
         .init();
 
-    // 2b. --preset-list : scan & display available presets, then exit
-    if cli.preset_list {
-        return list_presets();
+    // 2a. Resolve all runtime paths once
+    let paths = AppPaths::resolve();
+    af_core::paths::init_tool_paths(&paths);
+    log::info!("Base dir: {}", paths.base_dir.display());
+
+    // 2b. --init : extract embedded configs to disk, then exit
+    if cli.init {
+        return extract_embedded_configs(&paths);
     }
 
-    // 2c. --workflow-list : scan & display saved workflows, then exit
+    // 2c. --preset-list : scan & display available presets, then exit
+    if cli.preset_list {
+        list_presets(&paths);
+        return Ok(());
+    }
+
+    // 2d. --workflow-list : scan & display saved workflows, then exit
     if cli.workflow_list {
-        return list_workflows_cli();
+        return list_workflows_cli(&paths);
     }
 
     // 3. Valider la source
@@ -40,7 +51,7 @@ fn main() -> Result<()> {
     // 3b. --load-workflow : override config and source from saved workflow
     let loaded_wf = if let Some(ref wf_path) = cli.load_workflow {
         if cli.preset.is_some() {
-            log::warn!("--load-workflow overrides --preset. Preset will be ignored.");
+            log::warn!("--load-workflow surcharge --preset. Le preset sera ignoré.");
         }
         let wf = af_core::workflow_io::load_workflow(wf_path)?;
         log::info!(
@@ -63,7 +74,7 @@ fn main() -> Result<()> {
             // --preset all : start from default config, presets are loaded internally
             af_core::config::RenderConfig::default()
         } else {
-            resolve_config(&cli)?
+            resolve_config(&cli, &paths)?
         };
 
         // Resolve audio: workflow may provide stem WAVs or original audio path
@@ -89,16 +100,17 @@ fn main() -> Result<()> {
             cli.stems,
             &cli.stem_model,
             cli.save_workflow.as_deref(),
+            &paths,
         );
 
         return result;
     }
 
     // 4. Charger la config
-    let mut config = if let Some(ref wf) = loaded_wf {
-        wf.config.clone()
+    let (mut config, config_file_path) = if let Some(ref wf) = loaded_wf {
+        (wf.config.clone(), None)
     } else {
-        resolve_config(&cli)?
+        resolve_config_with_path(&cli, &paths)?
     };
 
     // 4b. Appliquer les overrides CLI
@@ -125,8 +137,13 @@ fn main() -> Result<()> {
 
     let config = Arc::new(ArcSwap::from_pointee(config));
 
-    // 5. Lancer le hot-reload config (thread interne notify)
-    let _watcher = hotreload::spawn_config_watcher(&cli.config, &config)?;
+    // 5. Lancer le hot-reload config (seulement si fichier externe résolu)
+    let _watcher = if let Some(ref path) = config_file_path {
+        Some(hotreload::spawn_config_watcher(path, &config)?)
+    } else {
+        log::info!("Config embarquée utilisée — hot-reload désactivé.");
+        None
+    };
 
     // 6. Démarrer le thread audio (si --audio fourni)
     let media_clock = Arc::new(MediaClock::new(0));
@@ -147,13 +164,28 @@ fn main() -> Result<()> {
 
     // 8. Initialiser le terminal ratatui
     let terminal = ratatui::init();
+    // Enable mouse capture for camera controls (drag, wheel zoom)
+    crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
 
     // 9. Construire l'App
+    let paths = Arc::new(paths);
     #[cfg(feature = "video")]
-    let mut app_instance =
-        app::App::new(config, audio_output, frame_rx, video_cmd_tx, audio_cmd_tx)?;
+    let mut app_instance = app::App::new(
+        config,
+        audio_output,
+        frame_rx,
+        video_cmd_tx,
+        audio_cmd_tx,
+        Arc::clone(&paths),
+    )?;
     #[cfg(not(feature = "video"))]
-    let mut app_instance = app::App::new(config, audio_output, frame_rx, audio_cmd_tx)?;
+    let mut app_instance = app::App::new(
+        config,
+        audio_output,
+        frame_rx,
+        audio_cmd_tx,
+        Arc::clone(&paths),
+    )?;
     if let Some(frame) = initial_frame {
         app_instance.current_frame = Some(frame);
     }
@@ -182,6 +214,7 @@ fn main() -> Result<()> {
     let result = app_instance.run(terminal);
 
     // 11. Restaurer le terminal (TOUJOURS, même en cas d'erreur)
+    crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture).ok();
     ratatui::restore();
 
     result
@@ -220,44 +253,50 @@ fn init_audio(
     }
 }
 
-/// Scan config/presets/ for .toml files, print sorted names, and exit.
-fn list_presets() -> Result<()> {
-    let presets_dir = std::path::Path::new("config/presets");
-    if !presets_dir.is_dir() {
-        anyhow::bail!("Dossier presets introuvable : {}", presets_dir.display());
+/// List available presets: external (disk) + embedded (built-in).
+fn list_presets(paths: &AppPaths) {
+    use std::collections::BTreeSet;
+
+    let mut names = BTreeSet::new();
+    let mut external = BTreeSet::new();
+
+    // Scan disk presets
+    if paths.presets_dir.is_dir()
+        && let Ok(entries) = std::fs::read_dir(&paths.presets_dir)
+    {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml")
+                && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+            {
+                names.insert(stem.to_string());
+                external.insert(stem.to_string());
+            }
+        }
     }
 
-    let mut names: Vec<String> = std::fs::read_dir(presets_dir)?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
-                path.file_stem().and_then(|s| s.to_str()).map(String::from)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    names.sort();
+    // Add embedded presets
+    for name in af_core::embedded::preset_names() {
+        names.insert(name.to_string());
+    }
 
     println!("Available presets ({}):", names.len());
     for name in &names {
-        println!("  {name}");
+        let tag = if external.contains(name) {
+            ""
+        } else {
+            " [built-in]"
+        };
+        println!("  {name}{tag}");
     }
-
-    Ok(())
 }
 
 /// Scan saved workflows, print details, and exit.
-fn list_workflows_cli() -> Result<()> {
-    let entries = af_core::workflow_io::list_workflows_detailed()?;
+fn list_workflows_cli(paths: &AppPaths) -> Result<()> {
+    let entries = af_core::workflow_io::list_workflows_detailed_in(&paths.workflows_dir)?;
     if entries.is_empty() {
         println!("No saved workflows found.");
-        println!(
-            "  Save dir: {}",
-            af_core::workflow::workflow_base_dir().display()
-        );
+        println!("  Save dir: {}", paths.workflows_dir.display());
         return Ok(());
     }
 
@@ -279,24 +318,81 @@ fn list_workflows_cli() -> Result<()> {
     Ok(())
 }
 
-/// Resolve config: preset takes priority over --config.
-fn resolve_config(cli: &cli::Cli) -> Result<af_core::config::RenderConfig> {
-    if let Some(ref name) = cli.preset {
-        let path = PathBuf::from(format!("config/presets/{name}.toml"));
-        if path.exists() {
-            af_core::config::load_config(&path)
-        } else {
-            anyhow::bail!(
-                "Preset inconnu : {name}. Voir config/presets/ (ex: 01_cyber_braille, 02_matrix, 07_neon_abyss)"
-            );
-        }
-    } else if cli.config.exists() {
-        af_core::config::load_config(&cli.config)
-    } else {
-        log::warn!(
-            "Config introuvable : {}. Utilisation des défauts.",
-            cli.config.display()
-        );
-        Ok(af_core::config::RenderConfig::default())
+/// Resolve config with embedded fallback. Returns the config only.
+fn resolve_config(cli: &cli::Cli, paths: &AppPaths) -> Result<af_core::config::RenderConfig> {
+    resolve_config_with_path(cli, paths).map(|(cfg, _)| cfg)
+}
+
+/// Resolve config with embedded fallback.
+/// Returns `(config, Option<PathBuf>)` where path is the external file (for hot-reload).
+fn resolve_config_with_path(
+    cli: &cli::Cli,
+    paths: &AppPaths,
+) -> Result<(af_core::config::RenderConfig, Option<std::path::PathBuf>)> {
+    // 1. Explicit --config path
+    if let Some(ref explicit) = cli.config {
+        let cfg = af_core::config::load_config(explicit)?;
+        return Ok((cfg, Some(explicit.clone())));
     }
+
+    // 2. --preset <name>: try disk, then embedded
+    if let Some(ref name) = cli.preset {
+        if let Some(path) = paths.preset_path(name) {
+            let cfg = af_core::config::load_config(&path)?;
+            return Ok((cfg, Some(path)));
+        }
+        if let Some(content) = af_core::embedded::find_preset(name) {
+            let cfg = af_core::config::load_config_from_str(content)?;
+            log::info!("Preset '{name}' chargé depuis l'embarqué.");
+            return Ok((cfg, None));
+        }
+        let available: Vec<&str> = af_core::embedded::preset_names();
+        anyhow::bail!(
+            "Preset inconnu : {name}.\nDisponibles : {}",
+            available.join(", ")
+        );
+    }
+
+    // 3. Default config: try disk, then embedded
+    if paths.has_external_config() {
+        let cfg = af_core::config::load_config(&paths.default_config)?;
+        return Ok((cfg, Some(paths.default_config.clone())));
+    }
+
+    log::info!("Config embarquée par défaut utilisée.");
+    let cfg = af_core::config::load_config_from_str(af_core::embedded::DEFAULT_CONFIG)?;
+    Ok((cfg, None))
+}
+
+/// Extract embedded configs to disk for user customization.
+fn extract_embedded_configs(paths: &AppPaths) -> Result<()> {
+    let config_dir = paths.base_dir.join("config");
+    let presets_dir = config_dir.join("presets");
+
+    std::fs::create_dir_all(&presets_dir)?;
+
+    // Extract default.toml
+    let default_path = config_dir.join("default.toml");
+    if default_path.exists() {
+        println!("  SKIP  {}", default_path.display());
+    } else {
+        std::fs::write(&default_path, af_core::embedded::DEFAULT_CONFIG)?;
+        println!("  WRITE {}", default_path.display());
+    }
+
+    // Extract all presets
+    for (name, content) in af_core::embedded::EMBEDDED_PRESETS {
+        let dest = presets_dir.join(format!("{name}.toml"));
+        if dest.exists() {
+            println!("  SKIP  {}", dest.display());
+        } else {
+            std::fs::write(&dest, content)?;
+            println!("  WRITE {}", dest.display());
+        }
+    }
+
+    println!("\nConfigs extraites dans {}", config_dir.display());
+    println!("Éditez-les pour personnaliser. Hot-reload actif au prochain lancement.");
+
+    Ok(())
 }

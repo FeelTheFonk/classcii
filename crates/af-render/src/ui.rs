@@ -466,7 +466,12 @@ fn draw_sidebar(
             Style::default().fg(section),
         )));
         lines.push(kv_line(
-            "</>",
+            "\u{2191}\u{2193}\u{2190}\u{2192}",
+            "Pan",
+            &format!("{:.2},{:.2}", config.camera_pan_x, config.camera_pan_y),
+        ));
+        lines.push(kv_line(
+            "Scrl",
             "Zoom",
             &fmt!("{:.2}", config.camera_zoom_amplitude),
         ));
@@ -475,8 +480,11 @@ fn draw_sidebar(
             "Rot",
             &fmt!("{:.2}", config.camera_rotation),
         ));
-        lines.push(kv_line(";/'", "PanX", &fmt!("{:.2}", config.camera_pan_x)));
-        lines.push(kv_line(":/\"", "PanY", &fmt!("{:.2}", config.camera_pan_y)));
+        lines.push(kv_line(
+            "Drag",
+            "Tilt",
+            &fmt!("{:.2}", config.camera_tilt_x),
+        ));
     }
 
     // ─── Audio ──────────────
@@ -485,7 +493,7 @@ fn draw_sidebar(
         Style::default().fg(section),
     )));
     lines.push(kv_line(
-        "\u{2191}/\u{2193}",
+        "S+\u{2191}\u{2193}",
         "Sens",
         &fmt!("{:.1}", config.audio_sensitivity),
     ));
@@ -611,7 +619,6 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
         Line::from(" q/Esc    Quit"),
         Line::from(" Space    Play/Pause"),
         Line::from(" ?        Toggle help"),
-        Line::from(" Bksp     Reset all params"),
         Line::from(Span::styled(
             " \u{2500}\u{2500} Render \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
             Style::default().fg(Color::Yellow),
@@ -646,6 +653,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
         Line::from(" y/Y      Stability \u{00b1}"),
         Line::from(" j/J      Strobe dcy \u{00b1}"),
         Line::from(" u/U      Wave speed \u{00b1}"),
+        Line::from(" N/M      Input gain \u{00b1}"),
         Line::from(Span::styled(
             " Color FX best in ASCII/Quadrant",
             Style::default().fg(Color::DarkGray),
@@ -654,24 +662,32 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
             " \u{2500}\u{2500} Camera \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
             Style::default().fg(Color::Yellow),
         )),
-        Line::from(" </>      Zoom \u{00b1}"),
-        Line::from(" ,/.      Rotation \u{00b1}"),
-        Line::from(" ;/'      Pan X \u{00b1}"),
-        Line::from(" :/\"      Pan Y \u{00b1}"),
+        Line::from(" \u{2191}\u{2193}\u{2190}\u{2192}    Pan"),
+        Line::from(" Scroll   Zoom \u{00b1}"),
+        Line::from(" Sh+Scrl  Rotation \u{00b1}"),
+        Line::from(" L-Drag   Pan (mouse)"),
+        Line::from(" R-Drag   Rotation + Tilt"),
+        Line::from(" Bksp     Reset camera"),
+        Line::from(" Sh+Bksp  Reset all params"),
+        Line::from(" </>      Zoom \u{00b1} (keys)"),
+        Line::from(" ,/.      Rotation \u{00b1} (keys)"),
+        Line::from(" ;/'      Pan X \u{00b1} (keys)"),
+        Line::from(" :/\"      Pan Y \u{00b1} (keys)"),
         Line::from(Span::styled(
             " \u{2500}\u{2500} Audio \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
             Style::default().fg(Color::Yellow),
         )),
-        Line::from(" \u{2191}/\u{2193}      Sensitivity \u{00b1}"),
-        Line::from(" \u{2190}/\u{2192}      Seek \u{00b1}5s"),
+        Line::from(" Sh+\u{2191}/\u{2193}   Sensitivity \u{00b1}"),
+        Line::from(" Sh+\u{2190}/\u{2192}   Seek \u{00b1}5s"),
         Line::from(" v        Spectrum"),
         Line::from(" p/P      Preset cycle"),
         Line::from(Span::styled(
             " \u{2500}\u{2500} Overlays \u{2500}\u{2500}\u{2500}\u{2500}",
             Style::default().fg(Color::Yellow),
         )),
-        Line::from(" o/Ctrl+O Open visual"),
+        Line::from(" o        Open visual"),
         Line::from(" O        Open audio"),
+        Line::from(" Ctrl+D   Open batch folder"),
         Line::from(" C        Charset editor"),
         Line::from(" K        Creation (Esc=hide q=off)"),
         Line::from(" S        Stem separation mode"),

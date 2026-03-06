@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-03-06
+
+### Added
+- **Standalone executable** — Embedded `default.toml` + 25 presets compiled into binary via `build.rs` + `include_str!`. Exe works with zero external files (Tier 0).
+- **`--init` CLI flag** — Extracts embedded configs to `config/` for user customization and hot-reload enablement. Idempotent (skips existing files).
+- **`CLASSCII_HOME` environment variable** — Explicit override for base directory resolution.
+- **`AppPaths` centralized path resolution** — Single struct resolving all runtime paths: `CLASSCII_HOME` → exe parent (if has `config/`) → CWD (if has `config/`) → exe parent fallback.
+- **Bundle support (Tier 2)** — Optional `bundle/` directory alongside exe with ffmpeg/ffprobe and `stems/.venv/SCNet` for fully self-contained deployment.
+- **`load_config_from_str()`** — TOML-to-config parsing without disk I/O, enabling embedded config fallback.
+- **OnceLock ffmpeg/ffprobe resolution** — `init_tool_paths()` at startup resolves ffmpeg/ffprobe once, checks `bundle/` first.
+- **Embedded preset tests** — 4 new tests: `embedded_default_config_parses`, `all_embedded_presets_parse`, `embedded_preset_lookup_works`, `embedded_matches_disk_presets`.
+
+### Changed
+- **`--config` now optional** — Auto-resolved via `AppPaths` cascade instead of requiring explicit path.
+- **Preset list deduplication** — `BTreeSet` merge of disk + embedded presets, disk-first priority, `[built-in]` tag for embedded-only.
+- **Hot-reload conditional** — Active only when external config file exists (disabled in embedded-only mode).
+- **`workflow_io` functions accept `&Path`** — `save_workflow`, `load_workflow_by_name`, `list_workflows`, `delete_workflow` now take explicit `workflows_dir` parameter instead of using internal `workflow_base_dir()`.
+- **`App::paths` type** — Changed from `Option<Arc<AppPaths>>` to `Arc<AppPaths>` (always initialized).
+
+### Removed
+- **`workflow_base_dir()`** — Replaced by `AppPaths::workflows_dir` field.
+- **`SeparationConfig::from_project_root()`** — Dead code after AppPaths migration.
+
+### Quality
+- 165 tests, 0 failures, 0 clippy warnings (runtime), 0 doc warnings.
+- Backwards compatible: exe+config/ layout still works, embedding is fallback only.
+- All subprocess calls use `af_core::paths::ffmpeg_bin()` / `ffprobe_bin()` (zero hardcoded paths).
+- Three-tier deployment: Tier 0 (exe only), Tier 1 (exe + config/), Tier 2 (exe + config/ + bundle/).
+
 ## [1.4.0] — 2026-03-06
 
 ### Added

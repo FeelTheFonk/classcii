@@ -390,18 +390,28 @@ fn interpolate_configs(from: &RenderConfig, to: &RenderConfig, t: f32, out: &mut
     }
 }
 
-/// Load all presets from config/presets/*.toml, sorted by filename.
+/// Load all presets: disk (via AppPaths) + embedded, deduped, sorted by name.
 #[cfg(feature = "video")]
-fn load_all_presets() -> Vec<(String, RenderConfig)> {
-    let presets_dir = std::path::Path::new("config/presets");
-    if !presets_dir.is_dir() {
-        log::warn!("Dossier presets introuvable : {}", presets_dir.display());
-        return Vec::new();
+fn load_all_presets(paths: &af_core::paths::AppPaths) -> Vec<(String, RenderConfig)> {
+    use std::collections::BTreeMap;
+
+    let mut map: BTreeMap<String, RenderConfig> = BTreeMap::new();
+
+    // 1. Embedded presets (baseline)
+    for (name, content) in af_core::embedded::EMBEDDED_PRESETS {
+        match af_core::config::load_config_from_str(content) {
+            Ok(mut config) => {
+                config.clamp_all();
+                map.insert(name.to_string(), config);
+            }
+            Err(e) => log::warn!("Preset embarqué {name} ignoré: {e}"),
+        }
     }
 
-    let mut presets: Vec<(String, RenderConfig)> = Vec::new();
-
-    if let Ok(entries) = std::fs::read_dir(presets_dir) {
+    // 2. Disk presets (override embedded of same name)
+    if paths.presets_dir.is_dir()
+        && let Ok(entries) = std::fs::read_dir(&paths.presets_dir)
+    {
         for entry in entries.filter_map(std::result::Result::ok) {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) != Some("toml") {
@@ -416,17 +426,14 @@ fn load_all_presets() -> Vec<(String, RenderConfig)> {
             match af_core::config::load_config(&path) {
                 Ok(mut config) => {
                     config.clamp_all();
-                    presets.push((name, config));
+                    map.insert(name, config);
                 }
-                Err(e) => {
-                    log::warn!("Preset {name} ignoré (parse error): {e}");
-                }
+                Err(e) => log::warn!("Preset {name} ignoré (parse error): {e}"),
             }
         }
     }
 
-    presets.sort_by(|(a, _), (b, _)| a.cmp(b));
-    presets
+    map.into_iter().collect()
 }
 
 // ─── Main Export Function ──────────────────────────────────────────
@@ -455,6 +462,7 @@ pub fn run_batch_export(
     stems_enabled: bool,
     stem_model: &str,
     save_workflow_name: Option<&str>,
+    paths: &af_core::paths::AppPaths,
 ) -> Result<()> {
     #[cfg(not(feature = "video"))]
     {
@@ -473,6 +481,7 @@ pub fn run_batch_export(
             stems_enabled,
             stem_model,
             save_workflow_name,
+            paths,
         );
         anyhow::bail!("L'export par lots requiert la feature 'video' (ffmpeg support).");
     }
@@ -569,7 +578,7 @@ pub fn run_batch_export(
                 format!("{y}{:02}{:02}_{h:02}{m:02}{s:02}", mo + 1, remaining + 1)
             };
             let default_name = format!("{folder_name}_{timestamp}.mp4");
-            let mut p = std::env::current_dir()?;
+            let mut p = paths.base_dir.clone();
             p.push(default_name);
             p
         };
@@ -579,7 +588,7 @@ pub fn run_batch_export(
 
         // === Preset sequencer (--preset all) ===
         let mut preset_seq = if preset_all {
-            let all_presets = load_all_presets();
+            let all_presets = load_all_presets(paths);
             if all_presets.is_empty() {
                 log::warn!("Aucun preset trouvé, utilisation config unique.");
                 None
@@ -615,8 +624,11 @@ pub fn run_batch_export(
                 "large" => af_stems::separator::ModelVariant::Large,
                 _ => af_stems::separator::ModelVariant::Standard,
             };
-            let root = std::env::current_dir()?;
-            let mut sep_config = af_stems::separator::SeparationConfig::from_project_root(&root);
+            let mut sep_config = af_stems::separator::SeparationConfig {
+                model: af_stems::separator::ModelVariant::Standard,
+                python_bin: paths.python_bin(),
+                scnet_dir: paths.scnet_dir(),
+            };
             sep_config.model = model;
             af_stems::separator::preflight_check(&sep_config)?;
 
@@ -1155,6 +1167,7 @@ pub fn run_batch_export(
                 stem_states.as_ref(),
                 stem_info.as_ref(),
                 None,
+                &paths.workflows_dir,
             )?;
 
             // Write stem WAVs into the workflow directory
@@ -1274,7 +1287,8 @@ mod tests {
         let workspace_root = manifest.parent().and_then(|p| p.parent()).unwrap();
         std::env::set_current_dir(workspace_root).unwrap();
 
-        let presets = load_all_presets();
+        let paths = af_core::paths::AppPaths::resolve();
+        let presets = load_all_presets(&paths);
         assert!(
             presets.len() >= 20,
             "Expected >=20 presets, found {}",

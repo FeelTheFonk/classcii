@@ -1,20 +1,66 @@
 # Usage Guide
 
-Complete reference for classcii v1.4.1 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.5.0 — real-time audio-reactive ASCII/Unicode rendering engine.
+
+## Deployment Modes
+
+classcii supports three deployment tiers:
+
+| Tier | Contents | External deps | Hot-reload |
+|------|----------|---------------|------------|
+| **Tier 0** | Exe only | ffmpeg in PATH | No |
+| **Tier 1** | Exe + `config/` (via `--init`) | ffmpeg in PATH | Yes |
+| **Tier 2** | Exe + `config/` + `bundle/` | None | Yes |
+
+**Tier 0** — Download the exe, run it. 25 presets + default config are embedded in the binary. No external files needed.
+
+**Tier 1** — Run `classcii --init` to extract embedded configs to `config/` for customization. External configs enable hot-reload on file save.
+
+**Tier 2** — Place a `bundle/` directory alongside the exe containing ffmpeg, ffprobe, and optionally `stems/.venv` + `stems/SCNet` for self-contained stem separation.
+
+### Path Resolution
+
+classcii resolves its base directory in this order:
+1. `CLASSCII_HOME` environment variable (if set and valid)
+2. Exe parent directory (if it contains a `config/` subdirectory)
+3. Current working directory (if it contains a `config/` subdirectory)
+4. Exe parent directory (fallback — uses embedded configs)
+
+### Bundle Directory Structure
+
+```
+bundle/
+├── ffmpeg[.exe]
+├── ffprobe[.exe]
+└── stems/           (optional, for stem separation)
+    ├── .venv/       (Python virtual environment)
+    └── SCNet/       (model files)
+```
 
 ## Prerequisites
 
-- **Rust 1.88+** (Edition 2024)
-- **FFmpeg + FFprobe** in `PATH` (required for video sources and batch export)
+- **FFmpeg + FFprobe** — either in `PATH` or provided via `bundle/` (required for video sources and batch export)
   - Windows: `winget install ffmpeg`
   - Linux: `sudo apt install ffmpeg`
   - macOS: `brew install ffmpeg`
 - **GPU-accelerated terminal** recommended (Alacritty, WezTerm, Kitty)
-- **Python 3.10+** + `uv` (required only for stem separation)
+- **Python 3.10+** + `uv` (required only for stem separation; can be bundled in Tier 2)
   - Windows: run `scripts\setup_stems.bat`
   - Linux/macOS: run `scripts/setup_stems.sh`
+- **Rust 1.88+** (Edition 2024) — only needed for building from source
 
 ## Installation
+
+### From Release (Tier 0)
+
+Download the latest release binary. Run directly — no external files needed.
+
+```bash
+# Extract configs for customization (optional, enables hot-reload)
+classcii --init
+```
+
+### From Source
 
 ```bash
 git clone https://github.com/FeelTheFonk/classcii.git
@@ -52,8 +98,9 @@ classcii --image photo.jpg --preset 07_neon_abyss --audio mic
 | `--audio <PATH\|mic>` | Audio source: file path or `mic` for microphone | — |
 | `--batch-folder <DIR>` | Batch export: media folder (images + videos) | — |
 | `--batch-out <PATH>` | Batch export: output MP4 file path | auto-named |
-| `-c, --config <PATH>` | TOML configuration file | `config/default.toml` |
-| `--preset <NAME>` | Load a named preset (overrides `--config`) | — |
+| `-c, --config <PATH>` | TOML configuration file | auto-resolved |
+| `--preset <NAME>` | Load a named preset (disk first, then embedded) | — |
+| `--init` | Extract embedded configs to `config/` for customization | — |
 | `--mode <MODE>` | Render mode: `ascii`, `halfblock`, `braille`, `quadrant`, `sextant`, `octant` | from config |
 | `--fps <N>` | Target framerate (30 or 60) | from config |
 | `--no-color` | Disable color output | `false` |
@@ -163,7 +210,7 @@ Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 
 ## Configuration
 
-Configuration is loaded from `config/default.toml` by default. Presets in `config/presets/` override the default. CLI flags override config files. All fields are optional — unspecified fields use program defaults.
+Configuration is auto-resolved: external `config/default.toml` if it exists on disk, otherwise the embedded default compiled into the binary. Run `classcii --init` to extract embedded configs for customization. Presets in `config/presets/` override the default (disk presets take priority over embedded ones with the same name). CLI flags override config files. All fields are optional — unspecified fields use program defaults. Hot-reload is active only when using an external config file.
 
 ### Minimal Example
 
@@ -370,7 +417,7 @@ Sextant (U+1FB00) and Octant (U+1CD00) require fonts with coverage: FiraCode, Je
 
 | Issue | Solution |
 |-------|----------|
-| "ffmpeg not found" | Install FFmpeg and ensure it's in your `PATH` |
+| "ffmpeg not found" | Install FFmpeg in PATH, or use Tier 2 bundle (`bundle/ffmpeg`) |
 | Video stuttering | Use a GPU-accelerated terminal (Alacritty, WezTerm) |
 | No audio reactivity | Check `--audio mic` or provide a valid audio file path |
 | Colors look wrong | Cycle color mode with `m` or toggle color with `c` |
@@ -380,5 +427,8 @@ Sextant (U+1FB00) and Octant (U+1CD00) require fonts with coverage: FiraCode, Je
 | Effects not visible | Color must be enabled (`c`) for chromatic, pulse, glow |
 | Keys not responding | Close any active overlay first (`Esc`) |
 | Creation Mode not modulating | Ensure preset is not Custom; check `K●` in sidebar |
-| Stem separation fails | Run `scripts/setup_stems.bat` (or `.sh`), check `ext/SCNet/models/SCNet.th` exists |
+| Stem separation fails | Run `scripts/setup_stems.bat` (or `.sh`), or use Tier 2 bundle |
 | "Python not found" | Install Python 3.10+ and run the setup script |
+| Presets not loading | Run `classcii --init` to extract embedded configs, then edit `config/presets/` |
+| Hot-reload not working | Ensure external `config/default.toml` exists (disabled in embedded-only mode) |
+| Config path confusion | Set `CLASSCII_HOME` env var to explicitly control the base directory |

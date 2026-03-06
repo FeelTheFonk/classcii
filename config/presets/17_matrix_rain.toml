@@ -3,7 +3,7 @@
 
 [render]
 render_mode = "Ascii"
-charset = " 01"
+charset = " 05"
 color_enabled = true
 color_mode = "HsvBright"
 dither_mode = "Bayer8x8"

@@ -33,23 +33,6 @@ pub struct SeparationConfig {
     pub scnet_dir: PathBuf,
 }
 
-impl SeparationConfig {
-    /// Build config with defaults relative to the project root.
-    #[must_use]
-    pub fn from_project_root(root: &Path) -> Self {
-        let python_bin = if cfg!(windows) {
-            root.join(".venv/Scripts/python.exe")
-        } else {
-            root.join(".venv/bin/python")
-        };
-        Self {
-            model: ModelVariant::Standard,
-            python_bin,
-            scnet_dir: root.join("ext/SCNet"),
-        }
-    }
-}
-
 /// Progress updates from the separation subprocess.
 #[derive(Clone, Debug)]
 pub enum SeparationProgress {

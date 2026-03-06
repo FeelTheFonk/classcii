@@ -12,26 +12,24 @@ use rayon::prelude::*;
 pub struct VirtualCamera;
 
 impl VirtualCamera {
-    /// Applique les transformations de la caméra de la config actuelle sur l'`input` pour générer `output`.
-    /// `input` et `output` doivent avoir un espace de buffer pré-alloué de taille finale (généralement `canvas_width` x `canvas_height`).
     #[allow(
         clippy::cast_possible_wrap,
         clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
+        clippy::cast_sign_loss,
+        clippy::too_many_lines
     )]
     pub fn apply_transform(config: &RenderConfig, input: &FrameBuffer, output: &mut FrameBuffer) {
         let zoom = config.camera_zoom_amplitude.max(0.01);
         let rot = config.camera_rotation % std::f32::consts::TAU;
         let pan_x = config.camera_pan_x;
         let pan_y = config.camera_pan_y;
+        let tilt = config.camera_tilt_x;
 
-        // Si la caméra est totalement neutre intrinsèquement (identique à l'Identity Matrix),
-        // On pourrait juste memcopy ou retourner l'input pour sauver ~1ms.
-        // Mais comme c'est fluide et audio-réactif, elle est rarement exactement neutre.
         let is_identity = (zoom - 1.0).abs() < f32::EPSILON
             && rot.abs() < f32::EPSILON
             && pan_x.abs() < f32::EPSILON
             && pan_y.abs() < f32::EPSILON
+            && tilt.abs() < f32::EPSILON
             && input.width == output.width
             && input.height == output.height;
 
@@ -54,26 +52,35 @@ impl VirtualCamera {
         let cos_a = rot.cos();
         let sin_a = rot.sin();
 
-        // Stride is 4 bytes (RGBA)
+        // Perspective coefficient: maps tilt [-1,1] to a projective warp factor.
+        // The denominator `1 + h * y_norm` creates vanishing-point perspective.
+        // Clamped to avoid singularities (denominator never reaches 0).
+        let h = tilt * 0.8; // scale factor — 0.8 keeps max warp safe
+
         let out_stride = (output.width * 4) as usize;
         let in_stride = (input.width * 4) as usize;
 
-        // On bind les slices purement localement pour bypasser l'alias `&mut self` dans la closure par-chunk
         let in_data = &input.data;
         let in_width = input.width as i32;
         let in_height = input.height as i32;
 
-        // Conditional parallelism: rayon for large frames, sequential for small terminals.
         let pixel_count = output.width * output.height;
         let process_row = |y_out: usize, row: &mut [u8]| {
             let y_f = y_out as f32 - center_y;
+            // Normalized y for perspective: [-1, 1]
+            let y_norm = y_f / center_y.max(1.0);
 
             for x_out in 0..output.width {
                 let x_f = x_out as f32 - center_x;
 
+                // Perspective division: simulate 3D tilt by warping based on vertical position
+                let denom = (1.0 + h * y_norm).max(0.1);
+                let x_persp = x_f / denom;
+                let y_persp = y_f / denom;
+
                 // Reverse Pan
-                let x_panned = x_f - (pan_x * out_w);
-                let y_panned = y_f - (pan_y * out_h);
+                let x_panned = x_persp - (pan_x * out_w);
+                let y_panned = y_persp - (pan_y * out_h);
 
                 // Reverse Zoom
                 let x_zoomed = x_panned / zoom;

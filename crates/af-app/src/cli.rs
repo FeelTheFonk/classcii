@@ -27,9 +27,13 @@ pub struct Cli {
     #[arg(long)]
     pub batch_out: Option<PathBuf>,
 
-    /// Fichier de configuration TOML. Défaut : config/default.toml.
-    #[arg(short, long, default_value = "config/default.toml")]
-    pub config: PathBuf,
+    /// Fichier de configuration TOML. Si omis, résolution automatique.
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
+
+    /// Extraire les configs embarquées vers config/ (pour personnalisation).
+    #[arg(long, default_value_t = false)]
+    pub init: bool,
 
     /// Charger un preset nommé (ignore --config).
     #[arg(long)]

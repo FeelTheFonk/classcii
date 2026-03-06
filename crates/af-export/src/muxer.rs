@@ -18,7 +18,7 @@ impl Mp4Muxer {
     pub fn new(output_path: &Path, width: u32, height: u32, target_fps: u32) -> Result<Self> {
         let path_str = output_path.to_str().context("Chemin invalide")?;
 
-        let child = Command::new("ffmpeg")
+        let child = Command::new(af_core::paths::ffmpeg_bin())
             .args([
                 "-y",
                 "-f",
@@ -97,7 +97,7 @@ pub fn mux_audio_video(video_path: &Path, audio_path: &Path, final_path: &Path) 
     let audio_str = audio_path.to_str().context("audio path invalid")?;
     let final_str = final_path.to_str().context("final path invalid")?;
 
-    let mut command = Command::new("ffmpeg");
+    let mut command = Command::new(af_core::paths::ffmpeg_bin());
     command.args([
         "-y",
         "-i",

@@ -107,7 +107,7 @@ Derived from 26 Mel-spaced triangular filters (300–8000 Hz), compressed via DC
 
 ---
 
-## 18 Mapping Targets
+## 19 Mapping Targets
 
 Each target is a visual parameter in `RenderConfig`. Mappings are additive — delta is added to the current value.
 
@@ -143,6 +143,7 @@ Each target is a visual parameter in `RenderConfig`. Mappings are additive — d
 | `camera_rotation` | any | 0.0 | Virtual camera rotation (radians, wrapped at 2PI) |
 | `camera_pan_x` | -2.0–2.0 | 0.0 | Virtual camera horizontal pan |
 | `camera_pan_y` | -2.0–2.0 | 0.0 | Virtual camera vertical pan |
+| `camera_tilt_x` | -1.0–1.0 | 0.0 | Perspective tilt via projective division |
 
 ---
 
@@ -211,7 +212,7 @@ S-curve with gentle transitions at both ends. Best for `beat_intensity → beat_
 [[audio.mappings]]
 enabled = true
 source = "bass"                # One of 21 audio sources
-target = "wave_amplitude"      # One of 18 visual targets
+target = "wave_amplitude"      # One of 19 visual targets
 amount = 0.4                   # Multiplier
 offset = 0.0                   # Additive offset after multiplication
 curve = "Smooth"               # Linear, Exponential, Threshold, Smooth

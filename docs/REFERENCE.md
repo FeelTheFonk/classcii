@@ -76,6 +76,7 @@ Color modes:
 | `camera_rotation` | Float | any | `0.0` | Affine rotation (radians, wrapped at 2PI) |
 | `camera_pan_x` | Float | -2.0–2.0 | `0.0` | Horizontal panning |
 | `camera_pan_y` | Float | -2.0–2.0 | `0.0` | Vertical panning |
+| `camera_tilt_x` | Float | -1.0–1.0 | `0.0` | Perspective tilt (projective division) |
 
 ### `[audio]` — Global Settings
 
@@ -93,7 +94,7 @@ Repeatable section. Each entry defines one mapping.
 |-------|------|-------|---------|-------------|
 | `enabled` | Boolean | — | `true` | Activate/deactivate |
 | `source` | String | 21 values | — | Audio feature source (required) |
-| `target` | String | 18 values | — | Visual parameter target (required) |
+| `target` | String | 19 values | — | Visual parameter target (required) |
 | `amount` | Float | any | — | Multiplier (required) |
 | `offset` | Float | any | `0.0` | Additive offset after multiplication |
 | `curve` | String | `"Linear"`, `"Exponential"`, `"Threshold"`, `"Smooth"` | `"Linear"` | Response curve |
@@ -191,7 +192,7 @@ Brightness bloom — bright cells (max RGB > 140) bleed light to 4 cardinal neig
 
 ### Virtual Camera
 
-2D affine transform (zoom, rotation, translation) applied to source frame *before* ASCII conversion. Bilinear interpolation. Sub-pixel smooth. All 4 camera parameters are valid audio mapping targets.
+2D affine transform (zoom, rotation, translation) with optional perspective tilt via projective division, applied to source frame *before* ASCII conversion. Bilinear interpolation. Sub-pixel smooth. All 5 camera parameters are valid audio mapping targets.
 
 ---
 
@@ -315,7 +316,7 @@ Ordered from most faithful to input (01) to most chaotic (21), with 22 as export
 | `04_noir` | HalfBlock | ★★★★☆ | Film noir monochrome, high contrast edges |
 | `05_breath` | Ascii | ★★★★☆ | Ultra-minimalist contemplative, single RMS mapping |
 | `06_clean_gradient` | Ascii | ★★★☆☆ | Versatile reference, SourceDim, balanced reactivity |
-| `07_sextant_cinema` | Sextant | ★★★☆☆ | Cinematic Sextant, Oklab, bass-reactive camera |
+| `07_braille_cinema` | Braille | ★★★☆☆ | Cinematic Braille, Oklab, bass-reactive camera |
 | `08_braille_hd` | Braille | ★★★☆☆ | High-density pointillism, Direct color, balanced |
 | `09_spectral_bands` | Quadrant | ★★★☆☆ | Per-band frequency mapping, 5 distinct effects |
 | `10_vector_wire` | Ascii | ★★☆☆☆ | Monochrome wireframe, onset→invert, edge-dominant |
@@ -396,6 +397,7 @@ camera_zoom_amplitude = 1.0
 camera_rotation = 0.0
 camera_pan_x = 0.0
 camera_pan_y = 0.0
+camera_tilt_x = 0.0
 target_fps = 60
 fullscreen = false
 show_spectrum = false

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 894 160" fill="none">
+  <style>
+    @keyframes blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+    @keyframes scan { 0% { transform: translateY(-100%) } 100% { transform: translateY(200%) } }
+  </style>
+  <defs>
+    <clipPath id="clip-light"><rect width="894" height="160" rx="8"/></clipPath>
+    <linearGradient id="scan-light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2328" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#1f2328" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#1f2328" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#clip-light)">
+    <rect width="894" height="160" rx="8" fill="#ffffff" stroke="#d1d9e0" stroke-width="1"/>
+    <rect width="894" height="160" rx="8" fill="url(#scan-light)" style="animation: scan 4s linear infinite"/>
+    <!-- Terminal dots -->
+    <circle cx="28" cy="20" r="5" fill="#ff5f57"/>
+    <circle cx="46" cy="20" r="5" fill="#febc2e"/>
+    <circle cx="64" cy="20" r="5" fill="#28c840"/>
+    <!-- Prompt line -->
+    <text x="28" y="64" font-family="'JetBrains Mono','Fira Code','Cascadia Code',monospace" font-size="13" fill="#656d76" letter-spacing="0.5">
+      <tspan>$</tspan>
+      <tspan dx="8" fill="#1f2328">classcii</tspan>
+      <tspan dx="8" fill="#656d76">--image photo.jpg --audio mic</tspan>
+    </text>
+    <!-- Title -->
+    <text x="28" y="102" font-family="'JetBrains Mono','Fira Code','Cascadia Code',monospace" font-size="38" font-weight="700" fill="#1f2328" letter-spacing="-1">
+      classcii
+    </text>
+    <!-- Cursor -->
+    <rect x="302" y="78" width="3" height="30" fill="#0969da" style="animation: blink 1s step-end infinite"/>
+    <!-- Tagline -->
+    <text x="28" y="136" font-family="'JetBrains Mono','Fira Code','Cascadia Code',monospace" font-size="12" fill="#656d76" letter-spacing="0.3">
+      real-time audio-reactive ascii/unicode rendering engine
+    </text>
+    <!-- Version badge -->
+    <rect x="802" y="126" width="64" height="20" rx="4" fill="#ddf4ff"/>
+    <text x="834" y="140" font-family="'JetBrains Mono','Fira Code','Cascadia Code',monospace" font-size="11" fill="#0969da" text-anchor="middle">v1.5.0</text>
+    <!-- Decorative ASCII art on right -->
+    <text x="680" y="58" font-family="'JetBrains Mono','Fira Code','Cascadia Code',monospace" font-size="10" fill="#d1d9e0" letter-spacing="1">
+      <tspan x="680" dy="0">  .:-=+*#%@</tspan>
+      <tspan x="680" dy="13"> .:;Il!i&gt;&lt;~+</tspan>
+      <tspan x="680" dy="13">tfjrxnuvczXY</tspan>
+      <tspan x="680" dy="13">UJCLQ0OZmwqp</tspan>
+      <tspan x="680" dy="13">dbkhao*#MW&amp;8</tspan>
+      <tspan x="680" dy="13">  %B@$ .-=+*</tspan>
+    </text>
+  </g>
+</svg>

@@ -84,7 +84,7 @@ classcii --image photo.jpg --audio mic
 classcii --video movie.mp4
 
 # With a preset
-classcii --image photo.jpg --preset 07_neon_abyss --audio mic
+classcii --image photo.jpg --preset 07_braille_cinema --audio mic
 ```
 
 ---
@@ -180,12 +180,15 @@ Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 
 ### Camera
 
-| Key | Action | Range |
-|-----|--------|-------|
+| Key / Input | Action | Range |
+|-------------|--------|-------|
 | `<` / `>` | Camera zoom | 0.1 – 10.0 |
 | `,` / `.` | Camera rotation | periodic |
 | `;` / `'` | Camera pan X | -2.0 – 2.0 |
 | `:` / `"` | Camera pan Y | -2.0 – 2.0 |
+| Left drag | Pan (mouse) | — |
+| Right drag | Rotation + tilt (mouse) | — |
+| Scroll wheel | Zoom in/out | — |
 
 ### Audio
 

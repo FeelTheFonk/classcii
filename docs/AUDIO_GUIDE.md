@@ -25,6 +25,27 @@ Microphone/File → CPAL/Symphonia → Ring Buffer → FFT (2048 samples)
 
 Audio runs on a dedicated thread. Features are published via a lock-free `triple_buffer` — the main thread always reads the latest features without blocking.
 
+### With Stem Separation
+
+```
+Audio File → SCNet (Python subprocess) → 4 WAV stems
+                                              ↓
+                              ┌───────────────┼───────────────┐
+                              ↓               ↓               ↓
+                          Drums FFT      Bass FFT       Vocals FFT  ...
+                              ↓               ↓               ↓
+                       AudioFeatures   AudioFeatures   AudioFeatures
+                              ↓               ↓               ↓
+                         stem_source     stem_source     stem_source
+                              └───────────────┼───────────────┘
+                                              ↓
+                                 combine_stem_features()
+                                              ↓
+                                    apply_audio_mappings()
+```
+
+Each stem gets its own FFT pipeline, BeatDetector, MFCC, and FeatureSmoother. Mappings with `stem_source` read from the specific stem; mappings without it read from the weighted combination.
+
 ---
 
 ## 21 Audio Sources
@@ -195,7 +216,30 @@ amount = 0.4                   # Multiplier
 offset = 0.0                   # Additive offset after multiplication
 curve = "Smooth"               # Linear, Exponential, Threshold, Smooth
 smoothing = 0.3                # Per-mapping EMA override (optional)
+stem_source = "drums"          # Route to a specific stem (optional, requires stem separation)
 ```
+
+### Stem-Routed Mappings
+
+When stem separation is active, mappings can target a specific stem's audio features via the `stem_source` field. Valid values: `"drums"`, `"bass"`, `"other"`, `"vocals"`. Without `stem_source`, mappings use the combined (mixed) features.
+
+```toml
+# Drums drive the strobe
+[[audio.mappings]]
+source = "onset_envelope"
+target = "beat_flash_intensity"
+amount = 0.8
+stem_source = "drums"
+
+# Vocals drive glow
+[[audio.mappings]]
+source = "rms"
+target = "glow_intensity"
+amount = 0.6
+stem_source = "vocals"
+```
+
+When stems are active but no stem-specific mappings exist in the config, default stem mappings are auto-injected (drums→strobe/wave, bass→contrast, vocals→glow, other→chromatic).
 
 Multiple mappings can be active simultaneously. Per-mapping smoothing is opt-in. Without explicit `smoothing` field, features pass through directly (already smoothed by the feature-level EMA).
 

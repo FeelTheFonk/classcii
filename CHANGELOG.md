@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-03-06
+
+### Added
+- **Workflow save/load** — Full workflow persistence with TUI overlays (`Ctrl+S` save, `Ctrl+W` browse/load). Saves config, source info, stem states, stem WAV files, and feature timeline in a structured directory (`workflows/<name>/`).
+- **Stem WAV persistence** — Mono f32 IEEE float WAV encoder writes separated stem audio to workflow directory for reproducible playback.
+- **Bincode feature timeline** — Serialized `FeatureTimeline` (`timeline.bin`) for deterministic batch replay without re-analysis.
+- **`--workflow-list` CLI flag** — Lists all saved workflows with metadata (stems/timeline tags, date, description).
+- **`--save-workflow` / `--load-workflow` CLI flags** — Batch and interactive workflow persistence.
+- **Workflow description/tags** — Editable description field in TUI save overlay, displayed in browse overlay.
+- **Flash notification system** — Green overlay notifications for workflow save/load/delete operations.
+- **Serde derives on AudioFeatures** — `Serialize`, `Deserialize`, `Debug` for bincode/toml round-tripping.
+
+### Changed
+- **Rayon-parallelized stem analysis** — `BatchAnalyzer::analyze_stems()` now uses `par_iter()` across 4 stems for faster offline analysis.
+- **Batch export workflow integration** — `--save-workflow` is now processed inside `run_batch_export()` where stem data is available, instead of post-export in main.
+
+### Fixed
+- **CI parity** — `cargo fmt`, `clippy -D warnings` with `--all-targets`, `items_after_test_module` in sextants.rs, test module lint allows.
+
 ## [1.3.0] — 2026-03-05
 
 ### Added

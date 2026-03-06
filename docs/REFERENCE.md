@@ -2,7 +2,7 @@
 
 Exhaustive technical reference for classcii — TOML schema, post-processing effects, charsets, and presets.
 
-All default values are synchronized with `RenderConfig::default()` v1.2.1.
+All default values are synchronized with `RenderConfig::default()` v1.4.0.
 
 ---
 
@@ -98,6 +98,7 @@ Repeatable section. Each entry defines one mapping.
 | `offset` | Float | any | `0.0` | Additive offset after multiplication |
 | `curve` | String | `"Linear"`, `"Exponential"`, `"Threshold"`, `"Smooth"` | `"Linear"` | Response curve |
 | `smoothing` | Float | 0.0–1.0 | global value | Per-mapping EMA override |
+| `stem_source` | String | `"drums"`, `"bass"`, `"other"`, `"vocals"` | — | Route mapping to a specific stem's features (requires stem separation) |
 
 For the full list of valid sources and targets, see [Audio Guide](AUDIO_GUIDE.md).
 
@@ -300,11 +301,11 @@ Press `C` in TUI. Type characters from lightest to densest, `Enter` to apply, `E
 
 ---
 
-## 22 Presets
+## 25 Presets
 
 In `config/presets/`, selectable via `--preset <name>` or cycled live with `p`/`P`. Auto-discovered alphabetically.
 
-Ordered from most faithful to input (01) to most chaotic (21), with 22 as export-optimized.
+Ordered from most faithful to input (01) to most chaotic (21), with 22 as export-optimized and 23–25 as stem-aware presets.
 
 | Preset | Mode | Fidelity | Style |
 |--------|------|----------|-------|
@@ -330,6 +331,9 @@ Ordered from most faithful to input (01) to most chaotic (21), with 22 as export
 | `20_tv_static` | Ascii | ☆☆☆☆☆ | Broken TV, binary charset, flatness→density, zalgo |
 | `21_glitch_storm` | Braille | ☆☆☆☆☆ | Controlled chaos, all extreme effects, musically driven |
 | `22_hires_export` | Ascii | ★★★★☆ | Batch export optimized, CHARSET_FULL, Oklab, subtle |
+| `23_stem_drums_pulse` | Braille | ★★★☆☆ | Stem-aware: drums→strobe/wave, bass→contrast, vocals→glow |
+| `24_stem_vocal_glow` | Sextant | ★★★★☆ | Stem-aware: vocals→glow/brightness, drums→flash, bass→wave |
+| `25_stem_full_spectrum` | Octant | ★★★☆☆ | Stem-aware: all 4 stems mapped to distinct effects, full spectrum |
 
 ### Creating a Custom Preset
 
@@ -356,7 +360,7 @@ Naming convention: `NN_name.toml` for consistent alphabetical cycling order.
 
 ## Default Values Summary
 
-All values as defined in `RenderConfig::default()` v1.2.1, synchronized with `config/default.toml`:
+All values as defined in `RenderConfig::default()` v1.4.0, synchronized with `config/default.toml`:
 
 ```toml
 [render]

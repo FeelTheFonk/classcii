@@ -27,14 +27,14 @@ Lock-free synchronization via `triple_buffer` and `flume` channels. A fourth mod
 
 | Crate | Function |
 |-------|----------|
-| `af-core` | Shared primitives, configuration, `FeatureTimeline`, lock-free topologies |
+| `af-core` | Shared primitives, configuration, `FeatureTimeline`, workflow I/O, lock-free topologies |
 | `af-audio` | Audio capture (CPAL), FFT, feature extraction, offline `BatchAnalyzer` |
 | `af-ascii` | Luma-to-ASCII, spatial quantization (Braille, Quadrant, Sextant U+1FB00, Octant U+1CD00), dithering, edge detection |
 | `af-render` | Display backend (`ratatui`), partial redraws, Zalgo distortions |
 | `af-source` | Input stream decoding (Image, FFmpeg, `FolderBatchSource`) |
 | `af-export` | Offline rasterizer (`ab_glyph`) with alpha-blended Zalgo, lossless MP4 muxer |
 | `af-stems` | Stem separation (SCNet subprocess), per-stem playback, analysis, mixing |
-| `af-app` | Entry point, thread orchestration, generative mapper, batch pipeline |
+| `af-app` | Entry point, thread orchestration, generative mapper, batch pipeline, workflow overlays |
 
 ## Compilation
 
@@ -43,7 +43,7 @@ Lock-free synchronization via `triple_buffer` and `flume` channels. A fourth mod
 cargo build
 
 # Release with video + batch export support
-cargo build --release --features full
+cargo build --release --features video
 ```
 
 ## Quick Start
@@ -74,7 +74,7 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 |----------|---------|
 | [Usage Guide](docs/USAGE.md) | CLI reference, keyboard controls, configuration, batch export, troubleshooting |
 | [Audio Guide](docs/AUDIO_GUIDE.md) | Audio pipeline, 21 sources, 18 targets, 4 curves, smoothing, genre strategies |
-| [Reference](docs/REFERENCE.md) | TOML schema, 8 effects, 22 presets, 10 charsets, default values |
+| [Reference](docs/REFERENCE.md) | TOML schema, 8 effects, 25 presets, 14 charsets, default values |
 
 ## Quality Assurance
 
@@ -83,8 +83,8 @@ classcii --batch-folder ./media/ --audio track.mp3 --preset all
 - Zero `unsafe` blocks — `#![deny(unsafe_code)]` workspace-wide (R2).
 - Zero panicking unwraps — `?` operator and graceful fallback (R3).
 - Zero unnecessary copies — `Arc<FrameBuffer>`, `arc-swap`, lock-free `triple_buffer` (R4).
-- `cargo clippy --workspace --features full -- -D warnings` passes 0 warnings.
-- 130 tests (67 unit/integration + 63 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
+- `cargo clippy --workspace --features video -- -D warnings` passes 0 warnings.
+- 158 tests (95 unit/integration + 63 doctests). 3 criterion benchmarks. `cargo fmt --check --all` clean.
 - All division operations guarded. All inputs clamped to valid ranges.
 - Release profile: LTO=fat, codegen-units=1, strip=symbols, panic=abort.
 

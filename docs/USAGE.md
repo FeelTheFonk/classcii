@@ -1,6 +1,6 @@
 # Usage Guide
 
-Complete reference for classcii v1.3.0 — real-time audio-reactive ASCII/Unicode rendering engine.
+Complete reference for classcii v1.4.0 — real-time audio-reactive ASCII/Unicode rendering engine.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ Complete reference for classcii v1.3.0 — real-time audio-reactive ASCII/Unicod
 ```bash
 git clone https://github.com/FeelTheFonk/classcii.git
 cd classcii
-cargo build --release --features full
+cargo build --release --features video
 ```
 
 ## First Run
@@ -64,6 +64,11 @@ classcii --image photo.jpg --preset 07_neon_abyss --audio mic
 | `--crossfade-ms <MS>` | Crossfade duration between media clips | adaptive |
 | `--mutation-intensity <F>` | Mutation probability multiplier (0=none, 2=aggressive) | `1.0` |
 | `--export-scale <F>` | Upscaling factor for batch rasterization | — |
+| `--stems` | Enable stem separation in batch mode (requires `--audio`) | `false` |
+| `--stem-model <NAME>` | SCNet model: `standard` (41MB) or `large` (162MB) | `standard` |
+| `--save-workflow <NAME>` | Save workflow after batch export | — |
+| `--load-workflow <PATH>` | Load a saved workflow (overrides --config/--preset/--audio) | — |
+| `--workflow-list` | List all saved workflows and exit | — |
 
 All flags are optional. Running `classcii` with no arguments launches the TUI with an empty canvas.
 
@@ -149,6 +154,8 @@ Press `?` to show the in-app help overlay. Use `Up`/`Down` to scroll when open.
 | `C` | Open custom charset editor |
 | `K` | Toggle Creation Mode (auto-modulation overlay) |
 | `S` | Toggle Stem Separation overlay |
+| `Ctrl+S` | Save workflow (name + description) |
+| `Ctrl+W` | Browse / load saved workflows |
 | `o` | Open visual file picker (image / video) |
 | `O` | Open audio file picker |
 
@@ -238,6 +245,57 @@ Press `S` to open the Stem Separation overlay — a music source separation engi
 - Progress is displayed in the overlay during separation.
 - Mute/solo/volume changes are lock-free and take effect immediately.
 - Per-stem audio features feed the existing mapping pipeline, so all visual effects react to the active stems.
+
+---
+
+## Workflow Save / Load
+
+Workflows capture the complete state of a session — configuration, source info, stem separation results, and audio analysis — for perfect reproducibility.
+
+### Save (TUI)
+
+Press `Ctrl+S` to open the save overlay. Enter a name (auto-suggested from audio/visual file), optionally add a description with `Tab`, then press `Enter` to save.
+
+### Browse / Load (TUI)
+
+Press `Ctrl+W` to open the browse overlay. Navigate with `Up`/`Down`, press `Enter` to load, `Delete` to remove. Tags `[S]` and `[T]` indicate stem data and timeline presence.
+
+### CLI Usage
+
+```bash
+# Save workflow after batch export
+classcii --batch-folder ./media/ --audio track.mp3 --save-workflow "my_export"
+
+# Load a saved workflow
+classcii --load-workflow workflows/my_export
+
+# List all workflows
+classcii --workflow-list
+```
+
+### Directory Layout
+
+```
+workflows/<name>/
+├── manifest.toml       # Version, timestamps, flags
+├── config.toml         # Full RenderConfig snapshot
+├── source.toml         # Source path, media type, audio path
+├── stems/              # (optional)
+│   ├── drums.wav       # Mono f32 IEEE float
+│   ├── bass.wav
+│   ├── other.wav
+│   ├── vocals.wav
+│   ├── states.toml     # Mute/solo/volume per stem
+│   └── metadata.toml   # Sample rate, duration, model info
+└── timeline.bin        # (optional) Bincode-serialized FeatureTimeline
+```
+
+### Notes
+
+- Stem WAVs are written as mono f32 IEEE float (zero-dep encoder).
+- `timeline.bin` enables deterministic replay — same visual output without re-analyzing audio.
+- Workflows are stored relative to the executable directory.
+- `--load-workflow` overrides `--config`, `--preset`, and `--audio`.
 
 ---
 

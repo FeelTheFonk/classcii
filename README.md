@@ -1,9 +1,3 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.svg">
-  <img alt="classcii" src="assets/banner-dark.svg" width="894">
-</picture>
-
 Real-time audio-reactive ASCII/Unicode rendering engine for terminal — with offline generative batch export to mathematically lossless RGB MP4.
 
 [![Rust](https://img.shields.io/badge/Rust-1.88%2B-f74c00?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
@@ -11,7 +5,7 @@ Real-time audio-reactive ASCII/Unicode rendering engine for terminal — with of
 [![Edition](https://img.shields.io/badge/Edition-2024-purple?style=flat-square)](https://doc.rust-lang.org/edition-guide/)
 [![Tests](https://img.shields.io/badge/Tests-165-green?style=flat-square)](#quality-assurance)
 [![unsafe](https://img.shields.io/badge/unsafe-0-brightgreen?style=flat-square)](#quality-assurance)
-[![v1.5.0](https://img.shields.io/badge/v1.5.0-latest-58a6ff?style=flat-square)](https://github.com/FeelTheFonk/classcii/releases)
+[![v1.5.1](https://img.shields.io/badge/v1.5.1-latest-58a6ff?style=flat-square)](https://github.com/FeelTheFonk/classcii/releases)
 
 ---
 

@@ -644,7 +644,7 @@ fn draw_help_overlay(frame: &mut Frame, area: Rect, scroll: u16) {
         )),
         Line::from(" f/F      Fade \u{00b1}"),
         Line::from(" g/G      Glow \u{00b1}"),
-        Line::from(" t/T      Strobe \u{00b1}"),
+        Line::from(" t/T      Flash \u{00b1}"),
         Line::from(" r/R      Chromatic \u{00b1}"),
         Line::from(" w/W      Wave \u{00b1}"),
         Line::from(" h/H      Color pulse \u{00b1}"),

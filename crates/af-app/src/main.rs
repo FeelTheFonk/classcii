@@ -164,8 +164,12 @@ fn main() -> Result<()> {
 
     // 8. Initialiser le terminal ratatui
     let terminal = ratatui::init();
-    // Enable mouse capture for camera controls (drag, wheel zoom)
-    crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
+    // Purge scrollback so the terminal scrollbar disappears (Windows Terminal)
+    crossterm::execute!(
+        std::io::stdout(),
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::Purge),
+        crossterm::event::EnableMouseCapture
+    )?;
 
     // 9. Construire l'App
     let paths = Arc::new(paths);

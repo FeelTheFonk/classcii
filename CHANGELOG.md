@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-03-07
+
+### Fixed
+- **`camera_tilt_x` batch mapper** — Target was missing from `generative::apply_target()`, causing batch exports to ignore audio-driven camera tilt. Now at parity with interactive pipeline.
+- **GIF thread unnecessary sleep** — Removed 1ms `thread::sleep` in GIF source loop; bounded channel (capacity 3) already provides backpressure.
+- **Help overlay label** — `t/T` was labeled "Strobe" instead of "Flash" (consistent with `beat_flash_intensity` config field).
+- **Terminal scrollbar (Windows)** — Added `Clear(Purge)` at startup to eliminate scrollback buffer, preventing Windows Terminal from showing a scrollbar in fullscreen mode.
+
 ## [1.5.0] — 2026-03-06
 
 ### Added

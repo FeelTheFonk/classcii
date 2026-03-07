@@ -90,7 +90,6 @@ pub fn start_source(
                     {
                         break;
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(1));
                 }
             });
             let initial_frame = frame_rx.recv().ok();

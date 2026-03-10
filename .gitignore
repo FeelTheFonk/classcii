@@ -17,7 +17,7 @@ docs/plans/
 *.pdb
 *.exe
 *.mp4
-workflows/
+/workflows/
 
 # Editor directories and files
 .idea

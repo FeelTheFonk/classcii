@@ -244,9 +244,10 @@ impl BatchAnalyzer {
             })
             .collect();
 
-        let timelines: [FeatureTimeline; 4] = results.try_into().map_err(
-            |v: Vec<FeatureTimeline>| anyhow::anyhow!("Expected 4 stem timelines, got {}", v.len()),
-        )?;
+        let timelines: [FeatureTimeline; 4] =
+            results.try_into().map_err(|v: Vec<FeatureTimeline>| {
+                anyhow::anyhow!("Expected 4 stem timelines, got {}", v.len())
+            })?;
 
         Ok(af_core::feature_timeline::StemFeatureTimeline { timelines })
     }

@@ -152,7 +152,10 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
 
     // Read stdout in a background thread with a 10-second timeout to avoid
     // blocking indefinitely if ffprobe hangs.
-    let mut stdout = child.stdout.take().context("ffprobe stdout non disponible")?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .context("ffprobe stdout non disponible")?;
     let (tx, rx) = std::sync::mpsc::channel();
     let read_handle = thread::spawn(move || {
         let mut buf = Vec::new();
@@ -187,12 +190,18 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     for line in text.lines() {
         if let Some(val) = line.strip_prefix("width=") {
             match val.trim().parse() {
-                Ok(w) => { width = w; found_any = true; }
+                Ok(w) => {
+                    width = w;
+                    found_any = true;
+                }
                 Err(_) => log::warn!("ffprobe: width non-parseable '{val}', défaut {width}"),
             }
         } else if let Some(val) = line.strip_prefix("height=") {
             match val.trim().parse() {
-                Ok(h) => { height = h; found_any = true; }
+                Ok(h) => {
+                    height = h;
+                    found_any = true;
+                }
                 Err(_) => log::warn!("ffprobe: height non-parseable '{val}', défaut {height}"),
             }
         } else if let Some(val) = line.strip_prefix("r_frame_rate=") {
@@ -200,14 +209,24 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
             // Format: "24/1" ou "30000/1001" ou "24000/1001"
             let val = val.trim();
             let mut parts = val.splitn(2, '/');
-            let num: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or_else(|| {
-                log::warn!("ffprobe: r_frame_rate numerator non-parseable '{val}', défaut 30.0");
-                30.0
-            });
-            let den: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or_else(|| {
-                log::warn!("ffprobe: r_frame_rate denominator non-parseable '{val}', défaut 1.0");
-                1.0
-            });
+            let num: f64 = parts
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(|| {
+                    log::warn!(
+                        "ffprobe: r_frame_rate numerator non-parseable '{val}', défaut 30.0"
+                    );
+                    30.0
+                });
+            let den: f64 = parts
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(|| {
+                    log::warn!(
+                        "ffprobe: r_frame_rate denominator non-parseable '{val}', défaut 1.0"
+                    );
+                    1.0
+                });
             if den > 0.0 {
                 fps = num / den;
             }
@@ -497,7 +516,14 @@ fn video_loop(
 
     loop {
         // === Commandes (non-bloquant) ===
-        if process_commands(cmd_rx, &mut state, &mut maybe_child, path, &mut clock, &mut clock_wait_start) {
+        if process_commands(
+            cmd_rx,
+            &mut state,
+            &mut maybe_child,
+            path,
+            &mut clock,
+            &mut clock_wait_start,
+        ) {
             return;
         }
 
@@ -592,9 +618,7 @@ fn video_loop(
             }
             Err(e) => {
                 consecutive_pipe_errors += 1;
-                log::warn!(
-                    "Thread vidéo: erreur lecture pipe ({consecutive_pipe_errors}/5): {e}"
-                );
+                log::warn!("Thread vidéo: erreur lecture pipe ({consecutive_pipe_errors}/5): {e}");
                 if let Some(mut c) = maybe_child {
                     let _ = c.kill();
                     let _ = c.wait();
@@ -623,7 +647,8 @@ fn cap_dimensions_preserve_ratio(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32
     if w <= max_w && h <= max_h {
         return (w.max(1), h.max(1));
     }
-    let scale = (f64::from(max_w) / f64::from(w.max(1))).min(f64::from(max_h) / f64::from(h.max(1)));
+    let scale =
+        (f64::from(max_w) / f64::from(w.max(1))).min(f64::from(max_h) / f64::from(h.max(1)));
     let new_w = ((f64::from(w) * scale) as u32).max(1);
     let new_h = ((f64::from(h) * scale) as u32).max(1);
     (new_w, new_h)

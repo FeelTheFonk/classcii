@@ -389,7 +389,8 @@ impl App {
 
             // === Calcul du frame timing ===
             let config_guard = self.config.load();
-            let frame_duration = Duration::from_secs_f64(1.0 / f64::from(config_guard.target_fps.max(1)));
+            let frame_duration =
+                Duration::from_secs_f64(1.0 / f64::from(config_guard.target_fps.max(1)));
             drop(config_guard);
 
             let now = Instant::now();
@@ -645,7 +646,8 @@ impl App {
 
             // B.1: Frame budget tracking
             let render_elapsed = render_start.elapsed();
-            let frame_budget = Duration::from_secs_f64(1.0 / f64::from(render_config.target_fps.max(1)));
+            let frame_budget =
+                Duration::from_secs_f64(1.0 / f64::from(render_config.target_fps.max(1)));
             if render_elapsed > frame_budget + frame_budget / 2 {
                 self.perf_exceed_count = self.perf_exceed_count.saturating_add(1);
                 if self.perf_exceed_count >= 10 {

@@ -26,10 +26,8 @@ fn main() -> Result<()> {
     // 2. Initialiser le logging
     // TUI mode: redirect logs to file to prevent stderr from corrupting ratatui display.
     // Batch/CLI modes: keep stderr for direct terminal output.
-    let is_tui_mode = cli.batch_folder.is_none()
-        && !cli.init
-        && !cli.preset_list
-        && !cli.workflow_list;
+    let is_tui_mode =
+        cli.batch_folder.is_none() && !cli.init && !cli.preset_list && !cli.workflow_list;
     let log_level = cli.log_level.parse().unwrap_or(log::LevelFilter::Warn);
     let mut log_builder = env_logger::Builder::new();
     log_builder.filter_level(log_level);

@@ -285,7 +285,9 @@ impl FolderBatchSource {
                         }
                         // Guard: stop recursion after trying all files once
                         if depth >= self.files.len() {
-                            log::warn!("FolderBatchSource: all files exhausted, no frames produced");
+                            log::warn!(
+                                "FolderBatchSource: all files exhausted, no frames produced"
+                            );
                             return None;
                         }
                         self.next_media();

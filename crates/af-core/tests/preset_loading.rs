@@ -135,7 +135,10 @@ fn embedded_preset_lookup_works() {
     assert!(embedded::find_preset("01_pure_photo").is_some());
     assert!(embedded::find_preset("nonexistent_preset").is_none());
     let names = embedded::preset_names();
-    assert!(!names.is_empty(), "expected at least one embedded preset name");
+    assert!(
+        !names.is_empty(),
+        "expected at least one embedded preset name"
+    );
     assert!(names.contains(&"01_pure_photo"));
 }
 

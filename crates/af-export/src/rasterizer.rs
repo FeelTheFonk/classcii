@@ -224,7 +224,7 @@ mod tests {
 
     #[allow(clippy::expect_used)]
     fn make_rasterizer() -> Rasterizer {
-        let font_data = include_bytes!("../assets/FiraCode-Regular.ttf");
+        let font_data = include_bytes!("../assets/CascadiaMono.ttf");
         Rasterizer::new(font_data, 16.0).expect("font should load")
     }
 

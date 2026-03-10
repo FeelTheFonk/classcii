@@ -1,6 +1,6 @@
-use anyhow::Result;
 #[cfg(feature = "video")]
 use anyhow::Context;
+use anyhow::Result;
 use std::path::Path;
 
 #[cfg(feature = "video")]
@@ -723,7 +723,7 @@ pub fn run_batch_export(
         // === Étape 3 : Pipeline de rendu (Compositor + Rasterizer + Muxer) ===
         log::info!("Étape 3/4 : Préparation de l'encodeur FFmpeg");
 
-        let font_data = include_bytes!("../../af-export/assets/FiraCode-Regular.ttf");
+        let font_data = include_bytes!("../../af-export/assets/CascadiaMono.ttf");
         let scale_val = export_scale.unwrap_or(16.0);
         let rasterizer = Rasterizer::new(font_data, scale_val)?;
 

@@ -160,7 +160,10 @@ pub fn separate_file(
             }
             Err(flume::RecvTimeoutError::Disconnected) => break,
             Err(flume::RecvTimeoutError::Timeout) => {
-                log::warn!("SCNet: stderr read timed out after {}s — killing subprocess", STDERR_TIMEOUT.as_secs());
+                log::warn!(
+                    "SCNet: stderr read timed out after {}s — killing subprocess",
+                    STDERR_TIMEOUT.as_secs()
+                );
                 let _ = child.kill();
                 break;
             }
@@ -179,8 +182,10 @@ pub fn separate_file(
         // Try to read error.json
         let error_json_path = output_dir.join("error.json");
         let error_msg = if error_json_path.exists() {
-            let content = std::fs::read_to_string(&error_json_path)
-                .unwrap_or_else(|e| { log::warn!("Failed to read error.json: {e}"); String::new() });
+            let content = std::fs::read_to_string(&error_json_path).unwrap_or_else(|e| {
+                log::warn!("Failed to read error.json: {e}");
+                String::new()
+            });
             serde_json::from_str::<serde_json::Value>(&content)
                 .ok()
                 .and_then(|v| v["error"].as_str().map(String::from))

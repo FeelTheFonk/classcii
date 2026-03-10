@@ -111,7 +111,7 @@ pub fn extract_features(samples: &[f32], spectrum: &[f32], sample_rate: u32) -> 
 /// (~0.005-0.05). Apply gain ×20 + sqrt compression to map into usable
 /// [0.0, 1.0] range: 0.005→0.32, 0.02→0.63, 0.05→1.0.
 fn band_energy(spectrum: &[f32], low_hz: f32, high_hz: f32, bin_hz: f32) -> f32 {
-    let lo = (low_hz / bin_hz) as usize;
+    let lo = ((low_hz / bin_hz) as usize).max(1); // skip DC bin (bin 0)
     let hi = ((high_hz / bin_hz) as usize).min(spectrum.len());
     if lo >= hi {
         return 0.0;

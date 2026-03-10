@@ -2,7 +2,7 @@
 ///
 /// These are used as fallbacks when external config files are not found,
 /// enabling the executable to run standalone without any external files.
-
+///
 /// The default configuration TOML, embedded at compile time.
 pub const DEFAULT_CONFIG: &str = include_str!("../../../config/default.toml");
 

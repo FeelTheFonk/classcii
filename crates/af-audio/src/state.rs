@@ -217,6 +217,7 @@ fn run_file_analysis_loop(
     let mut smoother = FeatureSmoother::new(audio_smoothing);
     let mut filterbank = MelFilterbank::new(fft_size, sample_rate);
     let mut window_buf: Vec<f32> = vec![0.0; fft_size];
+    let mut onset_env: f32 = 0.0;
 
     let frame_period = std::time::Duration::from_secs_f64(1.0 / f64::from(target_fps.max(1)));
 
@@ -233,12 +234,15 @@ fn run_file_analysis_loop(
                     clock.set_paused(true);
                 }
                 AudioCommand::Seek(delta) => {
-                    let total = samples.len() as f64;
+                    let total = samples.len();
+                    if total == 0 {
+                        continue;
+                    }
                     let current_sec =
                         playback_pos.load(Ordering::Relaxed) as f64 / f64::from(sample_rate);
                     let new_sec = (current_sec + delta).max(0.0);
                     let new_pos = (new_sec * f64::from(sample_rate)) as usize;
-                    let final_pos = new_pos % total as usize;
+                    let final_pos = new_pos % total;
                     playback_pos.store(final_pos, Ordering::Relaxed);
                     clock.set_sample_pos(final_pos);
                 }
@@ -255,12 +259,12 @@ fn run_file_analysis_loop(
         let current_pos = playback_pos.load(Ordering::Relaxed);
         let total = samples.len();
 
+        #[allow(clippy::cast_possible_wrap)]
         for (i, slot) in window_buf.iter_mut().enumerate() {
-            let idx = if current_pos >= fft_size {
-                (current_pos - fft_size + i) % total
-            } else {
-                (total + current_pos - fft_size + i) % total
-            };
+            // rem_euclid handles all cases without usize underflow
+            // (safe even when total < fft_size; values are audio buffer indices, never near isize::MAX)
+            let idx = (current_pos as isize - fft_size as isize + i as isize)
+                .rem_euclid(total as isize) as usize;
             *slot = samples[idx];
         }
 
@@ -281,6 +285,14 @@ fn run_file_analysis_loop(
         feats.bpm = bpm;
         feats.beat_phase = phase;
         feats.spectral_flux = flux;
+
+        // onset_envelope: strobe-style decay (parity with batch_analyzer)
+        if onset {
+            onset_env = 1.0;
+        } else {
+            onset_env *= 0.85;
+        }
+        feats.onset_envelope = onset_env;
 
         // MFCC timbral features
         let mfcc = filterbank.compute(spectrum);
@@ -310,15 +322,17 @@ fn run_analysis_loop(
     let mut smoother = FeatureSmoother::new(audio_smoothing);
     let mut filterbank = MelFilterbank::new(fft_size, sample_rate);
     let mut sample_buf: Vec<f32> = Vec::with_capacity(fft_size * 2);
+    let mut onset_env: f32 = 0.0;
 
     let frame_period = std::time::Duration::from_secs_f64(1.0 / f64::from(target_fps.max(1)));
 
     loop {
+        let prev_len = sample_buf.len();
         read_fn(&mut sample_buf);
 
-        // Apply input gain before FFT (affects all downstream features proportionally)
+        // Apply input gain ONLY to newly appended samples (avoid cumulative gain^N)
         if (input_gain - 1.0).abs() > f32::EPSILON {
-            for s in &mut sample_buf {
+            for s in &mut sample_buf[prev_len..] {
                 *s *= input_gain;
             }
         }
@@ -340,6 +354,14 @@ fn run_analysis_loop(
             feats.bpm = bpm;
             feats.beat_phase = phase;
             feats.spectral_flux = flux;
+
+            // onset_envelope: strobe-style decay (parity with batch_analyzer)
+            if onset {
+                onset_env = 1.0;
+            } else {
+                onset_env *= 0.85;
+            }
+            feats.onset_envelope = onset_env;
 
             // MFCC timbral features
             let mfcc = filterbank.compute(spectrum);
@@ -420,7 +442,7 @@ where
             }
 
             if local_pos_f >= total as f64 {
-                local_pos_f -= total as f64;
+                local_pos_f %= total as f64;
             }
             last_sync_pos = local_pos_f as usize;
             playback_pos_write.store(last_sync_pos, Ordering::Relaxed);

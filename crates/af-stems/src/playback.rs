@@ -115,7 +115,7 @@ pub fn spawn_stem_playback(
     let paused_cmd = Arc::clone(&is_paused);
     let clock_cmd = Arc::clone(&clock);
     let sr = stem_set.sample_rate;
-    let total_samples = stem_samples[0].len();
+    let total_samples = stem_samples.iter().map(|s| s.len()).min().unwrap_or(0);
 
     // Command processing thread
     std::thread::Builder::new()
@@ -134,7 +134,7 @@ pub fn spawn_stem_playback(
                     StemCommand::Seek(delta) => {
                         let current_sec = pos_cmd.load(Ordering::Relaxed) as f64 / f64::from(sr);
                         let new_sec = (current_sec + delta).max(0.0);
-                        let new_pos = (new_sec * f64::from(sr)) as usize % total_samples;
+                        let new_pos = (new_sec * f64::from(sr)) as usize % total_samples.max(1);
                         pos_cmd.store(new_pos, Ordering::Relaxed);
                         clock_cmd.set_sample_pos(new_pos);
                     }
@@ -172,7 +172,7 @@ pub fn spawn_stem_playback(
                 return;
             }
 
-            let total = stem_samples[0].len();
+            let total = stem_samples.iter().map(|s| s.len()).min().unwrap_or(0);
             if total == 0 {
                 return;
             }

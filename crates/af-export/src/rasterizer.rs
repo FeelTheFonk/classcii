@@ -24,6 +24,7 @@ impl Rasterizer {
         let font = FontRef::try_from_slice(font_data)?;
         let scale = PxScale::from(scale_px);
 
+        // ab_glyph guarantees height_unscaled() > 0 for valid fonts loaded via FontRef::try_from_slice
         let v_advance = font.ascent_unscaled() - font.descent_unscaled() + font.line_gap_unscaled();
         let height = (v_advance * scale.y / font.height_unscaled()).ceil() as u32;
 
@@ -52,26 +53,39 @@ impl Rasterizer {
         rasterizer.cache_charset(&font, scale, 0x00A0..=0x00FF);
 
         // Sextant characters (Unicode 13.0 Symbols for Legacy Computing)
-        rasterizer.cache_charset(&font, scale, 0x1FB00..=0x1FB3B);
+        let sextant_skip = rasterizer.cache_charset(&font, scale, 0x1FB00..=0x1FB3B);
+        if sextant_skip > 0 {
+            log::warn!(
+                "Rasterizer: {sextant_skip}/60 Sextant glyphs missing from font (U+1FB00..1FB3B) — export may show blank cells in Sextant mode"
+            );
+        }
 
-        // Octant characters (future-proof — skipped silently if font lacks coverage)
-        rasterizer.cache_charset(&font, scale, 0x1CD00..=0x1CDE5);
+        // Octant characters (Unicode 16.0 — many fonts lack coverage)
+        let octant_skip = rasterizer.cache_charset(&font, scale, 0x1CD00..=0x1CDE5);
+        if octant_skip > 0 {
+            log::warn!(
+                "Rasterizer: {octant_skip}/230 Octant glyphs missing from font (U+1CD00..1CDE5) — export may show blank cells in Octant mode"
+            );
+        }
 
         Ok(rasterizer)
     }
 
+    /// Cache glyphs for a Unicode range. Returns count of glyphs missing from font.
     fn cache_charset(
         &mut self,
         font: &FontRef,
         scale: PxScale,
         range: std::ops::RangeInclusive<u32>,
-    ) {
+    ) -> usize {
+        let mut skipped = 0;
         for codepoint in range {
             if let Some(ch) = std::char::from_u32(codepoint) {
                 // Skip characters not actually in the font (glyph_id 0 = .notdef)
                 // to avoid rendering placeholder "?" boxes in exported video.
                 let gid = font.glyph_id(ch);
                 if gid.0 == 0 && ch != '\0' {
+                    skipped += 1;
                     continue;
                 }
 
@@ -97,6 +111,7 @@ impl Rasterizer {
                 self.glyph_cache.insert(ch, buffer);
             }
         }
+        skipped
     }
 
     /// Rendu de l'AsciiGrid sur le FrameBuffer.

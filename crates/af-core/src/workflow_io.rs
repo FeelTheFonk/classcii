@@ -146,7 +146,8 @@ pub fn write_stem_wavs(workflow_dir: &Path, stems: &[(&[f32], u32); 4]) -> Resul
 
 /// Write mono f32 PCM samples as a WAV file (IEEE float format, no external deps).
 fn write_wav_f32(path: &Path, samples: &[f32], sample_rate: u32) -> Result<()> {
-    let data_len = (samples.len() * 4) as u32;
+    let data_len = u32::try_from(samples.len() * 4)
+        .context("WAV data too large: samples.len() * 4 overflows u32 (> ~1 GB)")?;
     let file_len = 36 + data_len;
     let mut f = std::io::BufWriter::new(
         fs::File::create(path).with_context(|| format!("Create WAV: {}", path.display()))?,
@@ -240,7 +241,8 @@ pub fn load_workflow(dir: &Path) -> Result<LoadedWorkflow> {
 
     // Config
     let config_str = fs::read_to_string(dir.join("config.toml")).context("Read config.toml")?;
-    let config: RenderConfig = toml::from_str(&config_str).context("Parse config.toml")?;
+    let mut config: RenderConfig = toml::from_str(&config_str).context("Parse config.toml")?;
+    config.clamp_all();
 
     // Source
     let source_str = fs::read_to_string(dir.join("source.toml")).context("Read source.toml")?;

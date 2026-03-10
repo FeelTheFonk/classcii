@@ -21,7 +21,7 @@ pub fn process_halfblock(frame: &FrameBuffer, config: &RenderConfig, grid: &mut 
     let pixel_h = u32::from(grid.height) * 2;
     let pixel_w = u32::from(grid.width);
 
-    crate::for_each_row(&mut grid.cells, pixel_w as usize, |cy, row| {
+    crate::for_each_row(&mut grid.cells, grid.width as usize, |cy, row| {
         for (cx, cell) in row.iter_mut().enumerate() {
             let x0 = (cx as u32) * frame.width / pixel_w.max(1);
             let x1 = ((cx as u32 + 1) * frame.width / pixel_w.max(1)).min(frame.width);

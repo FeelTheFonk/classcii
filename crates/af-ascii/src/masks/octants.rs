@@ -327,7 +327,7 @@ pub fn process_octant(frame: &FrameBuffer, config: &RenderConfig, grid: &mut Asc
                     let raw_lum = frame.luminance_linear(px, py);
                     let lum = crate::adjust_lum(raw_lum, config.contrast, config.brightness);
                     let (r, g, b, _) = frame.pixel(px, py);
-                    let idx = (dy * 2 + dx) as usize;
+                    let idx = (dx * 4 + dy) as usize;
                     lum_values[idx] = lum;
                     lum_sum += u32::from(lum);
 

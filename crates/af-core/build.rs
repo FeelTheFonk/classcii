@@ -39,7 +39,8 @@ fn main() {
     for (name, abs_path) in &entries {
         // Use include_str! with the absolute path so cargo tracks the file
         let escaped = abs_path.replace('\\', "\\\\");
-        writeln!(f, "    (\"{name}\", include_str!(\"{escaped}\")),").ok();
+        let escaped_name = name.replace('"', "\\\"");
+        writeln!(f, "    (\"{escaped_name}\", include_str!(\"{escaped}\")),").ok();
     }
     writeln!(f, "];").ok();
 

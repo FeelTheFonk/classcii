@@ -32,7 +32,8 @@ impl FeatureTimeline {
             return AudioFeatures::default();
         }
 
-        let index = (time as f32 / self.frame_duration) as usize;
+        // Use f64 arithmetic to avoid precision loss on long audio files (e.g. 1h+ at 60fps).
+        let index = (time / f64::from(self.frame_duration)) as usize;
         let clamped_index = index.min(self.frames.len().saturating_sub(1));
         self.frames[clamped_index]
     }
@@ -107,6 +108,32 @@ impl FeatureTimeline {
             f.timbral_roughness = norm(f.timbral_roughness, tr_min, tr_max);
             f.onset_envelope = norm(f.onset_envelope, oe_min, oe_max);
             f.beat_intensity = norm(f.beat_intensity, bi_min, bi_max);
+        }
+
+        // Normalize mfcc[5] per-element
+        for k in 0..5 {
+            let mut mfcc_min = f32::MAX;
+            let mut mfcc_max = f32::MIN;
+            for f in &self.frames {
+                mfcc_min = mfcc_min.min(f.mfcc[k]);
+                mfcc_max = mfcc_max.max(f.mfcc[k]);
+            }
+            for f in &mut self.frames {
+                f.mfcc[k] = norm(f.mfcc[k], mfcc_min, mfcc_max);
+            }
+        }
+
+        // Normalize spectrum_bands[32] per-element
+        for k in 0..32 {
+            let mut band_min = f32::MAX;
+            let mut band_max = f32::MIN;
+            for f in &self.frames {
+                band_min = band_min.min(f.spectrum_bands[k]);
+                band_max = band_max.max(f.spectrum_bands[k]);
+            }
+            for f in &mut self.frames {
+                f.spectrum_bands[k] = norm(f.spectrum_bands[k], band_min, band_max);
+            }
         }
     }
 
@@ -204,6 +231,9 @@ impl StemFeatureTimeline {
             for (j, band) in f.spectrum_bands.iter().enumerate() {
                 combined.spectrum_bands[j] += band * w;
             }
+            for (j, coeff) in f.mfcc.iter().enumerate() {
+                combined.mfcc[j] += coeff * w;
+            }
             weight_sum += w;
         }
 
@@ -226,6 +256,9 @@ impl StemFeatureTimeline {
             combined.zero_crossing_rate *= inv;
             for band in &mut combined.spectrum_bands {
                 *band *= inv;
+            }
+            for coeff in &mut combined.mfcc {
+                *coeff *= inv;
             }
         }
 

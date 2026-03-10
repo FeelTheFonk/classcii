@@ -36,6 +36,9 @@ pub struct FrameBuffer {
 impl FrameBuffer {
     /// Crée un buffer pré-alloué aux dimensions données.
     ///
+    /// Uses checked arithmetic to prevent overflow on 32-bit platforms.
+    /// On 64-bit, u32 * u32 * 4 always fits in usize.
+    ///
     /// # Example
     /// ```
     /// use af_core::frame::FrameBuffer;
@@ -46,8 +49,13 @@ impl FrameBuffer {
     /// ```
     #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
+        // u32::MAX * u32::MAX * 4 overflows on 32-bit but fits on 64-bit.
+        // Saturate to 0 on overflow so we get an empty buffer instead of UB.
+        let size = (width as usize)
+            .saturating_mul(height as usize)
+            .saturating_mul(4);
         Self {
-            data: vec![0u8; (width * height * 4) as usize],
+            data: vec![0u8; size],
             width,
             height,
         }
@@ -137,12 +145,13 @@ impl FrameBuffer {
         for py in y0..y1 {
             for px in x0..x1 {
                 let idx = ((py * self.width + px) * 4) as usize;
-                if idx + 2 < self.data.len() {
-                    sr += u32::from(self.data[idx]);
-                    sg += u32::from(self.data[idx + 1]);
-                    sb += u32::from(self.data[idx + 2]);
-                    count += 1;
+                if idx + 3 >= self.data.len() {
+                    continue;
                 }
+                sr += u32::from(self.data[idx]);
+                sg += u32::from(self.data[idx + 1]);
+                sb += u32::from(self.data[idx + 2]);
+                count += 1;
             }
         }
         if count == 0 {
@@ -235,6 +244,12 @@ impl AsciiGrid {
     /// ```
     #[inline(always)]
     pub fn set(&mut self, x: u16, y: u16, cell: AsciiCell) {
+        debug_assert!(
+            x < self.width && y < self.height,
+            "AsciiGrid::set out of bounds: ({x}, {y}) in {}x{}",
+            self.width,
+            self.height
+        );
         self.cells[y as usize * self.width as usize + x as usize] = cell;
     }
 
@@ -250,6 +265,12 @@ impl AsciiGrid {
     #[inline(always)]
     #[must_use]
     pub fn get(&self, x: u16, y: u16) -> &AsciiCell {
+        debug_assert!(
+            x < self.width && y < self.height,
+            "AsciiGrid::get out of bounds: ({x}, {y}) in {}x{}",
+            self.width,
+            self.height
+        );
         &self.cells[y as usize * self.width as usize + x as usize]
     }
 

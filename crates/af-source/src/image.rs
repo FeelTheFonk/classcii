@@ -74,6 +74,11 @@ pub fn load_image(path: &str) -> Result<FrameBuffer> {
     })
 }
 
+/// Maximum number of frames to decode from a GIF.
+const MAX_GIF_FRAMES: usize = 2000;
+/// Maximum total decoded memory in bytes (512 MB).
+const MAX_GIF_BYTES: usize = 512 * 1024 * 1024;
+
 /// Source de GIF animé. Pré-décode toutes les frames et les boucle avec timing natif.
 ///
 /// # Example
@@ -95,6 +100,9 @@ impl GifSource {
     /// Décode un GIF animé depuis le disque.
     /// Retourne `Ok(None)` si le GIF n'a qu'une seule frame (utiliser `ImageSource`).
     ///
+    /// Limits decoding to `MAX_GIF_FRAMES` frames and `MAX_GIF_BYTES` total memory
+    /// to prevent OOM on large GIFs.
+    ///
     /// # Errors
     /// Retourne une erreur si le fichier ne peut être ouvert ou décodé.
     #[allow(clippy::cast_possible_truncation)]
@@ -108,24 +116,41 @@ impl GifSource {
             File::open(path).with_context(|| format!("Impossible d'ouvrir {}", path.display()))?;
         let decoder = GifDecoder::new(BufReader::new(file))
             .with_context(|| format!("GIF invalide: {}", path.display()))?;
-        let raw_frames = decoder
-            .into_frames()
-            .collect_frames()
-            .with_context(|| format!("Erreur décodage frames GIF: {}", path.display()))?;
 
-        if raw_frames.len() <= 1 {
-            return Ok(None);
-        }
+        let mut frames = Vec::new();
+        let mut delays = Vec::new();
+        let mut total_bytes: usize = 0;
 
-        let mut frames = Vec::with_capacity(raw_frames.len());
-        let mut delays = Vec::with_capacity(raw_frames.len());
+        for raw_result in decoder.into_frames() {
+            let raw = raw_result
+                .with_context(|| format!("Erreur décodage frame GIF: {}", path.display()))?;
 
-        for raw in &raw_frames {
+            let buf = raw.buffer();
+            let frame_bytes = buf.as_raw().len();
+
+            if frames.len() >= MAX_GIF_FRAMES {
+                log::warn!(
+                    "GIF {}: frame limit reached ({MAX_GIF_FRAMES}), stopping decode ({} frames kept)",
+                    path.display(),
+                    frames.len()
+                );
+                break;
+            }
+
+            if total_bytes.saturating_add(frame_bytes) > MAX_GIF_BYTES {
+                log::warn!(
+                    "GIF {}: memory limit reached ({} MB), stopping decode ({} frames kept)",
+                    path.display(),
+                    MAX_GIF_BYTES / (1024 * 1024),
+                    frames.len()
+                );
+                break;
+            }
+
             let (numer, denom) = raw.delay().numer_denom_ms();
             let ms = if denom == 0 { 100 } else { numer / denom };
             let delay = Duration::from_millis(u64::from(ms.max(10)));
 
-            let buf = raw.buffer();
             let (w, h) = (buf.width(), buf.height());
             frames.push(Arc::new(FrameBuffer {
                 data: buf.as_raw().clone(),
@@ -133,6 +158,11 @@ impl GifSource {
                 height: h,
             }));
             delays.push(delay);
+            total_bytes += frame_bytes;
+        }
+
+        if frames.len() <= 1 {
+            return Ok(None);
         }
 
         Ok(Some(Self {

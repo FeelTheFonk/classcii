@@ -215,6 +215,10 @@ pub struct App {
     stem_stream: Option<cpal::Stream>,
     /// Shared pause flag for the stem analysis thread.
     stem_paused: Option<Arc<std::sync::atomic::AtomicBool>>,
+    /// Stop flag for the stem analysis thread (set to true before join).
+    stem_analysis_stop: Option<Arc<std::sync::atomic::AtomicBool>>,
+    /// Join handle for the stem analysis thread.
+    stem_analysis_handle: Option<std::thread::JoinHandle<()>>,
 
     // ── Workflow save/load state ──
     /// Name buffer for workflow save overlay.
@@ -349,6 +353,8 @@ impl App {
             separation_progress: None,
             stem_stream: None,
             stem_paused: None,
+            stem_analysis_stop: None,
+            stem_analysis_handle: None,
 
             workflow_save_name: String::new(),
             workflow_save_desc: String::new(),
@@ -383,7 +389,7 @@ impl App {
 
             // === Calcul du frame timing ===
             let config_guard = self.config.load();
-            let frame_duration = Duration::from_secs_f64(1.0 / f64::from(config_guard.target_fps));
+            let frame_duration = Duration::from_secs_f64(1.0 / f64::from(config_guard.target_fps.max(1)));
             drop(config_guard);
 
             let now = Instant::now();
@@ -399,9 +405,14 @@ impl App {
                         self.handle_event(&event::read()?);
                     }
                 }
-                continue;
+                // Re-check elapsed time after waiting; only skip render if frame
+                // duration truly hasn't been reached yet (no events consumed).
+                let now2 = Instant::now();
+                if now2 - last_frame < frame_duration {
+                    continue;
+                }
             }
-            last_frame = now;
+            last_frame = Instant::now();
 
             // === Polling événements non-bloquant ===
             while event::poll(Duration::ZERO)? {
@@ -547,7 +558,7 @@ impl App {
                 // Creation mode modulation (runs even when overlay is hidden)
                 if self.creation_mode_active {
                     let image_feats = crate::creation::compute_image_features(&self.grid);
-                    let dt = 1.0 / render_config.target_fps as f32;
+                    let dt = 1.0 / render_config.target_fps.max(1) as f32;
                     if let Some(ref features) = audio_features {
                         self.creation_engine.modulate(
                             features,
@@ -634,7 +645,7 @@ impl App {
 
             // B.1: Frame budget tracking
             let render_elapsed = render_start.elapsed();
-            let frame_budget = Duration::from_secs_f64(1.0 / f64::from(render_config.target_fps));
+            let frame_budget = Duration::from_secs_f64(1.0 / f64::from(render_config.target_fps.max(1)));
             if render_elapsed > frame_budget + frame_budget / 2 {
                 self.perf_exceed_count = self.perf_exceed_count.saturating_add(1);
                 if self.perf_exceed_count >= 10 {
@@ -889,6 +900,7 @@ impl App {
                         return;
                     }
                     KeyCode::Down => {
+                        // Cap scroll at approximate help text length
                         self.help_scroll_offset = self.help_scroll_offset.saturating_add(1).min(80);
                         return;
                     }
@@ -1734,6 +1746,8 @@ impl App {
                     }
                     af_stems::separator::SeparationProgress::Error(e) => {
                         log::error!("Stem separation failed: {e}");
+                        self.workflow_flash_msg = Some(format!("Stem separation failed: {e}"));
+                        self.workflow_flash_frames = 120;
                         self.separation_progress = None;
                         self.separation_progress_rx = None;
                         self.stem_set_rx = None;
@@ -1773,6 +1787,8 @@ impl App {
 
         if let Err(e) = af_stems::separator::preflight_check(&config) {
             log::error!("Stem separation preflight failed: {e}");
+            self.workflow_flash_msg = Some(format!("Stem preflight failed: {e}"));
+            self.workflow_flash_frames = 120;
             return;
         }
 
@@ -1820,6 +1836,12 @@ impl App {
         let clock = Arc::new(MediaClock::new(stem_set.sample_rate));
         self.media_clock = Some(Arc::clone(&clock));
 
+        // Propager le nouveau clock au thread vidéo pour la sync A/V
+        #[cfg(feature = "video")]
+        if let Some(ref tx) = self.video_cmd_tx {
+            let _ = tx.send(VideoCommand::UpdateClock(Some(Arc::clone(&clock))));
+        }
+
         let (cmd_tx, cmd_rx) = flume::unbounded();
         self.stem_cmd_tx = Some(cmd_tx);
 
@@ -1841,18 +1863,22 @@ impl App {
         // Start analysis thread
         let is_paused = Arc::new(std::sync::atomic::AtomicBool::new(false));
         self.stem_paused = Some(Arc::clone(&is_paused));
+        let is_stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.stem_analysis_stop = Some(Arc::clone(&is_stopped));
 
         let config = self.config.load();
         match af_stems::analysis::spawn_stem_analysis_thread(
             stem_set,
             Arc::clone(&clock),
             is_paused,
+            is_stopped,
             config.target_fps,
             config.audio_smoothing,
             config.input_gain,
         ) {
-            Ok(output) => {
+            Ok((output, handle)) => {
                 self.stem_features_output = Some(output);
+                self.stem_analysis_handle = Some(handle);
             }
             Err(e) => {
                 log::error!("Failed to start stem analysis: {e}");
@@ -2403,6 +2429,12 @@ impl App {
         self.audio_output = None;
         self.media_clock = None;
 
+        // Informer le thread vidéo que le clock est supprimé → mode wall-clock
+        #[cfg(feature = "video")]
+        if let Some(ref tx) = self.video_cmd_tx {
+            let _ = tx.send(VideoCommand::UpdateClock(None));
+        }
+
         // Clean up stem separation state
         if let Some(ref tx) = self.stem_cmd_tx {
             let _ = tx.send(StemCommand::Quit);
@@ -2410,8 +2442,17 @@ impl App {
         self.stem_cmd_tx = None;
         self.stem_stream = None; // Drop cpal stream (stops playback)
         self.stem_set = None;
+
+        // Signal the analysis thread to stop, then join it before dropping the buffer
+        if let Some(ref stop) = self.stem_analysis_stop {
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        if let Some(handle) = self.stem_analysis_handle.take() {
+            let _ = handle.join();
+        }
         self.stem_features_output = None;
         self.stem_paused = None;
+        self.stem_analysis_stop = None;
         self.separation_progress = None;
         self.separation_progress_rx = None;
         self.stem_set_rx = None;
@@ -2517,14 +2558,22 @@ impl App {
     }
 
     /// Start audio analysis from a file path.
+    ///
+    /// Creates a new `MediaClock` and propagates it to the video thread
+    /// (if running) via `VideoCommand::UpdateClock` to maintain A/V sync.
     fn start_audio_from_path(&mut self, path_str: &str) {
         let clock = Arc::new(MediaClock::new(0));
         match pipeline::start_audio(path_str, &self.config, Arc::clone(&clock)) {
             Ok((output, tx)) => {
                 self.audio_output = Some(output);
                 self.audio_cmd_tx = tx;
-                self.media_clock = Some(clock);
+                self.media_clock = Some(Arc::clone(&clock));
                 self.loaded_audio_path = Some(std::path::PathBuf::from(path_str));
+                // Propager le nouveau clock au thread vidéo (fix: video statique après chargement audio)
+                #[cfg(feature = "video")]
+                if let Some(ref tx) = self.video_cmd_tx {
+                    let _ = tx.send(VideoCommand::UpdateClock(Some(clock)));
+                }
                 log::info!("Audio démarré: {path_str}");
             }
             Err(e) => log::warn!("Audio non disponible: {e}"),

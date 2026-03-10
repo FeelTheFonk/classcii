@@ -31,10 +31,11 @@ pub fn spawn_stem_analysis_thread(
     stem_set: &StemSet,
     clock: Arc<MediaClock>,
     is_paused: Arc<AtomicBool>,
+    is_stopped: Arc<AtomicBool>,
     target_fps: u32,
     smoothing: f32,
     input_gain: f32,
-) -> Result<triple_buffer::Output<StemFeatures>> {
+) -> Result<(triple_buffer::Output<StemFeatures>, thread::JoinHandle<()>)> {
     let (mut buf_input, buf_output) = TripleBuffer::new(&StemFeatures::default()).split();
 
     // Clone stem sample arcs for the analysis thread
@@ -42,7 +43,7 @@ pub fn spawn_stem_analysis_thread(
         std::array::from_fn(|i| Arc::clone(&stem_set.stems[i].samples));
     let sample_rate = stem_set.sample_rate;
 
-    thread::Builder::new()
+    let handle = thread::Builder::new()
         .name("af-stems-analysis".into())
         .spawn(move || {
             run_analysis_loop(
@@ -51,13 +52,14 @@ pub fn spawn_stem_analysis_thread(
                 sample_rate,
                 &clock,
                 &is_paused,
+                &is_stopped,
                 target_fps,
                 smoothing,
                 input_gain,
             );
         })?;
 
-    Ok(buf_output)
+    Ok((buf_output, handle))
 }
 
 /// Core analysis loop: per-stem FFT + feature extraction at target FPS.
@@ -68,6 +70,7 @@ fn run_analysis_loop(
     sample_rate: u32,
     clock: &MediaClock,
     is_paused: &AtomicBool,
+    is_stopped: &AtomicBool,
     target_fps: u32,
     smoothing: f32,
     input_gain: f32,
@@ -83,10 +86,15 @@ fn run_analysis_loop(
     let mut filterbanks: [MelFilterbank; STEM_COUNT] =
         std::array::from_fn(|_| MelFilterbank::new(fft_size, sample_rate));
     let mut window_bufs: Vec<Vec<f32>> = (0..STEM_COUNT).map(|_| vec![0.0f32; fft_size]).collect();
+    let mut onset_envs: [f32; STEM_COUNT] = [0.0; STEM_COUNT];
 
     let fps = target_fps as f32;
 
     loop {
+        if is_stopped.load(Ordering::Relaxed) {
+            break;
+        }
+
         if is_paused.load(Ordering::Relaxed) {
             buf_input.write(StemFeatures::default());
             thread::sleep(frame_period);
@@ -104,12 +112,12 @@ fn run_analysis_loop(
             }
 
             // Fill window buffer centered on current playback position
+            // rem_euclid handles all cases without usize underflow
+            // (safe even when total < fft_size; values are audio buffer indices, never near isize::MAX)
+            #[allow(clippy::cast_possible_wrap)]
             for (i, slot) in window_bufs[stem_idx].iter_mut().enumerate() {
-                let idx = if current_pos >= fft_size {
-                    (current_pos - fft_size + i) % total
-                } else {
-                    (total + current_pos - fft_size + i) % total
-                };
+                let idx = (current_pos as isize - fft_size as isize + i as isize)
+                    .rem_euclid(total as isize) as usize;
                 *slot = samples[idx];
             }
 
@@ -134,6 +142,14 @@ fn run_analysis_loop(
             feats.bpm = bpm;
             feats.beat_phase = phase;
             feats.spectral_flux = flux;
+
+            // onset_envelope: strobe-style decay (parity with batch_analyzer)
+            if onset {
+                onset_envs[stem_idx] = 1.0;
+            } else {
+                onset_envs[stem_idx] *= 0.85;
+            }
+            feats.onset_envelope = onset_envs[stem_idx];
 
             // MFCC timbral features
             let mfcc = filterbanks[stem_idx].compute(spectrum);

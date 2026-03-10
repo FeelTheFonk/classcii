@@ -1,5 +1,5 @@
 /// Shape matching engine: bitmap correlation per spec §49.
-
+///
 /// Static shape table — 17 hardcoded 5×5 bitmaps (row-major, LSB first).
 const SHAPE_TABLE: &[(char, u32)] = &[
     (' ', 0b00000_00000_00000_00000_00000),

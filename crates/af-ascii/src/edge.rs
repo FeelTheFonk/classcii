@@ -15,7 +15,7 @@ use af_core::frame::FrameBuffer;
 /// ```
 #[must_use]
 pub fn detect_edge(frame: &FrameBuffer, x: u32, y: u32) -> (f32, f32) {
-    if x == 0 || y == 0 || x >= frame.width - 1 || y >= frame.height - 1 {
+    if frame.width < 2 || frame.height < 2 || x == 0 || y == 0 || x >= frame.width - 1 || y >= frame.height - 1 {
         return (0.0, 0.0);
     }
 

@@ -2,6 +2,7 @@
 
 use af_core::config::RenderConfig;
 use af_core::frame::{AsciiGrid, AudioFeatures};
+use std::f32::consts::TAU;
 
 /// Image-level features computed from the current ASCII grid.
 pub struct ImageFeatures {
@@ -254,7 +255,7 @@ impl CreationEngine {
                 let scan = (audio.presence * 4.0 * mi) as u8;
                 config.scanline_gap = if scan >= 2 { scan.min(8) } else { 0 };
                 // Camera: rotation from centroid, zoom from bass
-                config.camera_rotation += audio.spectral_centroid * 0.02 * mi;
+                config.camera_rotation = (config.camera_rotation + audio.spectral_centroid * 0.02 * mi) % TAU;
                 config.camera_zoom_amplitude = (1.0 + audio.bass * 0.3 * mi).clamp(0.1, 10.0);
             }
             CreationPreset::Cinematic => {
@@ -316,7 +317,7 @@ impl CreationEngine {
                 config.zalgo_intensity = (audio.timbral_brightness * 1.5 * mi).clamp(0.0, 5.0);
                 // Camera: pan from flatness, rotation from roughness
                 config.camera_pan_x = (audio.spectral_flatness * 0.3 * mi - 0.15).clamp(-2.0, 2.0);
-                config.camera_rotation += audio.timbral_roughness * 0.01 * mi;
+                config.camera_rotation = (config.camera_rotation + audio.timbral_roughness * 0.01 * mi) % TAU;
             }
             CreationPreset::Glitch => {
                 // Digital corruption: zalgo dominant, chromatic aggressive

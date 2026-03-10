@@ -79,7 +79,7 @@ pub struct RenderConfig {
     pub chromatic_offset: f32,
     /// Wave distortion amplitude [0.0, 1.0]. 0.0 = disabled.
     pub wave_amplitude: f32,
-    /// Wave distortion speed [0.5, 10.0].
+    /// Wave distortion speed [0.0, 10.0].
     pub wave_speed: f32,
     /// Color pulse hue rotation speed [0.0, 5.0]. 0.0 = disabled.
     pub color_pulse_speed: f32,
@@ -425,9 +425,11 @@ impl RenderConfig {
         self.color_pulse_speed = self.color_pulse_speed.clamp(0.0, 5.0);
         self.temporal_stability = self.temporal_stability.clamp(0.0, 1.0);
         self.camera_zoom_amplitude = self.camera_zoom_amplitude.clamp(0.1, 10.0);
+        self.camera_rotation = self.camera_rotation.rem_euclid(std::f32::consts::TAU);
         self.camera_pan_x = self.camera_pan_x.clamp(-2.0, 2.0);
         self.camera_pan_y = self.camera_pan_y.clamp(-2.0, 2.0);
         self.camera_tilt_x = self.camera_tilt_x.clamp(-1.0, 1.0);
+        self.charset_index = self.charset_index.min(13);
         self.scanline_gap = self.scanline_gap.min(8);
         self.scanline_darken = self.scanline_darken.clamp(0.0, 1.0);
         self.target_fps = self.target_fps.clamp(15, 120);
@@ -440,6 +442,27 @@ impl RenderConfig {
             mapping.offset = mapping.offset.clamp(-5.0, 5.0);
             if let Some(s) = mapping.smoothing {
                 mapping.smoothing = Some(s.clamp(0.0, 1.0));
+            }
+            if !AUDIO_SOURCES.contains(&mapping.source.as_str()) {
+                log::warn!(
+                    "Unknown audio source '{}' in mapping → target '{}' (ignored, will output 0.0)",
+                    mapping.source,
+                    mapping.target
+                );
+            }
+            if !AUDIO_TARGETS.contains(&mapping.target.as_str()) {
+                log::warn!(
+                    "Unknown audio target '{}' from source '{}' (ignored)",
+                    mapping.target,
+                    mapping.source
+                );
+            }
+            if let Some(ref stem) = mapping.stem_source
+                && !["drums", "bass", "other", "vocals"].contains(&stem.as_str())
+            {
+                log::warn!(
+                    "Unknown stem_source '{stem}' in mapping (ignored, will use combined mix)"
+                );
             }
         }
     }

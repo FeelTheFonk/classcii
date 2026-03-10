@@ -106,6 +106,10 @@ impl Compositor {
         let grid_w = u32::from(grid.width).max(1);
         let grid_h = u32::from(grid.height).max(1);
 
+        if grid.width == 0 || grid.height == 0 {
+            return;
+        }
+
         crate::for_each_row(&mut grid.cells, grid.width as usize, |cy, row| {
             for (cx, cell) in row.iter_mut().enumerate() {
                 // Area-averaged sampling : moyenne sur la région source couverte par cette cellule

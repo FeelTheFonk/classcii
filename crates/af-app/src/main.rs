@@ -19,14 +19,30 @@ fn main() -> Result<()> {
     // 1. Parser CLI
     let cli = cli::Cli::parse();
 
-    // 2. Initialiser le logging
-    env_logger::Builder::new()
-        .filter_level(cli.log_level.parse().unwrap_or(log::LevelFilter::Warn))
-        .init();
-
     // 2a. Resolve all runtime paths once
     let paths = AppPaths::resolve();
     af_core::paths::init_tool_paths(&paths);
+
+    // 2. Initialiser le logging
+    // TUI mode: redirect logs to file to prevent stderr from corrupting ratatui display.
+    // Batch/CLI modes: keep stderr for direct terminal output.
+    let is_tui_mode = cli.batch_folder.is_none()
+        && !cli.init
+        && !cli.preset_list
+        && !cli.workflow_list;
+    let log_level = cli.log_level.parse().unwrap_or(log::LevelFilter::Warn);
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.filter_level(log_level);
+    if is_tui_mode
+        && let Ok(file) = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(paths.base_dir.join("classcii.log"))
+    {
+        log_builder.target(env_logger::Target::Pipe(Box::new(file)));
+    }
+    log_builder.init();
     log::info!("Base dir: {}", paths.base_dir.display());
 
     // 2b. --init : extract embedded configs to disk, then exit
@@ -68,7 +84,7 @@ fn main() -> Result<()> {
     if let Some(folder) = cli.batch_folder.as_deref() {
         log::info!("Lancement du traitement par lots offline...");
         let preset_all = cli.preset.as_deref() == Some("all");
-        let config = if let Some(ref wf) = loaded_wf {
+        let mut config = if let Some(ref wf) = loaded_wf {
             wf.config.clone()
         } else if preset_all {
             // --preset all : start from default config, presets are loaded internally
@@ -76,6 +92,9 @@ fn main() -> Result<()> {
         } else {
             resolve_config(&cli, &paths)?
         };
+
+        // Apply CLI overrides (--mode, --fps, --no-color) before batch export
+        apply_cli_overrides(&cli, &mut config);
 
         // Resolve audio: workflow may provide stem WAVs or original audio path
         let audio_arg = cli.audio.clone().or_else(|| {
@@ -114,26 +133,7 @@ fn main() -> Result<()> {
     };
 
     // 4b. Appliquer les overrides CLI
-    if let Some(ref mode) = cli.mode {
-        config.render_mode = match mode.as_str() {
-            "ascii" => af_core::config::RenderMode::Ascii,
-            "halfblock" => af_core::config::RenderMode::HalfBlock,
-            "braille" => af_core::config::RenderMode::Braille,
-            "quadrant" => af_core::config::RenderMode::Quadrant,
-            "sextant" => af_core::config::RenderMode::Sextant,
-            "octant" => af_core::config::RenderMode::Octant,
-            _ => {
-                log::warn!("Mode inconnu '{mode}', utilisation du défaut.");
-                config.render_mode
-            }
-        };
-    }
-    if let Some(fps) = cli.fps {
-        config.target_fps = fps;
-    }
-    if cli.no_color {
-        config.color_enabled = false;
-    }
+    apply_cli_overrides(&cli, &mut config);
 
     let config = Arc::new(ArcSwap::from_pointee(config));
 
@@ -320,6 +320,27 @@ fn list_workflows_cli(paths: &AppPaths) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Apply CLI overrides (--mode, --fps, --no-color) onto a mutable config.
+fn apply_cli_overrides(cli: &cli::Cli, config: &mut af_core::config::RenderConfig) {
+    if let Some(ref mode) = cli.mode {
+        match mode.as_str() {
+            "ascii" => config.render_mode = af_core::config::RenderMode::Ascii,
+            "halfblock" => config.render_mode = af_core::config::RenderMode::HalfBlock,
+            "braille" => config.render_mode = af_core::config::RenderMode::Braille,
+            "quadrant" => config.render_mode = af_core::config::RenderMode::Quadrant,
+            "sextant" => config.render_mode = af_core::config::RenderMode::Sextant,
+            "octant" => config.render_mode = af_core::config::RenderMode::Octant,
+            _ => log::warn!("Mode inconnu '{mode}', utilisation du défaut."),
+        }
+    }
+    if let Some(fps) = cli.fps {
+        config.target_fps = fps.max(1);
+    }
+    if cli.no_color {
+        config.color_enabled = false;
+    }
 }
 
 /// Resolve config with embedded fallback. Returns the config only.

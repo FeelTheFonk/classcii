@@ -35,11 +35,13 @@ impl AudioCapture {
 
         let config = device.default_input_config()?;
         let sample_rate = config.sample_rate().0;
-        let channels = config.channels() as usize;
+        let channels = (config.channels() as usize).max(1);
 
         // Ring buffer: 100ms of audio @ sample_rate (sufficient for 60 FPS frame reads)
         let buf_size = (sample_rate as usize / 10).max(4096);
         let (mut producer, consumer) = RingBuffer::new(buf_size);
+
+        let mut drop_count: usize = 0;
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -47,7 +49,14 @@ impl AudioCapture {
                 // Downmix to mono and push into ring buffer
                 for chunk in data.chunks(channels) {
                     let mono: f32 = chunk.iter().sum::<f32>() / channels as f32;
-                    let _ = producer.push(mono);
+                    if producer.push(mono).is_err() {
+                        drop_count += 1;
+                        if drop_count % 10000 == 1 {
+                            log::warn!(
+                                "Audio ring buffer full: {drop_count} samples dropped so far"
+                            );
+                        }
+                    }
                 }
             },
             |err| {

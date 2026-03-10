@@ -227,8 +227,10 @@ pub fn draw(frame: &mut Frame, ctx: &DrawContext<'_>) {
         dim_overlay_background(frame, area);
         draw_charset_edit_overlay(frame, area, buf, cursor);
     } else if let Some(creation) = ctx.creation {
+        dim_overlay_background(frame, area);
         draw_creation_overlay(frame, area, creation, ctx.audio);
     } else if let Some(stem) = ctx.stem {
+        dim_overlay_background(frame, area);
         draw_stem_overlay(frame, area, stem);
     } else if let Some(wf_save) = ctx.workflow_save {
         dim_overlay_background(frame, area);
@@ -1134,10 +1136,14 @@ fn draw_workflow_save_overlay(frame: &mut Frame, area: Rect, data: &WorkflowSave
     lines.push(Line::from(Span::styled("  Name:", name_style)));
     let name_display = if data.active_field == 0 {
         let mut s = format!("  {}", data.name);
-        let cursor_pos = data.cursor + 2;
-        if cursor_pos <= s.len() {
-            s.insert(cursor_pos, '\u{2502}');
-        }
+        // cursor_pos is a char count; convert to byte offset to avoid panicking on
+        // non-ASCII characters (str::insert takes a byte index, not a char index).
+        let char_offset = data.cursor + 2; // +2 for the leading "  "
+        let byte_pos = s
+            .char_indices()
+            .nth(char_offset)
+            .map_or(s.len(), |(i, _)| i);
+        s.insert(byte_pos, '\u{2502}');
         s
     } else {
         format!("  {}", data.name)
@@ -1154,10 +1160,12 @@ fn draw_workflow_save_overlay(frame: &mut Frame, area: Rect, data: &WorkflowSave
     lines.push(Line::from(Span::styled("  Description:", desc_style)));
     let desc_display = if data.active_field == 1 {
         let mut s = format!("  {}", data.description);
-        let cursor_pos = data.cursor + 2;
-        if cursor_pos <= s.len() {
-            s.insert(cursor_pos, '\u{2502}');
-        }
+        let char_offset = data.cursor + 2; // +2 for the leading "  "
+        let byte_pos = s
+            .char_indices()
+            .nth(char_offset)
+            .map_or(s.len(), |(i, _)| i);
+        s.insert(byte_pos, '\u{2502}');
         s
     } else {
         let d = if data.description.is_empty() {

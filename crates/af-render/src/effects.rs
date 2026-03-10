@@ -1,8 +1,7 @@
-use af_core::color::{hsv_to_rgb, rgb_to_hsv};
 use af_core::frame::{AsciiCell, AsciiGrid};
 
 /// Post-processing effects on AsciiGrid before rendering.
-
+///
 /// Minimum neighbor brightness to trigger glow propagation.
 /// Calibrated for high-contrast highlight detection.
 const GLOW_BRIGHTNESS_THRESHOLD: u8 = 140;
@@ -48,19 +47,22 @@ pub fn apply_fade_trails(current: &mut AsciiGrid, previous: &AsciiGrid, decay: f
 
     for (cur, prev) in current.cells.iter_mut().zip(previous.cells.iter()) {
         if cur.ch == ' ' && prev.ch != ' ' {
+            // Trail: previous character persists, dimmed
             cur.ch = prev.ch;
             cur.fg = (
                 (f32::from(prev.fg.0) * d) as u8,
                 (f32::from(prev.fg.1) * d) as u8,
                 (f32::from(prev.fg.2) * d) as u8,
             );
-        } else if cur.ch != ' ' {
+        } else if cur.ch != ' ' && prev.ch != ' ' {
+            // Both active: blend current with previous trail
             cur.fg = (
                 (f32::from(cur.fg.0) * keep + f32::from(prev.fg.0) * d) as u8,
                 (f32::from(cur.fg.1) * keep + f32::from(prev.fg.1) * d) as u8,
                 (f32::from(cur.fg.2) * keep + f32::from(prev.fg.2) * d) as u8,
             );
         }
+        // cur != ' ' && prev == ' ' → fresh cell, keep full brightness (no blend)
     }
 }
 
@@ -109,7 +111,7 @@ pub fn apply_glow(grid: &mut AsciiGrid, intensity: f32, brightness_buf: &mut Vec
 /// Apply chromatic aberration: shift R channel left, B channel right.
 ///
 /// `offset` [0.0, 5.0] — pixel offset for R/B channels.
-/// `fg_buf` — pre-allocated buffer, resized internally if needed.
+/// `fg_buf` — pre-allocated buffer for row-level R/G/B reads (avoids full grid copy).
 pub fn apply_chromatic_aberration(
     grid: &mut AsciiGrid,
     offset: f32,
@@ -121,32 +123,30 @@ pub fn apply_chromatic_aberration(
 
     let w = usize::from(grid.width);
     let h = usize::from(grid.height);
-    let needed = w * h;
 
-    fg_buf.resize(needed, (0, 0, 0));
-
-    // Read pass: copy all fg colors from flat array
-    for (i, cell) in grid.cells.iter().enumerate() {
-        fg_buf[i] = cell.fg;
-    }
+    // Only need one row of fg data at a time (not the whole grid)
+    fg_buf.resize(w, (0, 0, 0));
 
     let shift = offset.ceil() as i32;
-    #[allow(clippy::cast_possible_wrap)] // w,x derived from u16, always fits i32
+    #[allow(clippy::cast_possible_wrap)]
     let w_i32 = w as i32;
 
-    // Write pass: shift R left, B right, G stays centered
     for y in 0..h {
-        #[allow(clippy::cast_possible_wrap)]
+        let row_start = y * w;
+
+        // Copy one row of fg colors
+        for (x, slot) in fg_buf[..w].iter_mut().enumerate() {
+            *slot = grid.cells[row_start + x].fg;
+        }
+
+        // Write shifted: R from left, G center, B from right
+        #[allow(clippy::cast_possible_wrap, clippy::needless_range_loop)]
         for x in 0..w {
             let xi = x as i32;
             let r_x = (xi - shift).clamp(0, w_i32 - 1) as usize;
             let b_x = (xi + shift).clamp(0, w_i32 - 1) as usize;
 
-            let r = fg_buf[y * w + r_x].0;
-            let g = fg_buf[y * w + x].1;
-            let b = fg_buf[y * w + b_x].2;
-
-            grid.cells[y * w + x].fg = (r, g, b);
+            grid.cells[row_start + x].fg = (fg_buf[r_x].0, fg_buf[x].1, fg_buf[b_x].2);
         }
     }
 }
@@ -181,24 +181,27 @@ pub fn apply_wave_distortion(
         let yf = f32::from(y);
         let shift = (amplitude
             * MAX_WAVE_SHIFT
-            * (std::f32::consts::TAU * speed * yf / hf + phase).sin()) as i16;
+            * (std::f32::consts::TAU * speed * yf / hf + phase).sin()) as i32;
 
         // Copy row to buffer
         let row_start = usize::from(y) * w;
         row_buf[..w].copy_from_slice(&grid.cells[row_start..row_start + w]);
 
-        // Write shifted with wrapping (no blank gaps)
+        // Write shifted with wrapping (single rem_euclid, faster than double modulo)
         #[allow(clippy::cast_possible_wrap)]
         let w_i32 = w as i32;
         for x in 0..w {
             #[allow(clippy::cast_possible_wrap)]
-            let src_x = ((x as i32 - i32::from(shift)) % w_i32 + w_i32) % w_i32;
-            grid.cells[row_start + x] = row_buf[src_x as usize];
+            let src_x = (x as i32 - shift).rem_euclid(w_i32) as usize;
+            grid.cells[row_start + x] = row_buf[src_x];
         }
     }
 }
 
 /// Apply color pulse: rotate hue of all fg colors.
+///
+/// Uses a 3×3 hue rotation matrix applied directly in RGB space,
+/// avoiding per-cell RGB→HSV→RGB conversions.
 ///
 /// `hue_shift` [0.0, 1.0) — amount to rotate (wraps).
 pub fn apply_color_pulse(grid: &mut AsciiGrid, hue_shift: f32) {
@@ -206,18 +209,40 @@ pub fn apply_color_pulse(grid: &mut AsciiGrid, hue_shift: f32) {
         return;
     }
 
+    // Pre-compute 3×3 hue rotation matrix (Rodrigues' rotation around (1,1,1))
+    let angle = hue_shift * std::f32::consts::TAU;
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    // Matrix coefficients for hue rotation preserving luminance
+    let one_third = 1.0 / 3.0;
+    let sqrt_third = (1.0f32 / 3.0).sqrt();
+    let m00 = cos_a + one_third * (1.0 - cos_a);
+    let m01 = one_third * (1.0 - cos_a) - sqrt_third * sin_a;
+    let m02 = one_third * (1.0 - cos_a) + sqrt_third * sin_a;
+    let m10 = one_third * (1.0 - cos_a) + sqrt_third * sin_a;
+    let m11 = cos_a + one_third * (1.0 - cos_a);
+    let m12 = one_third * (1.0 - cos_a) - sqrt_third * sin_a;
+    let m20 = one_third * (1.0 - cos_a) - sqrt_third * sin_a;
+    let m21 = one_third * (1.0 - cos_a) + sqrt_third * sin_a;
+    let m22 = cos_a + one_third * (1.0 - cos_a);
+
     for cell in &mut grid.cells {
         if cell.ch == ' ' {
             continue;
         }
-        // Skip black cells — no hue to rotate, saves HSV conversion
         if cell.fg.0 == 0 && cell.fg.1 == 0 && cell.fg.2 == 0 {
             continue;
         }
 
-        let (h, s, v) = rgb_to_hsv(cell.fg.0, cell.fg.1, cell.fg.2);
-        let new_h = (h + hue_shift).rem_euclid(1.0);
-        cell.fg = hsv_to_rgb(new_h, s, v);
+        let r = f32::from(cell.fg.0);
+        let g = f32::from(cell.fg.1);
+        let b = f32::from(cell.fg.2);
+
+        cell.fg = (
+            (r * m00 + g * m01 + b * m02).clamp(0.0, 255.0) as u8,
+            (r * m10 + g * m11 + b * m12).clamp(0.0, 255.0) as u8,
+            (r * m20 + g * m21 + b * m22).clamp(0.0, 255.0) as u8,
+        );
     }
 }
 
@@ -251,7 +276,7 @@ pub fn apply_temporal_stability(current: &mut AsciiGrid, previous: &AsciiGrid, t
 
 /// Estimate character visual density [0.0, 1.0].
 /// Uses Unicode block coverage heuristic.
-#[inline]
+#[inline(always)]
 #[allow(clippy::match_same_arms)] // Explicit block element matches intentional vs wildcard 0.5
 fn char_density(ch: char) -> f32 {
     match ch {
@@ -308,7 +333,7 @@ fn sextant_density(ch: char) -> f32 {
     // Map offset back to bitmask: skip 0, 21, 42
     let bitmask = if offset < 20 {
         offset + 1 // bitmasks 1-20
-    } else if offset < 39 {
+    } else if offset < 40 {
         offset + 2 // bitmasks 22-41 (skip 21)
     } else {
         offset + 3 // bitmasks 43-62 (skip 21, 42)

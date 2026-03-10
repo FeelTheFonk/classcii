@@ -47,6 +47,7 @@ pub fn decode_file(path: impl AsRef<Path>) -> Result<(Vec<f32>, u32)> {
 ///
 /// # Errors
 /// Retourne une erreur si le codec n'est pas supporté ou si le fichier est illisible.
+#[allow(clippy::too_many_lines)]
 fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
     let file =
         File::open(path).with_context(|| format!("Cannot open audio file: {}", path.display()))?;
@@ -74,11 +75,15 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
         .default_track()
         .context("No default audio track found")?;
 
-    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let sample_rate = track.codec_params.sample_rate.unwrap_or_else(|| {
+        log::warn!("Sample rate missing from codec params, defaulting to 44100 Hz");
+        44100
+    });
     let channels = track
         .codec_params
         .channels
-        .map_or(1, symphonia::core::audio::Channels::count);
+        .map_or(1, symphonia::core::audio::Channels::count)
+        .max(1);
 
     // Downsample aggressif (div/2) si fréquence > 24kHz
     // pour éviter d'exploser la RAM sur un film de 2 heures.
@@ -93,6 +98,7 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
     let mut all_samples: Vec<f32> = Vec::new();
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
     let mut max_sample_frames: usize = 0;
+    let mut consecutive_decode_errors: u32 = 0;
 
     loop {
         let packet = match format.next_packet() {
@@ -113,9 +119,19 @@ fn decode_via_symphonia(path: &Path) -> Result<(Vec<f32>, u32)> {
         }
 
         let decoded = match decoder.decode(&packet) {
-            Ok(d) => d,
+            Ok(d) => {
+                consecutive_decode_errors = 0;
+                d
+            }
             Err(e) => {
-                log::warn!("Audio decode frame error: {e}");
+                consecutive_decode_errors += 1;
+                if consecutive_decode_errors <= 3 {
+                    log::warn!("Audio decode frame error ({consecutive_decode_errors}): {e}");
+                }
+                if consecutive_decode_errors >= 50 {
+                    log::error!("Audio decode: abandon après 50 erreurs consécutives.");
+                    break;
+                }
                 continue;
             }
         };
@@ -208,7 +224,14 @@ fn decode_via_ffmpeg(path: &Path) -> Result<(Vec<f32>, u32)> {
             .context("Erreur lecture stdout ffmpeg audio")?;
     }
 
-    let _ = child.wait();
+    let exit_status = child.wait().context("Failed to wait for ffmpeg process")?;
+    if !exit_status.success() {
+        log::warn!(
+            "ffmpeg exited with non-zero status {:?} for {}",
+            exit_status.code(),
+            path.display()
+        );
+    }
 
     if raw_bytes.is_empty() {
         anyhow::bail!(
@@ -220,7 +243,16 @@ fn decode_via_ffmpeg(path: &Path) -> Result<(Vec<f32>, u32)> {
     // Convertir les bytes bruts en Vec<f32> (f32le = 4 bytes par sample)
     let num_samples = raw_bytes.len() / 4;
     let mut samples = Vec::with_capacity(num_samples);
-    for chunk in raw_bytes.chunks_exact(4) {
+    let chunks = raw_bytes.chunks_exact(4);
+    let remainder = chunks.remainder();
+    if !remainder.is_empty() {
+        log::warn!(
+            "ffmpeg output has {} trailing bytes (not aligned to f32) for {}",
+            remainder.len(),
+            path.display()
+        );
+    }
+    for chunk in chunks {
         // SAFETY: chunks_exact(4) garantit exactement 4 bytes
         let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
         samples.push(f32::from_le_bytes(bytes));

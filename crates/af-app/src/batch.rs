@@ -1,4 +1,6 @@
 use anyhow::Result;
+#[cfg(feature = "video")]
+use anyhow::Context;
 use std::path::Path;
 
 #[cfg(feature = "video")]
@@ -668,7 +670,7 @@ pub fn run_batch_export(
             log::info!("Étape 1c/4 : Analyse per-stem features...");
             let stem_samples: [Vec<f32>; 4] =
                 std::array::from_fn(|i| (*stem_set.stems[i].samples).clone());
-            let stem_tl = analyzer.analyze_stems(&stem_samples);
+            let stem_tl = analyzer.analyze_stems(&stem_samples)?;
             log::info!(
                 "Stem feature timelines: {} frames per stem",
                 stem_tl.timelines[0].total_frames()
@@ -736,7 +738,7 @@ pub fn run_batch_export(
         let mut raster_fb = FrameBuffer::new(raster_w, raster_h);
 
         let total_frames = mapper.get_timeline().total_frames();
-        let frame_duration = 1.0 / f64::from(target_fps);
+        let frame_duration = 1.0 / f64::from(target_fps.max(1));
         let preset_duration_frames = (preset_duration_secs * target_fps as f32) as u32;
 
         let mut resizer = af_source::resize::Resizer::new();
@@ -1101,10 +1103,9 @@ pub fn run_batch_export(
                 raster_fb.data.fill(0);
                 rasterizer.render(&grid, &mut raster_fb, frame_config.zalgo_intensity);
 
-                if let Err(e) = muxer.write_frame(&raster_fb) {
-                    log::warn!("Pipe write failed (likely interrupted): {e}");
-                    break;
-                }
+                muxer.write_frame(&raster_fb).with_context(|| {
+                    format!("Pipe write failed at frame {frame_idx}/{total_frames}")
+                })?;
             }
 
             // Progress with ETA
@@ -1126,9 +1127,9 @@ pub fn run_batch_export(
 
         // === Étape 4 : Muxage Audio + Vidéo ===
         log::info!("Étape 4/4 : Muxing Audio/Video Final");
-        mux_audio_video(&temp_video, audio_path, final_output)?;
-
-        let _ = std::fs::remove_file(temp_video);
+        let mux_result = mux_audio_video(&temp_video, audio_path, final_output);
+        let _ = std::fs::remove_file(&temp_video); // always clean up temp
+        mux_result?;
 
         log::info!("Export réussi vers {}", final_output.display());
 
@@ -1280,12 +1281,15 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
-    fn load_all_presets_finds_toml_files() {
+    fn load_all_presets_finds_toml_files() -> anyhow::Result<()> {
         // Ensure we're in the workspace root (tests may run from crate dir)
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        let workspace_root = manifest.parent().and_then(|p| p.parent()).unwrap();
-        std::env::set_current_dir(workspace_root).unwrap();
+        let workspace_root = manifest
+            .parent()
+            .and_then(|p| p.parent())
+            .context("Failed to resolve workspace root from CARGO_MANIFEST_DIR")?;
+        std::env::set_current_dir(workspace_root)
+            .context("Failed to set current dir to workspace root")?;
 
         let paths = af_core::paths::AppPaths::resolve();
         let presets = load_all_presets(&paths);
@@ -1300,5 +1304,6 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort_unstable();
         assert_eq!(names, sorted);
+        Ok(())
     }
 }

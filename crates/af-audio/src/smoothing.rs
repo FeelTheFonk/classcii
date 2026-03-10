@@ -98,7 +98,7 @@ impl FeatureSmoother {
     }
 
     /// Attack/release smoothing with per-band scaling factor.
-    /// `scale` < 1.0 = faster response, > 1.0 = slower response.
+    /// `scale` < 1.0 = slower response (smaller alpha = more smoothing), > 1.0 = faster response.
     #[inline(always)]
     fn ar_scaled(&self, current: f32, previous: f32, scale: f32) -> f32 {
         let base = if current > previous {

@@ -19,13 +19,15 @@ flume = { workspace = true }
 # DEVIATION: R9 — ffmpeg-the-third retiré car vcpkg/pkg-config absents sur Windows MSVC.
 # Remplacé par approche subprocess (ffmpeg.exe en PATH via WinGet v8.0.1).
 # ffmpeg-the-third = { version = "2", optional = true }
-arc-swap.workspace = true
 
 [features]
 default = ["image-source"]
 image-source = []
 # DEVIATION: R9 — video ne dépend plus de ffmpeg-the-third, utilise subprocess std::process
 video = []
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

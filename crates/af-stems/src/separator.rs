@@ -83,6 +83,8 @@ pub fn separate_file(
     config: &SeparationConfig,
     progress_tx: &flume::Sender<SeparationProgress>,
 ) -> Result<StemSet> {
+    const STDERR_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
+
     let _ = progress_tx.send(SeparationProgress::Starting);
 
     preflight_check(config)?;
@@ -105,7 +107,7 @@ pub fn separate_file(
     // Spawn Python subprocess
     let mut child = Command::new(&config.python_bin)
         .args([
-            script.to_str().unwrap_or("separate.py"),
+            script.to_str().context("Separation script path is not valid UTF-8")?,
             "--input",
             audio_path.to_str().context("Invalid audio path (non-UTF8)")?,
             "--output-dir",
@@ -125,21 +127,48 @@ pub fn separate_file(
              uv pip install torch torchaudio soundfile numpy pyyaml einops julius --index-url https://download.pytorch.org/whl/cpu",
         )?;
 
-    // Read stderr for progress lines
-    if let Some(stderr) = child.stderr.take() {
-        let reader = std::io::BufReader::new(stderr);
-        for line in reader.lines() {
-            let Ok(line) = line else { break };
-            if let Some(pct_str) = line.strip_prefix("PROGRESS:") {
-                if let Ok(pct) = pct_str.trim().parse::<f32>() {
-                    let _ = progress_tx.send(SeparationProgress::Progress(pct));
+    // Read stderr for progress lines on a background thread to avoid blocking indefinitely.
+    // A 10-minute timeout guards against a hung Python process that never closes stderr.
+    let (line_tx, line_rx) = flume::bounded::<String>(1000);
+    let stderr_thread = if let Some(stderr) = child.stderr.take() {
+        let tx = line_tx;
+        Some(std::thread::spawn(move || {
+            let reader = std::io::BufReader::new(stderr);
+            for line in reader.lines() {
+                let Ok(line) = line else { break };
+                if tx.send(line).is_err() {
+                    break;
                 }
-            } else if line.starts_with("ERROR:") {
-                log::error!("SCNet: {line}");
-            } else {
-                log::debug!("SCNet: {line}");
+            }
+        }))
+    } else {
+        None
+    };
+
+    loop {
+        match line_rx.recv_timeout(STDERR_TIMEOUT) {
+            Ok(line) => {
+                if let Some(pct_str) = line.strip_prefix("PROGRESS:") {
+                    if let Ok(pct) = pct_str.trim().parse::<f32>() {
+                        let _ = progress_tx.send(SeparationProgress::Progress(pct));
+                    }
+                } else if line.starts_with("ERROR:") {
+                    log::error!("SCNet: {line}");
+                } else {
+                    log::debug!("SCNet: {line}");
+                }
+            }
+            Err(flume::RecvTimeoutError::Disconnected) => break,
+            Err(flume::RecvTimeoutError::Timeout) => {
+                log::warn!("SCNet: stderr read timed out after {}s — killing subprocess", STDERR_TIMEOUT.as_secs());
+                let _ = child.kill();
+                break;
             }
         }
+    }
+
+    if let Some(t) = stderr_thread {
+        let _ = t.join();
     }
 
     let status = child
@@ -150,7 +179,8 @@ pub fn separate_file(
         // Try to read error.json
         let error_json_path = output_dir.join("error.json");
         let error_msg = if error_json_path.exists() {
-            let content = std::fs::read_to_string(&error_json_path).unwrap_or_default();
+            let content = std::fs::read_to_string(&error_json_path)
+                .unwrap_or_else(|e| { log::warn!("Failed to read error.json: {e}"); String::new() });
             serde_json::from_str::<serde_json::Value>(&content)
                 .ok()
                 .and_then(|v| v["error"].as_str().map(String::from))

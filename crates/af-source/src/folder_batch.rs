@@ -96,12 +96,21 @@ impl FolderBatchSource {
 
     /// Extrait récursivement les médias reconnus.
     fn scan_dir(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+        Self::scan_dir_bounded(dir, files, 16)
+    }
+
+    /// Depth-bounded recursive directory scanner.
+    fn scan_dir_bounded(dir: &Path, files: &mut Vec<PathBuf>, max_depth: usize) -> Result<()> {
+        if max_depth == 0 {
+            log::warn!("scan_dir: max recursion depth reached at {}", dir.display());
+            return Ok(());
+        }
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
                 let path = entry.path();
                 if path.is_dir() {
-                    Self::scan_dir(&path, files)?;
+                    Self::scan_dir_bounded(&path, files, max_depth - 1)?;
                 } else if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
                     let ext = ext.to_lowercase();
                     let is_image = IMAGE_EXTS.contains(&ext.as_str());
@@ -227,6 +236,13 @@ impl FolderBatchSource {
 impl FolderBatchSource {
     /// Internal: get raw frame without crossfade processing.
     fn raw_next_frame(&mut self) -> Option<Arc<FrameBuffer>> {
+        self.raw_next_frame_inner(0)
+    }
+
+    /// Bounded recursive helper — `depth` guards against infinite recursion
+    /// when all files in the folder produce no frames.
+    #[allow(unused_variables)]
+    fn raw_next_frame_inner(&mut self, depth: usize) -> Option<Arc<FrameBuffer>> {
         if let Some(gif) = &mut self.current_gif {
             self.clip_frame_count += 1;
             return gif.next_frame();
@@ -267,13 +283,19 @@ impl FolderBatchSource {
                             let _ = c.kill();
                             let _ = c.wait();
                         }
+                        // Guard: stop recursion after trying all files once
+                        if depth >= self.files.len() {
+                            log::warn!("FolderBatchSource: all files exhausted, no frames produced");
+                            return None;
+                        }
                         self.next_media();
-                        self.raw_next_frame()
+                        self.raw_next_frame_inner(depth + 1)
                     }
                     Err(e) => {
                         log::warn!("FolderBatchSource: pipe read error: {e}");
                         if let Some(mut c) = self.video_child.take() {
                             let _ = c.kill();
+                            let _ = c.wait();
                         }
                         None
                     }
@@ -342,8 +364,8 @@ impl Source for FolderBatchSource {
 
 /// Linear per-pixel RGBA blend between two frames.
 fn blend_frames(a: &FrameBuffer, b: &FrameBuffer, t: f32) -> FrameBuffer {
-    let w = a.width.max(b.width);
-    let h = a.height.max(b.height);
+    let w = a.width.min(b.width);
+    let h = a.height.min(b.height);
     let mut out = FrameBuffer::new(w, h);
     let inv_t = 1.0 - t;
     let len = out.data.len().min(a.data.len()).min(b.data.len());
@@ -389,9 +411,8 @@ mod tests {
     #[test]
     #[allow(clippy::expect_used)]
     fn scan_dir_recognizes_image_extensions() {
-        let dir = std::env::temp_dir().join("classcii_test_scan_dir");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let tmp = tempfile::tempdir().expect("create temp dir");
+        let dir = tmp.path();
 
         std::fs::write(dir.join("img.png"), b"").expect("write png");
         std::fs::write(dir.join("img.jpg"), b"").expect("write jpg");
@@ -399,7 +420,7 @@ mod tests {
         std::fs::write(dir.join("audio.mp3"), b"").expect("write mp3");
 
         let mut files = Vec::new();
-        FolderBatchSource::scan_dir(&dir, &mut files).expect("scan should succeed");
+        FolderBatchSource::scan_dir(dir, &mut files).expect("scan should succeed");
 
         assert_eq!(
             files.len(),
@@ -417,7 +438,5 @@ mod tests {
                 .iter()
                 .any(|p| p.extension().is_some_and(|e| e == "jpg"))
         );
-
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

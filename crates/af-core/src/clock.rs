@@ -26,6 +26,16 @@ pub struct MediaClock {
     paused: AtomicBool,
 }
 
+impl std::fmt::Debug for MediaClock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MediaClock")
+            .field("pos_secs", &self.pos_secs())
+            .field("started", &self.is_started())
+            .field("paused", &self.is_paused())
+            .finish()
+    }
+}
+
 impl MediaClock {
     /// Crée une horloge avec un sample rate initial.
     ///

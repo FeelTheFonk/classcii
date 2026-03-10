@@ -37,7 +37,7 @@ const SYNC_TOLERANCE_SECS: f64 = 0.04;
 /// let cmd = VideoCommand::Seek(5.0);
 /// assert!(matches!(cmd, VideoCommand::Seek(_)));
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum VideoCommand {
     /// Reprendre la lecture.
     Play,
@@ -47,6 +47,8 @@ pub enum VideoCommand {
     Seek(f64),
     /// Redimensionner le canvas cible (redémarre ffmpeg avec nouveaux `-vf scale`).
     Resize(u32, u32),
+    /// Mettre à jour le clock partagé (quand la source audio change à chaud).
+    UpdateClock(Option<Arc<MediaClock>>),
     /// Arrêter le thread proprement.
     Quit,
 }
@@ -82,8 +84,8 @@ impl VideoState {
     fn new(info: &VideoInfo) -> Self {
         // Cap initial pour limiter la bande passante du pipe :
         // 1920×800@24fps ≈ 142 MB/s → 640×360@24fps ≈ 21 MB/s
-        let w = info.width.min(640);
-        let h = info.height.min(360);
+        // Preserve aspect ratio when capping dimensions
+        let (w, h) = cap_dimensions_preserve_ratio(info.width, info.height, 640, 360);
         let target_fps = info.fps.clamp(1.0, 60.0).round() as u32;
         let pool = (0..POOL_SIZE)
             .map(|_| Arc::new(FrameBuffer::new(w, h)))
@@ -118,9 +120,17 @@ impl VideoState {
 /// let info = probe_video(Path::new("video.mkv"));
 /// ```
 pub fn probe_video(path: &Path) -> Result<VideoInfo> {
-    let path_str = path.to_str().context("Chemin vidéo invalide (non-UTF8)")?;
+    let path_str = if path.to_str().is_none() {
+        log::warn!(
+            "probe_video: chemin non-UTF8, conversion lossy: {}",
+            path.display()
+        );
+        path.to_string_lossy().into_owned()
+    } else {
+        path.to_string_lossy().into_owned()
+    };
 
-    let output = Command::new(af_core::paths::ffprobe_bin())
+    let mut child = Command::new(af_core::paths::ffprobe_bin())
         .args([
             "-v",
             "quiet",
@@ -131,16 +141,43 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
             "-of",
             "default=noprint_wrappers=1",
             "-i",
-            path_str,
+            &path_str,
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .output()
+        .spawn()
         .context(
             "Impossible de lancer ffprobe. Vérifiez que ffprobe est installé et dans le PATH.",
         )?;
 
-    let text = String::from_utf8_lossy(&output.stdout);
+    // Read stdout in a background thread with a 10-second timeout to avoid
+    // blocking indefinitely if ffprobe hangs.
+    let mut stdout = child.stdout.take().context("ffprobe stdout non disponible")?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let read_handle = thread::spawn(move || {
+        let mut buf = Vec::new();
+        let result = stdout.read_to_end(&mut buf);
+        let _ = tx.send(result.map(|_| buf));
+    });
+
+    let stdout_data = match rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(result) => {
+            let _ = read_handle.join();
+            let _ = child.kill();
+            let _ = child.wait();
+            result.context("ffprobe lecture stdout échouée")?
+        }
+        Err(_) => {
+            // Timeout: kill the ffprobe process
+            log::warn!("probe_video: ffprobe timeout (10s) for {}", path.display());
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = read_handle.join();
+            anyhow::bail!("ffprobe timeout (10s) pour {}", path.display());
+        }
+    };
+
+    let text = String::from_utf8_lossy(&stdout_data);
 
     let mut width: u32 = 1920;
     let mut height: u32 = 1080;
@@ -149,18 +186,28 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
 
     for line in text.lines() {
         if let Some(val) = line.strip_prefix("width=") {
-            width = val.trim().parse().unwrap_or(1920);
-            found_any = true;
+            match val.trim().parse() {
+                Ok(w) => { width = w; found_any = true; }
+                Err(_) => log::warn!("ffprobe: width non-parseable '{val}', défaut {width}"),
+            }
         } else if let Some(val) = line.strip_prefix("height=") {
-            height = val.trim().parse().unwrap_or(1080);
-            found_any = true;
+            match val.trim().parse() {
+                Ok(h) => { height = h; found_any = true; }
+                Err(_) => log::warn!("ffprobe: height non-parseable '{val}', défaut {height}"),
+            }
         } else if let Some(val) = line.strip_prefix("r_frame_rate=") {
             found_any = true;
             // Format: "24/1" ou "30000/1001" ou "24000/1001"
             let val = val.trim();
             let mut parts = val.splitn(2, '/');
-            let num: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(30.0);
-            let den: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            let num: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+                log::warn!("ffprobe: r_frame_rate numerator non-parseable '{val}', défaut 30.0");
+                30.0
+            });
+            let den: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+                log::warn!("ffprobe: r_frame_rate denominator non-parseable '{val}', défaut 1.0");
+                1.0
+            });
             if den > 0.0 {
                 fps = num / den;
             }
@@ -207,9 +254,14 @@ pub fn spawn_ffmpeg_pipe(
     pos_secs: f64,
     target_fps: u32,
 ) -> Option<Child> {
-    let Some(path_str) = path.to_str() else {
-        log::warn!("spawn_ffmpeg_pipe: chemin non-UTF8");
-        return None;
+    let path_str = if path.to_str().is_none() {
+        log::warn!(
+            "spawn_ffmpeg_pipe: chemin non-UTF8, conversion lossy: {}",
+            path.display()
+        );
+        path.to_string_lossy().into_owned()
+    } else {
+        path.to_string_lossy().into_owned()
     };
 
     let scale_filter = format!("scale={w}:{h}:flags=lanczos");
@@ -221,7 +273,7 @@ pub fn spawn_ffmpeg_pipe(
             "-ss",
             &pos_str, // seek rapide avant -i (keyframe-based)
             "-i",
-            path_str, // fichier source
+            &path_str, // fichier source
             "-vf",
             &scale_filter, // scale + filter
             "-f",
@@ -278,7 +330,8 @@ fn process_commands(
     state: &mut VideoState,
     maybe_child: &mut Option<Child>,
     path: &Path,
-    clock: Option<&MediaClock>,
+    clock: &mut Option<Arc<MediaClock>>,
+    clock_wait_start: &mut Instant,
 ) -> bool {
     let mut need_restart = false;
     loop {
@@ -287,6 +340,7 @@ fn process_commands(
                 // .as_mut() car maybe_child: &mut Option<Child> (pas de move possible)
                 if let Some(c) = maybe_child.as_mut() {
                     let _ = c.kill();
+                    let _ = c.wait();
                 }
                 log::info!("Thread vidéo: Quit reçu, arrêt propre.");
                 return true;
@@ -301,7 +355,7 @@ fn process_commands(
             }
             Ok(VideoCommand::Seek(delta)) => {
                 // Lire la position depuis le clock audio si disponible
-                let current = clock.map_or(
+                let current = clock.as_deref().map_or(
                     state.current_pos_secs(f64::from(state.target_fps)),
                     MediaClock::pos_secs,
                 );
@@ -314,7 +368,7 @@ fn process_commands(
             Ok(VideoCommand::Resize(nw, nh)) => {
                 if nw > 0 && nh > 0 && (nw != state.w || nh != state.h) {
                     // Preserve playback position through resize (mirrors Seek handler)
-                    state.pipe_start_secs = clock.map_or(
+                    state.pipe_start_secs = clock.as_deref().map_or(
                         state.current_pos_secs(f64::from(state.target_fps)),
                         MediaClock::pos_secs,
                     );
@@ -332,10 +386,16 @@ fn process_commands(
                     );
                 }
             }
+            Ok(VideoCommand::UpdateClock(new_clock)) => {
+                *clock = new_clock;
+                *clock_wait_start = Instant::now();
+                log::info!("Thread vidéo: clock A/V mis à jour");
+            }
             Err(flume::TryRecvError::Empty) => return false,
             Err(flume::TryRecvError::Disconnected) => {
                 if let Some(c) = maybe_child.as_mut() {
                     let _ = c.kill();
+                    let _ = c.wait();
                 }
                 return true;
             }
@@ -344,6 +404,7 @@ fn process_commands(
         if need_restart {
             if let Some(c) = maybe_child.as_mut() {
                 let _ = c.kill();
+                let _ = c.wait();
             }
             *maybe_child = spawn_ffmpeg_pipe(
                 path,
@@ -403,7 +464,7 @@ pub fn spawn_video_thread(
     let handle = thread::Builder::new()
         .name("af-video".to_string())
         .spawn(move || {
-            video_loop(&path, &frame_tx, &cmd_rx, info, clock.as_deref());
+            video_loop(&path, &frame_tx, &cmd_rx, info, clock);
         })
         .context("Impossible de spawner le thread vidéo")?;
 
@@ -420,22 +481,23 @@ fn video_loop(
     frame_tx: &Sender<Arc<FrameBuffer>>,
     cmd_rx: &Receiver<VideoCommand>,
     info: VideoInfo,
-    clock: Option<&MediaClock>,
+    mut clock: Option<Arc<MediaClock>>,
 ) {
     const CLOCK_TIMEOUT: Duration = Duration::from_secs(5);
 
     let mut state = VideoState::new(&info);
-    let frame_period = Duration::from_secs_f64(1.0 / info.fps.clamp(1.0, 120.0));
+    let frame_period = Duration::from_secs_f64(1.0 / info.fps.clamp(1.0, 60.0));
     // DECISION: Pas de spawn immédiat — on attend le premier VideoCommand::Resize
     // envoyé par check_resize() du thread principal (~1 frame après démarrage).
     // Évite un double-spawn inutile (min(640,360) puis taille réelle du canvas).
     let mut maybe_child: Option<Child> = None;
     let mut last_frame = Instant::now();
-    let clock_wait_start = Instant::now();
+    let mut clock_wait_start = Instant::now();
+    let mut consecutive_pipe_errors: u32 = 0;
 
     loop {
         // === Commandes (non-bloquant) ===
-        if process_commands(cmd_rx, &mut state, &mut maybe_child, path, clock) {
+        if process_commands(cmd_rx, &mut state, &mut maybe_child, path, &mut clock, &mut clock_wait_start) {
             return;
         }
 
@@ -446,14 +508,14 @@ fn video_loop(
         }
 
         // === Pause (locale ou via clock audio) ===
-        let clock_paused = clock.is_some_and(MediaClock::is_paused);
+        let clock_paused = clock.as_deref().is_some_and(MediaClock::is_paused);
         if state.is_paused || clock_paused {
             thread::sleep(Duration::from_millis(10));
             continue;
         }
 
         // === Timing : mode synchronisé ou indépendant ===
-        let target_secs = if let Some(c) = clock {
+        let target_secs = if let Some(c) = clock.as_deref() {
             // Mode synchronisé : attendre que l'audio démarre (avec timeout)
             if c.is_started() {
                 c.pos_secs()
@@ -505,6 +567,7 @@ fn video_loop(
 
         match read_result {
             Ok(true) => {
+                consecutive_pipe_errors = 0; // Reset on success
                 state.frames_read += 1;
 
                 // Vidéo en retard sur l'audio → lire la frame mais ne pas l'envoyer (skip)
@@ -516,6 +579,7 @@ fn video_loop(
                 if frame_tx.send(Arc::clone(&state.pool[idx])).is_err() {
                     if let Some(mut c) = maybe_child {
                         let _ = c.kill();
+                        let _ = c.wait();
                     }
                     return;
                 }
@@ -527,11 +591,19 @@ fn video_loop(
                 break;
             }
             Err(e) => {
-                log::warn!("Thread vidéo: erreur lecture pipe: {e}");
+                consecutive_pipe_errors += 1;
+                log::warn!(
+                    "Thread vidéo: erreur lecture pipe ({consecutive_pipe_errors}/5): {e}"
+                );
                 if let Some(mut c) = maybe_child {
                     let _ = c.kill();
+                    let _ = c.wait();
                 }
                 maybe_child = None;
+                if consecutive_pipe_errors >= 5 {
+                    log::error!("Thread vidéo: abandon après 5 erreurs pipe consécutives.");
+                    break;
+                }
                 thread::sleep(Duration::from_millis(100));
             }
         }
@@ -543,4 +615,16 @@ fn video_loop(
         let _ = c.wait();
     }
     log::info!("Thread vidéo terminé proprement.");
+}
+
+/// Cap dimensions while preserving aspect ratio.
+/// Both output dimensions are guaranteed to be >= 1.
+fn cap_dimensions_preserve_ratio(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
+    if w <= max_w && h <= max_h {
+        return (w.max(1), h.max(1));
+    }
+    let scale = (f64::from(max_w) / f64::from(w.max(1))).min(f64::from(max_h) / f64::from(h.max(1)));
+    let new_w = ((f64::from(w) * scale) as u32).max(1);
+    let new_h = ((f64::from(h) * scale) as u32).max(1);
+    (new_w, new_h)
 }

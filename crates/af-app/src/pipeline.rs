@@ -213,7 +213,7 @@ pub fn apply_audio_mappings(
             "onset_envelope" => onset_envelope,
             "spectral_rolloff" => effective_features.spectral_rolloff,
             "zero_crossing_rate" => effective_features.zero_crossing_rate,
-            _ => 0.0,
+            _ => 0.0, // validated at config load time
         };
 
         // Apply response curve

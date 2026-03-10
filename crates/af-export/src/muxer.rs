@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 
 /// Encode des raw frames RGBA dans un fichier MP4 avec ffmpeg (Lossless).
 pub struct Mp4Muxer {
-    ffmpeg_child: Child,
+    ffmpeg_child: Option<Child>,
 }
 
 impl Mp4Muxer {
@@ -57,18 +57,25 @@ impl Mp4Muxer {
             )?;
 
         Ok(Self {
-            ffmpeg_child: child,
+            ffmpeg_child: Some(child),
         })
     }
 
     /// Mute une nouvelle frame au flux.
     ///
     /// # Errors
-    /// Retourne une erreur I/O si l'écriture dans le pipe échoue.
+    /// Retourne une erreur I/O si l'écriture dans le pipe échoue,
+    /// ou si le processus ffmpeg n'est plus actif.
     pub fn write_frame(&mut self, fb: &FrameBuffer) -> Result<()> {
-        if let Some(stdin) = self.ffmpeg_child.stdin.as_mut() {
-            stdin.write_all(&fb.data)?;
-        }
+        let child = self
+            .ffmpeg_child
+            .as_mut()
+            .context("ffmpeg process already terminated")?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .context("ffmpeg stdin pipe is closed")?;
+        stdin.write_all(&fb.data)?;
         Ok(())
     }
 
@@ -77,14 +84,26 @@ impl Mp4Muxer {
     /// # Errors
     /// Retourne une erreur si ffmpeg signale une erreur de terminaison.
     pub fn finish(mut self) -> Result<()> {
-        drop(self.ffmpeg_child.stdin.take());
-
-        let output = self.ffmpeg_child.wait_with_output()?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("ffmpeg encoder error: {stderr}");
+        if let Some(mut child) = self.ffmpeg_child.take() {
+            drop(child.stdin.take());
+            let output = child.wait_with_output()?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("ffmpeg encoder error: {stderr}");
+            }
         }
         Ok(())
+    }
+}
+
+impl Drop for Mp4Muxer {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.ffmpeg_child.take() {
+            // Ferme stdin pour signaler EOF à ffmpeg
+            drop(child.stdin.take());
+            // Évite les processus zombies/orphelins si finish() n'a pas été appelé
+            let _ = child.wait();
+        }
     }
 }
 

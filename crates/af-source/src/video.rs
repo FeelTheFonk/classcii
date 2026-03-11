@@ -119,6 +119,7 @@ impl VideoState {
 /// use af_source::video::probe_video;
 /// let info = probe_video(Path::new("video.mkv"));
 /// ```
+#[allow(clippy::too_many_lines)]
 pub fn probe_video(path: &Path) -> Result<VideoInfo> {
     let path_str = if path.to_str().is_none() {
         log::warn!(
@@ -163,21 +164,18 @@ pub fn probe_video(path: &Path) -> Result<VideoInfo> {
         let _ = tx.send(result.map(|_| buf));
     });
 
-    let stdout_data = match rx.recv_timeout(Duration::from_secs(10)) {
-        Ok(result) => {
-            let _ = read_handle.join();
-            let _ = child.kill();
-            let _ = child.wait();
-            result.context("ffprobe lecture stdout échouée")?
-        }
-        Err(_) => {
-            // Timeout: kill the ffprobe process
-            log::warn!("probe_video: ffprobe timeout (10s) for {}", path.display());
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = read_handle.join();
-            anyhow::bail!("ffprobe timeout (10s) pour {}", path.display());
-        }
+    let stdout_data = if let Ok(result) = rx.recv_timeout(Duration::from_secs(10)) {
+        let _ = read_handle.join();
+        let _ = child.kill();
+        let _ = child.wait();
+        result.context("ffprobe lecture stdout échouée")?
+    } else {
+        // Timeout: kill the ffprobe process
+        log::warn!("probe_video: ffprobe timeout (10s) for {}", path.display());
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = read_handle.join();
+        anyhow::bail!("ffprobe timeout (10s) pour {}", path.display());
     };
 
     let text = String::from_utf8_lossy(&stdout_data);
@@ -495,6 +493,7 @@ pub fn spawn_video_thread(
 /// Deux modes de timing :
 /// - Avec `clock` (audio présent) : esclave du clock audio, skip/wait si drift
 /// - Sans `clock` (vidéo seule) : pacing mur indépendant (wall-clock)
+#[allow(clippy::too_many_lines)]
 fn video_loop(
     path: &Path,
     frame_tx: &Sender<Arc<FrameBuffer>>,

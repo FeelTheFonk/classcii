@@ -32,6 +32,7 @@ notify = { workspace = true }
 rfd = { workspace = true }
 cpal = { workspace = true }
 fastrand = "2"
+toml.workspace = true
 
 [features]
 default = ["image-source"]

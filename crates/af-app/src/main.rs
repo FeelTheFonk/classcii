@@ -43,9 +43,9 @@ fn main() -> Result<()> {
     log_builder.init();
     log::info!("Base dir: {}", paths.base_dir.display());
 
-    // 2b. --init : extract embedded configs to disk, then exit
+    // 2b. --init : generate default config to disk, then exit
     if cli.init {
-        return extract_embedded_configs(&paths);
+        return init_default_configs(&paths);
     }
 
     // 2c. --preset-list : scan & display available presets, then exit
@@ -277,11 +277,6 @@ fn list_presets(paths: &AppPaths) {
         }
     }
 
-    // Add embedded presets
-    for name in af_core::embedded::preset_names() {
-        names.insert(name.to_string());
-    }
-
     println!("Available presets ({}):", names.len());
     for name in &names {
         let tag = if external.contains(name) {
@@ -364,16 +359,7 @@ fn resolve_config_with_path(
             let cfg = af_core::config::load_config(&path)?;
             return Ok((cfg, Some(path)));
         }
-        if let Some(content) = af_core::embedded::find_preset(name) {
-            let cfg = af_core::config::load_config_from_str(content)?;
-            log::info!("Preset '{name}' chargé depuis l'embarqué.");
-            return Ok((cfg, None));
-        }
-        let available: Vec<&str> = af_core::embedded::preset_names();
-        anyhow::bail!(
-            "Preset inconnu : {name}.\nDisponibles : {}",
-            available.join(", ")
-        );
+        anyhow::bail!("Preset inconnu : {name}. Fichier introuvable sur le disque.");
     }
 
     // 3. Default config: try disk, then embedded
@@ -382,40 +368,26 @@ fn resolve_config_with_path(
         return Ok((cfg, Some(paths.default_config.clone())));
     }
 
-    log::info!("Config embarquée par défaut utilisée.");
-    let cfg = af_core::config::load_config_from_str(af_core::embedded::DEFAULT_CONFIG)?;
-    Ok((cfg, None))
+    log::info!("Configuration par défaut utilisée (mémoire).");
+    Ok((af_core::config::RenderConfig::default(), None))
 }
 
-/// Extract embedded configs to disk for user customization.
-fn extract_embedded_configs(paths: &AppPaths) -> Result<()> {
+/// Generates the default configuration to disk for user customization.
+fn init_default_configs(paths: &AppPaths) -> Result<()> {
     let config_dir = paths.base_dir.join("config");
-    let presets_dir = config_dir.join("presets");
+    std::fs::create_dir_all(&config_dir)?;
 
-    std::fs::create_dir_all(&presets_dir)?;
-
-    // Extract default.toml
     let default_path = config_dir.join("default.toml");
     if default_path.exists() {
         println!("  SKIP  {}", default_path.display());
     } else {
-        std::fs::write(&default_path, af_core::embedded::DEFAULT_CONFIG)?;
+        let contents = toml::to_string_pretty(&af_core::config::RenderConfig::default())?;
+        std::fs::write(&default_path, contents)?;
         println!("  WRITE {}", default_path.display());
     }
 
-    // Extract all presets
-    for (name, content) in af_core::embedded::EMBEDDED_PRESETS {
-        let dest = presets_dir.join(format!("{name}.toml"));
-        if dest.exists() {
-            println!("  SKIP  {}", dest.display());
-        } else {
-            std::fs::write(&dest, content)?;
-            println!("  WRITE {}", dest.display());
-        }
-    }
-
-    println!("\nConfigs extraites dans {}", config_dir.display());
-    println!("Éditez-les pour personnaliser. Hot-reload actif au prochain lancement.");
+    println!("\nConfiguration par défaut générée dans {}", config_dir.display());
+    println!("Éditez-la pour personnaliser. Hot-reload actif au prochain lancement.");
 
     Ok(())
 }

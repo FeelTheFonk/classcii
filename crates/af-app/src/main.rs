@@ -386,7 +386,10 @@ fn init_default_configs(paths: &AppPaths) -> Result<()> {
         println!("  WRITE {}", default_path.display());
     }
 
-    println!("\nConfiguration par défaut générée dans {}", config_dir.display());
+    println!(
+        "\nConfiguration par défaut générée dans {}",
+        config_dir.display()
+    );
     println!("Éditez-la pour personnaliser. Hot-reload actif au prochain lancement.");
 
     Ok(())

@@ -97,4 +97,3 @@ fn default_config_loads_successfully() {
         config.audio_smoothing
     );
 }
-

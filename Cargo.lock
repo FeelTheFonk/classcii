@@ -26,7 +26,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "af-app"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-ascii",
  "af-audio",
@@ -47,13 +47,14 @@ dependencies = [
  "notify",
  "ratatui",
  "rfd",
+ "toml 0.8.23",
  "triple_buffer",
  "winresource",
 ]
 
 [[package]]
 name = "af-ascii"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-core",
  "criterion",
@@ -63,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "af-audio"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-core",
  "anyhow",
@@ -80,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "af-core"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "anyhow",
  "bincode",
@@ -91,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "af-export"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "ab_glyph",
  "af-core",
@@ -102,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "af-render"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-core",
  "criterion",
@@ -114,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "af-source"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-core",
  "anyhow",
@@ -127,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "af-stems"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "af-audio",
  "af-core",

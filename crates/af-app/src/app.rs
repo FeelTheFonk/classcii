@@ -290,9 +290,6 @@ impl App {
                 }
             }
         }
-        for name in af_core::embedded::preset_names() {
-            preset_set.insert(name.to_string());
-        }
         let presets: Vec<String> = preset_set.into_iter().collect();
 
         Ok(Self {
@@ -2599,11 +2596,9 @@ impl App {
 
         let name = &self.presets[self.current_preset_idx];
 
-        // Try disk first (via AppPaths), then embedded
+        // Try disk (via AppPaths)
         let load_result = if let Some(path) = self.paths.preset_path(name) {
             af_core::config::load_config(&path)
-        } else if let Some(content) = af_core::embedded::find_preset(name) {
-            af_core::config::load_config_from_str(content)
         } else {
             Err(anyhow::anyhow!("Preset introuvable : {name}"))
         };

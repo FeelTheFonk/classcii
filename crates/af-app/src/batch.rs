@@ -399,18 +399,7 @@ fn load_all_presets(paths: &af_core::paths::AppPaths) -> Vec<(String, RenderConf
 
     let mut map: BTreeMap<String, RenderConfig> = BTreeMap::new();
 
-    // 1. Embedded presets (baseline)
-    for (name, content) in af_core::embedded::EMBEDDED_PRESETS {
-        match af_core::config::load_config_from_str(content) {
-            Ok(mut config) => {
-                config.clamp_all();
-                map.insert(name.to_string(), config);
-            }
-            Err(e) => log::warn!("Preset embarqué {name} ignoré: {e}"),
-        }
-    }
-
-    // 2. Disk presets (override embedded of same name)
+    // Disk presets
     if paths.presets_dir.is_dir()
         && let Ok(entries) = std::fs::read_dir(&paths.presets_dir)
     {
